@@ -1,0 +1,38 @@
+# Team deployment — PostgreSQL + nautalis
+services:
+  nautalis:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NAUTALIS_DB_DRIVER=postgres
+      - NAUTALIS_DB_POSTGRES_URL=postgresql://nautalis:nautalis@postgres:5432/nautalis
+      - NAUTALIS_EMBED_PROVIDER=ollama
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: nautalis
+      POSTGRES_PASSWORD: nautalis
+      POSTGRES_DB: nautalis
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../migrations/postgres:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nautalis"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

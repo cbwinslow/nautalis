@@ -1,0 +1,39 @@
+[general]
+user_id = ""
+team_id = ""
+
+[database]
+driver = "sqlite"
+
+[database.sqlite]
+path = "~/.local/share/nautalis/nautalis.db"
+
+[embeddings]
+provider = "ollama"
+model = "nomic-embed-text"
+
+[embeddings.ollama]
+url = "http://localhost:11434"
+
+[llm]
+provider = "ollama"
+model = "qwen2.5:3b"
+
+[llm.ollama]
+url = "http://localhost:11434"
+
+[[connectors]]
+type = "claude_code"
+enabled = true
+source_dirs = ["~/.claude/projects"]
+
+[[connectors]]
+type = "kilo_code"
+enabled = true
+source_dirs = ["~/.kilocode/sessions"]
+
+[guardrails]
+pii_detection = true
+secret_detection = true
+max_context_lines = 100
+min_relevance_score = 0.7

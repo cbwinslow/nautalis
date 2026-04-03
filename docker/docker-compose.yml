@@ -1,0 +1,16 @@
+# Personal deployment — SQLite, no external dependencies
+services:
+  nautalis:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    volumes:
+      - nautalis-data:/root/.local/share/nautalis
+    environment:
+      - NAUTALIS_DB_DRIVER=sqlite
+      - NAUTALIS_EMBED_PROVIDER=ollama
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+    restart: unless-stopped
+
+volumes:
+  nautalis-data:

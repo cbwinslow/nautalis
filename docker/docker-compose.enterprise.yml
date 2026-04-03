@@ -1,0 +1,41 @@
+# Enterprise deployment — Full Supabase stack
+# Note: This uses the official Supabase self-hosted Docker Compose
+# See: https://supabase.com/docs/guides/self-hosting
+
+services:
+  nautalis:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "3001:3001"
+      - "9090:9090"  # MCP server
+    environment:
+      - NAUTALIS_DB_DRIVER=supabase
+      - NAUTALIS_DB_SUPABASE_PROJECT_URL=http://kong:8000
+      - NAUTALIS_DB_SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - NAUTALIS_EMBED_PROVIDER=ollama
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      - kong
+    restart: unless-stopped
+
+  # Supabase services (simplified — use official supabase/docker for full stack)
+  db:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U postgres
+      interval: 5s
+
+  kong:
+    image: kong:2.8.1
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+
+volumes:
+  db-data:

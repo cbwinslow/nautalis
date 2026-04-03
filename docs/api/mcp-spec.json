@@ -1,0 +1,533 @@
+{
+  "openrpc": "1.3.0",
+  "info": {
+    "title": "Nautalis MCP Server",
+    "description": "Model Context Protocol server for Nautalis — Universal AI Agent Memory & Orchestration Platform",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "name": "local",
+      "url": "http://localhost:3456/mcp",
+      "description": "Local MCP server"
+    }
+  ],
+  "methods": [
+    {
+      "name": "initialize",
+      "summary": "Initialize the MCP connection",
+      "params": [
+        {
+          "name": "protocolVersion",
+          "required": true,
+          "schema": { "type": "string" }
+        },
+        {
+          "name": "capabilities",
+          "required": false,
+          "schema": { "type": "object" }
+        },
+        {
+          "name": "clientInfo",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "version": { "type": "string" }
+            },
+            "required": ["name", "version"]
+          }
+        }
+      ],
+      "result": {
+        "name": "InitializeResult",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "protocolVersion": { "type": "string" },
+            "capabilities": {
+              "type": "object",
+              "properties": {
+                "tools": { "type": "object" },
+                "resources": { "type": "object" }
+              }
+            },
+            "serverInfo": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string", "const": "nautalis" },
+                "version": { "type": "string" }
+              },
+              "required": ["name", "version"]
+            }
+          },
+          "required": ["protocolVersion", "capabilities", "serverInfo"]
+        }
+      }
+    },
+    {
+      "name": "tools/list",
+      "summary": "List all available tools",
+      "params": [],
+      "result": {
+        "name": "ListToolsResult",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "tools": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string", "const": "object" },
+                      "properties": { "type": "object" },
+                      "required": { "type": "array", "items": { "type": "string" } }
+                    }
+                  }
+                },
+                "required": ["name", "description", "inputSchema"]
+              }
+            }
+          },
+          "required": ["tools"]
+        }
+      }
+    },
+    {
+      "name": "tools/call",
+      "summary": "Call a tool by name",
+      "params": [
+        {
+          "name": "name",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "search_memories",
+              "store_memory",
+              "get_context",
+              "get_memory",
+              "list_memories",
+              "delete_memory",
+              "link_memories",
+              "get_timeline",
+              "ask"
+            ]
+          }
+        },
+        {
+          "name": "arguments",
+          "required": true,
+          "schema": { "type": "object" }
+        }
+      ],
+      "result": {
+        "name": "CallToolResult",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string", "enum": ["text", "json"] },
+                  "text": { "type": "string" }
+                },
+                "required": ["type", "text"]
+              }
+            },
+            "isError": { "type": "boolean" }
+          },
+          "required": ["content"]
+        }
+      }
+    }
+  ],
+  "x-tools": {
+    "search_memories": {
+      "description": "Search memories using semantic search",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query text"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["episodic", "semantic", "procedural", "decision", "lesson", "preference"],
+            "description": "Filter by memory type"
+          },
+          "agentId": {
+            "type": "string",
+            "description": "Filter by agent ID"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 10,
+            "description": "Maximum number of results"
+          },
+          "minScore": {
+            "type": "number",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Minimum relevance score"
+          },
+          "since": {
+            "type": "string",
+            "description": "Filter by time range (e.g., '7d', '24h')"
+          }
+        },
+        "required": ["query"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "memories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "type": { "type": "string" },
+                "content": { "type": "string" },
+                "summary": { "type": "string" },
+                "importance": { "type": "number" },
+                "relevance": { "type": "number" },
+                "createdAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "store_memory": {
+      "description": "Store a new memory",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "description": "Source agent identifier"
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Session this memory belongs to"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["episodic", "semantic", "procedural", "decision", "lesson", "preference"],
+            "description": "Memory type"
+          },
+          "content": {
+            "type": "string",
+            "description": "Memory content"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Memory metadata",
+            "properties": {
+              "project": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "path": { "type": "string" }
+                }
+              },
+              "event": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string" },
+                  "files": { "type": "array", "items": { "type": "string" } }
+                }
+              },
+              "temporal": {
+                "type": "object",
+                "properties": {
+                  "sessionStart": { "type": "string", "format": "date-time" },
+                  "sequenceNumber": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "required": ["agentId", "type", "content"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Created memory ID" },
+          "status": { "type": "string", "const": "stored" }
+        }
+      }
+    },
+    "get_context": {
+      "description": "Generate context package for a new session",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Session description for relevance scoring"
+          },
+          "agentId": {
+            "type": "string",
+            "description": "Target agent ID"
+          },
+          "maxTokens": {
+            "type": "integer",
+            "default": 4096,
+            "description": "Maximum context tokens"
+          },
+          "maxMemories": {
+            "type": "integer",
+            "default": 10,
+            "description": "Maximum memories to include"
+          }
+        },
+        "required": ["query"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "context": { "type": "string", "description": "Formatted context text" },
+          "memories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "type": { "type": "string" },
+                "relevance": { "type": "number" }
+              }
+            }
+          },
+          "tokenCount": { "type": "integer", "description": "Approximate token count" }
+        }
+      }
+    },
+    "get_memory": {
+      "description": "Retrieve a specific memory by ID",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Memory ID"
+          }
+        },
+        "required": ["id"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string" },
+          "content": { "type": "string" },
+          "metadata": { "type": "object" },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "targetId": { "type": "string" },
+                "type": { "type": "string" },
+                "strength": { "type": "number" }
+              }
+            }
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "list_memories": {
+      "description": "List memories with filtering",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["episodic", "semantic", "procedural", "decision", "lesson", "preference"],
+            "description": "Filter by memory type"
+          },
+          "agentId": {
+            "type": "string",
+            "description": "Filter by agent ID"
+          },
+          "since": {
+            "type": "string",
+            "description": "Filter by time range"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 20,
+            "description": "Maximum results"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "memories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "type": { "type": "string" },
+                "content": { "type": "string" },
+                "summary": { "type": "string" },
+                "importance": { "type": "number" },
+                "createdAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "delete_memory": {
+      "description": "Delete a memory by ID",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Memory ID to delete"
+          }
+        },
+        "required": ["id"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "const": "deleted" }
+        }
+      }
+    },
+    "link_memories": {
+      "description": "Create a relationship between two memories",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "description": "Source memory ID"
+          },
+          "targetId": {
+            "type": "string",
+            "description": "Target memory ID"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "caused_by", "causes", "related_to", "contradicts",
+              "refines", "supersedes", "depends_on", "implements",
+              "learned_from", "same_session", "same_topic", "same_file"
+            ],
+            "description": "Relationship type"
+          },
+          "strength": {
+            "type": "number",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Relationship strength"
+          }
+        },
+        "required": ["sourceId", "targetId", "type"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "sourceId": { "type": "string" },
+          "targetId": { "type": "string" },
+          "type": { "type": "string" },
+          "status": { "type": "string", "const": "linked" }
+        }
+      }
+    },
+    "get_timeline": {
+      "description": "Get a chronological timeline of memories",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "default": "24h",
+            "description": "Start of timeline"
+          },
+          "agentId": {
+            "type": "string",
+            "description": "Filter by agent"
+          },
+          "group": {
+            "type": "boolean",
+            "default": false,
+            "description": "Group by session"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "timeline": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timestamp": { "type": "string", "format": "date-time" },
+                "type": { "type": "string" },
+                "content": { "type": "string" },
+                "agentId": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ask": {
+      "description": "Ask a question using RAG over the memory store",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "Question to answer from memory"
+          },
+          "sources": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include source memories in response"
+          }
+        },
+        "required": ["question"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "answer": { "type": "string", "description": "Answer based on memory" },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "type": { "type": "string" },
+                "relevance": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

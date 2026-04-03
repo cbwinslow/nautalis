@@ -1,0 +1,1191 @@
+openapi: 3.0.3
+info:
+  title: Nautalis API
+  description: Universal AI Agent Memory & Orchestration Platform REST API
+  version: 1.0.0
+  contact:
+    name: Nautalis Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Events
+    description: Event ingestion and retrieval
+  - name: Memories
+    description: Memory management and search
+  - name: Context
+    description: Context generation for agent sessions
+  - name: Sessions
+    description: Agent session management
+  - name: Connectors
+    description: Connector configuration and health
+  - name: Health
+    description: System health and status
+
+paths:
+  /events:
+    get:
+      tags:
+        - Events
+      summary: List events
+      description: Retrieve a paginated list of events with optional filtering
+      parameters:
+        - name: agentId
+          in: query
+          schema:
+            type: string
+          description: Filter by agent ID
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum:
+              - tool_call
+              - file_edit
+              - command
+              - decision
+              - error
+              - pattern
+          description: Filter by event type
+        - name: since
+          in: query
+          schema:
+            type: string
+          description: Filter events since (ISO date or duration like "2d")
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+          description: Results per page
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Pagination offset
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Events
+      summary: Ingest an event
+      description: Submit a new event for ingestion and memory creation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+      responses:
+        '201':
+          description: Event ingested successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /events/{id}:
+    get:
+      tags:
+        - Events
+      summary: Get an event
+      description: Retrieve a specific event by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Event ID
+      responses:
+        '200':
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /memories:
+    get:
+      tags:
+        - Memories
+      summary: List memories
+      description: Retrieve a paginated list of memories with optional filtering
+      parameters:
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/MemoryType'
+          description: Filter by memory type
+        - name: agentId
+          in: query
+          schema:
+            type: string
+          description: Filter by agent ID
+        - name: classification
+          in: query
+          schema:
+            type: string
+          description: Filter by classification category
+        - name: since
+          in: query
+          schema:
+            type: string
+          description: Filter by date range
+        - name: importance
+          in: query
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+          description: Minimum importance score
+        - name: sensitivity
+          in: query
+          schema:
+            $ref: '#/components/schemas/SensitivityLevel'
+          description: Filter by sensitivity level
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+          description: Results per page
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Pagination offset
+      responses:
+        '200':
+          description: List of memories
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryListResponse'
+    post:
+      tags:
+        - Memories
+      summary: Create a memory
+      description: Store a new memory record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMemoryRequest'
+      responses:
+        '201':
+          description: Memory created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /memories/search:
+    get:
+      tags:
+        - Memories
+      summary: Search memories
+      description: Semantic search across memories using vector embeddings
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/MemoryType'
+          description: Filter by memory type
+        - name: agentId
+          in: query
+          schema:
+            type: string
+          description: Filter by agent ID
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Maximum results
+        - name: minScore
+          in: query
+          schema:
+            type: number
+            default: 0
+            minimum: 0
+            maximum: 1
+          description: Minimum relevance score
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemorySearchResponse'
+
+  /memories/{id}:
+    get:
+      tags:
+        - Memories
+      summary: Get a memory
+      description: Retrieve a specific memory by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Memory ID
+      responses:
+        '200':
+          description: Memory details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Memories
+      summary: Update a memory
+      description: Update memory content or metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Memory ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemoryRequest'
+      responses:
+        '200':
+          description: Memory updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Memories
+      summary: Delete a memory
+      description: Permanently delete a memory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Memory ID
+      responses:
+        '204':
+          description: Memory deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /memories/{id}/relationships:
+    post:
+      tags:
+        - Memories
+      summary: Create memory relationship
+      description: Link two memories with a relationship type
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Source memory ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRelationshipRequest'
+      responses:
+        '201':
+          description: Relationship created
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /context:
+    post:
+      tags:
+        - Context
+      summary: Generate context
+      description: Generate a context package for a new agent session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateContextRequest'
+      responses:
+        '200':
+          description: Context package
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContextResponse'
+
+  /sessions:
+    get:
+      tags:
+        - Sessions
+      summary: List sessions
+      description: Retrieve a list of agent sessions
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionListResponse'
+    post:
+      tags:
+        - Sessions
+      summary: Create a session
+      description: Start a new agent session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+
+  /sessions/{id}:
+    get:
+      tags:
+        - Sessions
+      summary: Get a session
+      description: Retrieve session details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Session ID
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /sessions/{id}/end:
+    post:
+      tags:
+        - Sessions
+      summary: End a session
+      description: Mark a session as ended
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Session ID
+      responses:
+        '200':
+          description: Session ended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+
+  /connectors:
+    get:
+      tags:
+        - Connectors
+      summary: List connectors
+      description: List all available connectors with their status
+      responses:
+        '200':
+          description: List of connectors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorListResponse'
+
+  /connectors/{id}/status:
+    get:
+      tags:
+        - Connectors
+      summary: Get connector status
+      description: Get health status of a specific connector
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Connector ID
+      responses:
+        '200':
+          description: Connector status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorStatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /connectors/{id}/enable:
+    post:
+      tags:
+        - Connectors
+      summary: Enable a connector
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Connector ID
+      responses:
+        '200':
+          description: Connector enabled
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /connectors/{id}/disable:
+    post:
+      tags:
+        - Connectors
+      summary: Disable a connector
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Connector ID
+      responses:
+        '200':
+          description: Connector disabled
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Get system health status
+      responses:
+        '200':
+          description: System health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: API authentication token (configured via NAUTALIS_API_AUTH_TOKEN)
+
+  schemas:
+    Event:
+      type: object
+      required:
+        - id
+        - agentId
+        - type
+        - payload
+        - timestamp
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique event identifier
+        agentId:
+          type: string
+          description: Source agent identifier
+        type:
+          type: string
+          enum:
+            - tool_call
+            - file_edit
+            - command
+            - decision
+            - error
+            - pattern
+          description: Event type
+        payload:
+          type: object
+          additionalProperties: true
+          description: Event-specific data
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+        memoryId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated memory ID
+
+    CreateEventRequest:
+      type: object
+      required:
+        - agentId
+        - type
+        - payload
+      properties:
+        agentId:
+          type: string
+          description: Source agent identifier
+        type:
+          type: string
+          description: Event type
+        payload:
+          type: object
+          additionalProperties: true
+          description: Event data
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp (defaults to now)
+
+    MemoryType:
+      type: string
+      enum:
+        - episodic
+        - semantic
+        - procedural
+        - decision
+        - lesson
+        - preference
+
+    SensitivityLevel:
+      type: string
+      enum:
+        - public
+        - internal
+        - private
+        - secret
+
+    MemoryStatus:
+      type: string
+      enum:
+        - active
+        - archived
+        - expired
+        - deleted
+
+    MemoryMetadata:
+      type: object
+      properties:
+        agent:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            version:
+              type: string
+            model:
+              type: string
+        project:
+          type: object
+          properties:
+            name:
+              type: string
+            path:
+              type: string
+            branch:
+              type: string
+            commit:
+              type: string
+        event:
+          type: object
+          properties:
+            type:
+              type: string
+            tool:
+              type: string
+            files:
+              type: array
+              items:
+                type: string
+            duration:
+              type: number
+            error:
+              type: string
+        temporal:
+          type: object
+          properties:
+            sessionStart:
+              type: string
+              format: date-time
+            sessionDuration:
+              type: number
+            sequenceNumber:
+              type: integer
+        custom:
+          type: object
+          additionalProperties: true
+
+    MemoryRelationship:
+      type: object
+      required:
+        - targetId
+        - type
+        - strength
+      properties:
+        targetId:
+          type: string
+          format: uuid
+          description: Related memory ID
+        type:
+          type: string
+          enum:
+            - caused_by
+            - causes
+            - related_to
+            - contradicts
+            - refines
+            - supersedes
+            - depends_on
+            - implements
+            - learned_from
+            - same_session
+            - same_topic
+            - same_file
+          description: Relationship type
+        strength:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Relationship strength
+
+    Memory:
+      type: object
+      required:
+        - id
+        - agentId
+        - sessionId
+        - type
+        - content
+        - importance
+        - sensitivity
+        - metadata
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+        sessionId:
+          type: string
+        type:
+          $ref: '#/components/schemas/MemoryType'
+        content:
+          type: string
+        summary:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        classification:
+          type: object
+          properties:
+            categories:
+              type: array
+              items:
+                type: string
+            subcategories:
+              type: array
+              items:
+                type: string
+            confidence:
+              type: number
+            classifier:
+              type: string
+            classifiedAt:
+              type: string
+              format: date-time
+        importance:
+          type: number
+          minimum: 0
+          maximum: 1
+        sensitivity:
+          $ref: '#/components/schemas/SensitivityLevel'
+        relationships:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryRelationship'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/MemoryStatus'
+        metadata:
+          $ref: '#/components/schemas/MemoryMetadata'
+        source:
+          type: string
+        version:
+          type: integer
+
+    CreateMemoryRequest:
+      type: object
+      required:
+        - agentId
+        - sessionId
+        - type
+        - content
+      properties:
+        agentId:
+          type: string
+        sessionId:
+          type: string
+        type:
+          $ref: '#/components/schemas/MemoryType'
+        content:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/MemoryMetadata'
+
+    UpdateMemoryRequest:
+      type: object
+      properties:
+        content:
+          type: string
+        importance:
+          type: number
+          minimum: 0
+          maximum: 1
+        sensitivity:
+          $ref: '#/components/schemas/SensitivityLevel'
+        metadata:
+          type: object
+          additionalProperties: true
+        tags:
+          type: array
+          items:
+            type: string
+
+    CreateRelationshipRequest:
+      type: object
+      required:
+        - targetId
+        - type
+      properties:
+        targetId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - caused_by
+            - causes
+            - related_to
+            - contradicts
+            - refines
+            - supersedes
+            - depends_on
+            - implements
+            - learned_from
+            - same_session
+            - same_topic
+            - same_file
+        strength:
+          type: number
+          default: 0.5
+          minimum: 0
+          maximum: 1
+
+    GenerateContextRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Session description for relevance scoring
+        agentId:
+          type: string
+          description: Target agent
+        project:
+          type: string
+          description: Project path
+        maxTokens:
+          type: integer
+          default: 4096
+          description: Maximum context tokens
+        maxMemories:
+          type: integer
+          default: 10
+          description: Maximum memories to include
+
+    ContextResponse:
+      type: object
+      properties:
+        context:
+          type: string
+          description: Formatted context text
+        memories:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              type:
+                $ref: '#/components/schemas/MemoryType'
+              relevance:
+                type: number
+        tokenCount:
+          type: integer
+          description: Approximate token count
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+        project:
+          type: string
+        branch:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        contextSnapshot:
+          type: object
+          additionalProperties: true
+
+    CreateSessionRequest:
+      type: object
+      required:
+        - agentId
+      properties:
+        agentId:
+          type: string
+        project:
+          type: string
+        branch:
+          type: string
+
+    Connector:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+            - error
+        lastHeartbeat:
+          type: string
+          format: date-time
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+
+    ApiResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+            hasMore:
+              type: boolean
+
+    EventListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Event'
+
+    EventResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Event'
+
+    MemoryListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Memory'
+
+    MemoryResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Memory'
+
+    MemorySearchResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/Memory'
+                  - type: object
+                    properties:
+                      score:
+                        type: number
+                        description: Relevance score
+
+    SessionListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Session'
+
+    SessionResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Session'
+
+    ConnectorListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Connector'
+
+    ConnectorStatusResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/HealthStatus'
+
+    HealthResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                status:
+                  type: string
+                storage:
+                  type: object
+                  properties:
+                    backend:
+                      type: string
+                    status:
+                      type: string
+                embeddings:
+                  type: object
+                  properties:
+                    provider:
+                      type: string
+                    status:
+                      type: string
+                connectors:
+                  type: object
+                  properties:
+                    active:
+                      type: integer
+                    total:
+                      type: integer
+                uptime:
+                  type: integer
+                  description: Uptime in seconds
+                memoryCount:
+                  type: integer
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: INVALID_REQUEST
+                  message:
+                    type: string
+                    example: Request validation failed
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: UNAUTHORIZED
+                  message:
+                    type: string
+                    example: Missing or invalid authentication token
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: NOT_FOUND
+                  message:
+                    type: string
+                    example: Resource not found

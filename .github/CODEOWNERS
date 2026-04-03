@@ -1,0 +1,18 @@
+# Root ownership
+* @nautalis/core
+
+# Core source
+/src/ @nautalis/core
+/src/connectors/ @nautalis/core
+/src/memory/ @nautalis/core
+/src/store/ @nautalis/core
+/src/telemetry/ @nautalis/core
+/src/orchestration/ @nautalis/core
+
+# Documentation
+/docs/ @nautalis/core
+/*.md @nautalis/core
+
+# CI/CD
+/.github/ @nautalis/core
+/docker/ @nautalis/core
