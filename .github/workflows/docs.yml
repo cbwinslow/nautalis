@@ -1,73 +1,52 @@
-name: Docs
+name: Documentation
 
 on:
   push:
     branches: [main]
     paths:
-      - "docs/**"
-      - "*.md"
-      - ".github/workflows/docs.yml"
+      - 'docs/**'
+      - '*.md'
+      - '.github/workflows/docs.yml'
   pull_request:
     branches: [main]
     paths:
-      - "docs/**"
-      - "*.md"
-  workflow_dispatch:
+      - 'docs/**'
+      - '*.md'
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
   build:
     name: Build Documentation
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v4
+      - name: Validate Markdown links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
         with:
-          bun-version: latest
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-          key: ${{ runner.os }}-bun-docs-${{ hashFiles('**/bun.lockb') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-docs-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build docs
-        run: bun run docs:build
-
-      - name: Upload docs artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/.vitepress/dist
+          use-quiet-mode: 'yes'
+          use-verbose-mode: 'yes'
+          config-file: '.github/mlc-config.json'
+          folder-path: 'docs/'
+          file-extension: '.md'
 
   deploy:
-    name: Deploy Documentation
+    name: Deploy to GitHub Pages
     needs: build
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

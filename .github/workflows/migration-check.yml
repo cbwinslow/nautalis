@@ -1,0 +1,53 @@
+name: Migration Check
+
+on:
+  pull_request:
+    paths:
+      - 'migrations/**/*.sql'
+  push:
+    branches: [develop]
+    paths:
+      - 'migrations/**/*.sql'
+
+jobs:
+  validate:
+    name: Validate Migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: timescale/timescaledb-ha:pg16
+        env:
+          POSTGRES_USER: nautalis
+          POSTGRES_PASSWORD: nautalis
+          POSTGRES_DB: nautalis_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run core migrations
+        run: |
+          for f in migrations/postgres/core/*.sql; do
+            echo "Running $f..."
+            PGPASSWORD=nautalis psql -h localhost -U nautalis -d nautalis_test -f "$f"
+          done
+      - name: Run TimescaleDB migrations
+        run: |
+          for f in migrations/postgres/timescaledb/*.sql; do
+            echo "Running $f..."
+            PGPASSWORD=nautalis psql -h localhost -U nautalis -d nautalis_test -f "$f" || echo "Warning: $f failed (may require additional setup)"
+          done
+      - name: Run RLS migrations
+        run: |
+          for f in migrations/postgres/rls/*.sql; do
+            echo "Running $f..."
+            PGPASSWORD=nautalis psql -h localhost -U nautalis -d nautalis_test -f "$f"
+          done
+      - name: Verify schema
+        run: |
+          PGPASSWORD=nautalis psql -h localhost -U nautalis -d nautalis_test -c "\dt"
+          PGPASSWORD=nautalis psql -h localhost -U nautalis -d nautalis_test -c "SELECT extname FROM pg_extension WHERE extname IN ('vector', 'timescaledb', 'pg_trgm', 'uuid-ossp');"

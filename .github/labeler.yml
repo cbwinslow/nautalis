@@ -1,0 +1,85 @@
+# Auto-label PRs based on file changes
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - '*.md'
+          - 'CONTRIBUTING.md'
+          - 'AGENTS.md'
+
+database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/store/**'
+          - 'migrations/**'
+          - 'src/types/config.ts'
+
+cli:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/commands/**'
+          - 'src/cli.ts'
+
+connectors:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/connectors/**'
+          - 'hooks/**'
+
+rag:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/memory/**'
+          - 'src/memory/rag.ts'
+          - 'src/memory/ollama-embed.ts'
+
+observability:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/telemetry/**'
+          - 'src/types/telemetry.ts'
+
+docker:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docker/**'
+
+ci-cd:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/labeler.yml'
+
+tui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/tui/**'
+
+permissions:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/store/postgres/permissions.ts'
+          - 'src/types/permissions.ts'
+          - 'migrations/postgres/core/004_permissions.sql'
+          - 'migrations/postgres/rls/**'
+
+knowledge-base:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/store/postgres/knowledge-base.ts'
+          - 'src/types/knowledge-base.ts'
+          - 'src/commands/knowledge-base.ts'
+          - 'migrations/postgres/core/007_knowledge_base.sql'
+
+teams:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/commands/team.ts'
+          - 'src/types/team.ts'
+          - 'migrations/postgres/core/003_users_teams.sql'
+
+timeseries:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'migrations/postgres/timescaledb/**'

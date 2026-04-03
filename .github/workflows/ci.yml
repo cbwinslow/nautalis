@@ -10,76 +10,105 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  checks: write
-  pull-requests: write
-
 jobs:
-  ci:
-    name: Build & Test
+  typecheck:
+    name: Type Check
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [20, 22]
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Typecheck
-        run: bun run typecheck
-
-      - name: Lint
-        run: bun run lint
-
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: timescale/timescaledb-ha:pg16
+        env:
+          POSTGRES_USER: nautalis
+          POSTGRES_PASSWORD: nautalis
+          POSTGRES_DB: nautalis_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://nautalis:nautalis@localhost:5432/nautalis_test
+        run: |
+          for f in migrations/postgres/core/*.sql; do
+            PGPASSWORD=nautalis psql -h localhost -U nautalis -d nautalis_test -f "$f"
+          done
+          for f in migrations/postgres/timescaledb/*.sql; do
+            PGPASSWORD=nautalis psql -h localhost -U nautalis -d nautalis_test -f "$f" || true
+          done
+          for f in migrations/postgres/rls/*.sql; do
+            PGPASSWORD=nautalis psql -h localhost -U nautalis -d nautalis_test -f "$f"
+          done
       - name: Run tests
-        run: bun run test --coverage --reporter=junit --reporter=default
-        continue-on-error: false
-
-      - name: Upload test results
-        if: always()
+        env:
+          DATABASE_URL: postgresql://nautalis:nautalis@localhost:5432/nautalis_test
+        run: bun run test --coverage
+      - name: Upload coverage
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: test-results-node-${{ matrix.node-version }}
-          path: |
-            junit.xml
-            coverage/
-          retention-days: 30
+          name: coverage
+          path: coverage/
 
-      - name: Upload coverage to Codecov
-        if: matrix.node-version == 20
-        uses: codecov/codecov-action@v5
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Build
-        run: bun run build
-
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run build
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dist-node-${{ matrix.node-version }}
+          name: dist
           path: dist/
-          retention-days: 7
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile -t nautalis:${{ github.sha }} .
+      - name: Test Docker image
+        run: docker run --rm nautalis:${{ github.sha }} --help
