@@ -1,10 +1,9 @@
-export type DatabaseDriver = 'sqlite' | 'postgres' | 'supabase';
+export type DatabaseDriver = 'postgres' | 'supabase';
 export type EmbedProvider = 'ollama' | 'openai' | 'cohere';
 export type LLMProvider = 'ollama' | 'openai' | 'anthropic';
 
 export interface DatabaseConfig {
   driver: DatabaseDriver;
-  sqlite?: { path: string };
   postgres?: { url: string; maxConnections?: number };
   supabase?: { projectUrl: string; serviceKey: string };
 }
@@ -39,13 +38,6 @@ export interface ConnectorEntry {
   [key: string]: unknown;
 }
 
-export interface RuleConfig {
-  name: string;
-  trigger: string;
-  action: string;
-  priority?: 'low' | 'medium' | 'high';
-}
-
 export interface NautalisConfig {
   general: {
     userId: string;
@@ -57,4 +49,11 @@ export interface NautalisConfig {
   connectors: ConnectorEntry[];
   guardrails: GuardrailsConfig;
   rules: RuleConfig[];
+}
+
+export interface RuleConfig {
+  name: string;
+  trigger: string;
+  action: string;
+  priority?: 'low' | 'medium' | 'high';
 }

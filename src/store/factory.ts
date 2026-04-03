@@ -1,6 +1,7 @@
 import type { NautalisConfig } from '../types/config.js';
 import type { Store } from './interface.js';
-import { SqliteStore } from './sqlite/store.js';
+import { PostgresStore } from './postgres/store.js';
+import { SupabaseStore } from './supabase/store.js';
 
 let storeInstance: Store | null = null;
 
@@ -13,18 +14,14 @@ export async function getStore(config: NautalisConfig): Promise<Store> {
 
 export async function initStore(config: NautalisConfig): Promise<Store> {
   const driver = config.database.driver;
-  
+
   switch (driver) {
-    case 'sqlite':
-      return new SqliteStore(config.database.sqlite!.path);
     case 'postgres':
-      // TODO: Implement PostgresStore
-      throw new Error('PostgreSQL store not yet implemented');
+      return new PostgresStore(config.database.postgres!.url);
     case 'supabase':
-      // TODO: Implement SupabaseStore
-      throw new Error('Supabase store not yet implemented');
+      return new SupabaseStore(config.database.supabase!);
     default:
-      throw new Error(`Unknown database driver: ${driver}`);
+      throw new Error(`Unknown database driver: ${driver}. Supported: postgres, supabase`);
   }
 }
 

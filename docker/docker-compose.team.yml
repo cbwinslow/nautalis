@@ -1,4 +1,4 @@
-# Team deployment — PostgreSQL + nautalis
+# Team deployment — Supabase self-hosted stack
 services:
   nautalis:
     build:
@@ -6,33 +6,33 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - "3001:3001"
+      - "9090:9090"
     environment:
-      - NAUTALIS_DB_DRIVER=postgres
-      - NAUTALIS_DB_POSTGRES_URL=postgresql://nautalis:nautalis@postgres:5432/nautalis
+      - NAUTALIS_DB_DRIVER=supabase
+      - NAUTALIS_SUPABASE_URL=http://kong:8000
+      - NAUTALIS_SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
       - NAUTALIS_EMBED_PROVIDER=ollama
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
     depends_on:
-      postgres:
-        condition: service_healthy
+      - kong
     restart: unless-stopped
 
-  postgres:
-    image: pgvector/pgvector:pg16
+  # Supabase stack (simplified — use supabase/docker for full stack)
+  db:
+    image: timescale/timescaledb-ha:pg16
     environment:
-      POSTGRES_USER: nautalis
-      POSTGRES_PASSWORD: nautalis
-      POSTGRES_DB: nautalis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ../migrations/postgres:/docker-entrypoint-initdb.d
-    ports:
-      - "5432:5432"
+      - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nautalis"]
+      test: pg_isready -U postgres
       interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+
+  kong:
+    image: kong:2.8.1
+    ports:
+      - "8000:8000"
+      - "8443:8443"
 
 volumes:
-  postgres-data:
+  db-data:

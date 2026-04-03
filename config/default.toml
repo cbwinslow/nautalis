@@ -3,10 +3,11 @@ user_id = ""
 team_id = ""
 
 [database]
-driver = "sqlite"
+driver = "postgres"
 
-[database.sqlite]
-path = "~/.local/share/nautalis/nautalis.db"
+[database.postgres]
+url = "postgresql://nautalis:nautalis@localhost:5432/nautalis"
+max_connections = 20
 
 [embeddings]
 provider = "ollama"

@@ -3,4 +3,7 @@ export * from './memory.js';
 export * from './connector.js';
 export * from './config.js';
 export * from './team.js';
+export * from './context.js';
 export * from './telemetry.js';
+export * from './knowledge-base.js';
+export * from './permissions.js';

@@ -1,8 +1,5 @@
 import type { NautalisConfig } from '../types/config.js';
 import * as os from 'os';
-import * as path from 'path';
-
-const defaultDbPath = path.join(os.homedir(), '.local', 'share', 'nautalis', 'nautalis.db');
 
 export const defaultConfig: NautalisConfig = {
   general: {
@@ -10,8 +7,8 @@ export const defaultConfig: NautalisConfig = {
     teamId: undefined,
   },
   database: {
-    driver: 'sqlite',
-    sqlite: { path: defaultDbPath },
+    driver: 'postgres',
+    postgres: { url: process.env.DATABASE_URL || 'postgresql://nautalis:nautalis@localhost:5432/nautalis' },
   },
   embeddings: {
     provider: 'ollama',
@@ -24,8 +21,8 @@ export const defaultConfig: NautalisConfig = {
     ollama: { url: 'http://localhost:11434' },
   },
   connectors: [
-    { type: 'claude_code', enabled: true, sourceDirs: [path.join(os.homedir(), '.claude', 'projects')] },
-    { type: 'kilo_code', enabled: true, sourceDirs: [path.join(os.homedir(), '.kilocode', 'sessions')] },
+    { type: 'claude_code', enabled: true, sourceDirs: [`${os.homedir()}/.claude/projects`] },
+    { type: 'kilo_code', enabled: true, sourceDirs: [`${os.homedir()}/.kilocode/sessions`] },
   ],
   guardrails: {
     piiDetection: true,

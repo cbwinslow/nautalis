@@ -62,18 +62,27 @@ function loadEnvConfig(): Partial<NautalisConfig> {
   }
 
   if (process.env.NAUTALIS_DB_DRIVER) {
-    config.database = { driver: process.env.NAUTALIS_DB_DRIVER as DatabaseDriver } as any;
+    config.database = { driver: process.env.NAUTALIS_DB_DRIVER as any } as any;
   }
-  if (process.env.NAUTALIS_DB_SQLITE_PATH) {
+  if (process.env.DATABASE_URL) {
     config.database = {
       ...config.database,
-      sqlite: { path: process.env.NAUTALIS_DB_SQLITE_PATH.replace(/^~/, os.homedir()) },
+      postgres: { url: process.env.DATABASE_URL },
     } as any;
   }
   if (process.env.NAUTALIS_DB_POSTGRES_URL) {
     config.database = {
       ...config.database,
       postgres: { url: process.env.NAUTALIS_DB_POSTGRES_URL },
+    } as any;
+  }
+  if (process.env.NAUTALIS_SUPABASE_URL) {
+    config.database = {
+      driver: 'supabase',
+      supabase: {
+        projectUrl: process.env.NAUTALIS_SUPABASE_URL,
+        serviceKey: process.env.NAUTALIS_SUPABASE_SERVICE_KEY || '',
+      },
     } as any;
   }
 

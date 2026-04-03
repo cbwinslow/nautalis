@@ -1,7 +1,4 @@
-# Enterprise deployment — Full Supabase stack
-# Note: This uses the official Supabase self-hosted Docker Compose
-# See: https://supabase.com/docs/guides/self-hosting
-
+# Enterprise deployment — Full Supabase + TimescaleDB + Observability
 services:
   nautalis:
     build:
@@ -9,20 +6,22 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - "3001:3001"
-      - "9090:9090"  # MCP server
+      - "9090:9090"
     environment:
       - NAUTALIS_DB_DRIVER=supabase
-      - NAUTALIS_DB_SUPABASE_PROJECT_URL=http://kong:8000
-      - NAUTALIS_DB_SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - NAUTALIS_SUPABASE_URL=http://kong:8000
+      - NAUTALIS_SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
       - NAUTALIS_EMBED_PROVIDER=ollama
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
     depends_on:
       - kong
     restart: unless-stopped
+    deploy:
+      replicas: 2
 
-  # Supabase services (simplified — use official supabase/docker for full stack)
+  # Supabase full stack
   db:
-    image: pgvector/pgvector:pg15
+    image: timescale/timescaledb-ha:pg16
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
@@ -30,6 +29,10 @@ services:
     healthcheck:
       test: pg_isready -U postgres
       interval: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 8G
 
   kong:
     image: kong:2.8.1
@@ -37,5 +40,37 @@ services:
       - "8000:8000"
       - "8443:8443"
 
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+    restart: unless-stopped
+
+  # Jaeger for trace visualization
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"  # UI
+      - "4317:14317"   # OTLP gRPC
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    restart: unless-stopped
+
+  # Grafana for metrics dashboards
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+
 volumes:
   db-data:
+  grafana-data:
