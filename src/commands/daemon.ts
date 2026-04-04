@@ -6,6 +6,7 @@ import { loadConfig } from '../config/loader.js';
 import { getStore } from '../store/factory.js';
 import { MemoryEngine } from '../memory/engine.js';
 import { initTelemetry } from '../telemetry/provider.js';
+import { formatDistanceToNow } from 'date-fns';
 
 let server: http.Server | null = null;
 
@@ -58,6 +59,88 @@ export function registerDaemonCommand(program: Command): void {
               };
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify(health));
+              return;
+            }
+
+            // POST /api/context/inject
+            if (url.pathname === '/api/context/inject' && req.method === 'POST') {
+              let body = '';
+              for await (const chunk of req) {
+                body += chunk;
+              }
+              const { session_id, cwd } = body ? JSON.parse(body) : {};
+
+              if (!config.general.teamId) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Team ID required' }));
+                return;
+              }
+
+              // Build context: recent important memories from the team (same as CLI inject)
+              const limit = 10;
+              const memories = await store.listMemories(config.general.teamId, {
+                limit,
+                userId: config.general.userId,
+              });
+
+              const contextLines: string[] = [];
+              contextLines.push('=== Recent Team Activity ===\n');
+
+              for (const memory of memories) {
+                const timeAgo = formatDistanceToNow(memory.createdAt, { addSuffix: true });
+                const agent = memory.agentIdentity.agentName || memory.agentIdentity.toolName;
+                const type = memory.classification.memoryType;
+                const summary = memory.content.summary;
+                contextLines.push(`[${timeAgo}] ${agent} (${type}): ${summary}`);
+
+                if (memory.content.detail && memory.content.detail.length > 0) {
+                  const detailPreview =
+                    memory.content.detail.length > 200
+                      ? memory.content.detail.substring(0, 200) + '...'
+                      : memory.content.detail;
+                  contextLines.push(`  Details: ${detailPreview}\n`);
+                } else {
+                  contextLines.push('');
+                }
+              }
+
+              contextLines.push('=== End of Context ===');
+              const context = contextLines.join('\n');
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ formatted_context: context }));
+              return;
+            }
+
+            // POST /api/sessions/summarize
+            if (url.pathname === '/api/sessions/summarize' && req.method === 'POST') {
+              let body = '';
+              for await (const chunk of req) {
+                body += chunk;
+              }
+              const { session_id } = body ? JSON.parse(body) : {};
+
+              // TODO: Implement actual session summarization
+              console.log(chalk.gray(`[summarize] Session ID: ${session_id || 'none'} (not yet implemented)`));
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ status: 'ok' }));
+              return;
+            }
+
+            // POST /api/sessions/finalize
+            if (url.pathname === '/api/sessions/finalize' && req.method === 'POST') {
+              let body = '';
+              for await (const chunk of req) {
+                body += chunk;
+              }
+              const { session_id } = body ? JSON.parse(body) : {};
+
+              // TODO: Implement session finalization
+              console.log(chalk.gray(`[finalize] Session ID: ${session_id || 'none'} (not yet implemented)`));
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ status: 'ok' }));
               return;
             }
 

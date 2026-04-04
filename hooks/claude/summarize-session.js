@@ -8,6 +8,9 @@ async function main() {
     await fetch(`${NAUTALIS_URL}/api/sessions/summarize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: process.env.CLAUDE_SESSION_ID || '',
+      }),
     });
   } catch {
     // Silently fail — don't block Claude Code
