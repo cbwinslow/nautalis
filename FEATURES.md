@@ -37,7 +37,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **RAG Retrieval**     | 🟨 80% — Vector + full-text hybrid, LlamaIndex, relationship traversal | ✅ Essential |
 | **RAG Synthesis**     | ✅ 80% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom)| ✅ Essential |
 | **Knowledge Base**    | ✅ 100% — CRUD, search, versioning, visibility                 | ✅ Essential |
-| **CLI Commands**      | ✅ 85% — All 14 commands registered and functional             | ✅ Essential |
+| **CLI Commands**      | ✅ 90% — All 16 commands registered and functional             | ✅ Essential |
 | **Observability**     | 🟨 40% — Structured logging; OTel partial                      | ✅ Basic |
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data                          | ✅ Essential |
@@ -67,24 +67,26 @@ The MVP must deliver a **working system** that can be deployed by a small team a
   - Vector retrieval via `findSimilarMemories`
   - Multi-provider LLM synthesis (Ollama, OpenAI, Anthropic, custom)
   - `buildIndex()` to load memories into LlamaIndex (foundation for advanced search)
- - CLI commands (all working):
-   - `nautalis init`, `ingest`, `search`, `ask`
-   - `memory` (list, get, delete)
-   - `knowledge-base` (create, get, list, search, delete)
-   - `team` (create, use, list, info, invite, role, remove)
-   - `permissions` (check, grant, revoke, matrix)
-   - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`
- - Team management with permission enforcement
- - Configurable Claude Code hooks via `NAUTALIS_SERVER_URL`
- - Remote endpoint support for all services (Tailscale-ready)
- - **Configuration validation**: Zod schemas for config and events, validated at startup and ingest points
- - **Error resilience**: Retry with exponential backoff + circuit breaker for embedding API, LLM API, and database operations
+  - CLI commands (all working):
+    - `nautalis init`, `ingest`, `search`, `ask`
+    - `memory` (list, get, delete)
+    - `knowledge-base` (create, get, list, search, delete)
+    - `team` (create, use, list, info, invite, role, remove)
+    - `permissions` (check, grant, revoke, matrix)
+    - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`, `system`
+  - Team management with permission enforcement
+  - Configurable Claude Code hooks via `NAUTALIS_SERVER_URL`
+  - Remote endpoint support for all services (Tailscale-ready)
+  - **Configuration validation**: Zod schemas for config and events, validated at startup and ingest points
+  - **Error resilience**: Retry with exponential backoff + circuit breaker for embedding API, LLM API, and database operations
   - **RAG-to-Store integration**: LlamaIndex index used automatically for semantic search (falls back to pgvector if not built)
   - **PII detection**: Automatic redaction of emails, phones, credit cards, API keys, and passwords from events
   - **Event audit trail**: Raw events stored during ingestion for replay and compliance
   - **Semantic injection**: `nautalis inject --query` performs RAG-based context retrieval
   - **Comprehensive audit logging**: Captured for memory changes, permission updates, team management, and knowledge base edits
   - **Relationship traversal**: `getRelatedMemories` method in Store for navigating memory relationships
+  - **System user setup**: `nautalis system create-user` creates a dedicated non-root user for running the daemon (Linux only)
+  - **Deployment assets**: Example systemd service file (`deploy/nautalis.service`) and environment configuration (`deploy/nautalis.env`) provided
 
 ### ⬜ Needs Completion for MVP
 

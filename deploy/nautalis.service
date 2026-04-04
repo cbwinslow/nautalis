@@ -1,0 +1,21 @@
+[Unit]
+Description=Nautalis Daemon
+Documentation=https://github.com/cbwinslow/nautalis
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=nautalis
+Group=nautalis
+Environment="DATABASE_URL=postgresql://nautalis:nautalis@localhost:5432/nautalis"
+Environment="NAUTALIS_SERVER_URL=http://127.0.0.1:3001"
+ExecStart=/usr/local/bin/nautalis daemon start
+Restart=on-failure
+RestartSec=10
+# Optional: limit resources
+# MemoryLimit=200M
+# CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target
