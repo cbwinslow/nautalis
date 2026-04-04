@@ -5,6 +5,7 @@ import { initTelemetry } from '../telemetry/provider.js';
 import { formatDistanceToNow } from 'date-fns';
 import chalk from 'chalk';
 import ora from 'ora';
+import { createEmbeddingService } from '../memory/embed-factory.js';
 
 export function registerInjectCommand(program: Command): void {
   program
@@ -13,6 +14,7 @@ export function registerInjectCommand(program: Command): void {
     .option('--dry-run', 'Show what would be injected without injecting')
     .option('--session <id>', 'Target session ID')
     .option('--limit <n>', 'Maximum memories to include', '10')
+    .option('--query <text>', 'Query to search for relevant memories using semantic search')
     .action(async (opts) => {
       const spinner = ora('Building context from memories...').start();
 
@@ -28,12 +30,29 @@ export function registerInjectCommand(program: Command): void {
         const store = await getStore(config);
         await store.init();
 
-         // Build context: recent important memories from the team
-         const limit = parseInt(opts.limit);
-         const memories = await store.listMemories(config.general.teamId, {
-           limit,
-           userId: config.general.userId,
-         });
+        const limit = parseInt(opts.limit);
+        let memories;
+
+        // If a query is provided, use semantic search via RAG
+        if (opts.query) {
+          const { RAGEngine } = await import('../memory/rag.js');
+          const embeddingService = createEmbeddingService(config);
+          const rag = new RAGEngine(config, store, embeddingService);
+
+          const results = await rag.query(opts.query, {
+            teamId: config.general.teamId,
+            userId: config.general.userId,
+            limit,
+          });
+
+          memories = results.map((r) => r.memory);
+        } else {
+          // Build context: recent important memories from the team
+          memories = await store.listMemories(config.general.teamId, {
+            limit,
+            userId: config.general.userId,
+          });
+        }
 
         spinner.stop();
 
