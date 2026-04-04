@@ -1,6 +1,42 @@
 export type DatabaseDriver = 'postgres' | 'supabase';
-export type EmbedProvider = 'ollama' | 'openai' | 'cohere' | 'custom';
-export type LLMProvider = 'ollama' | 'openai' | 'anthropic' | 'custom';
+export type ProviderType = 'ollama' | 'openai' | 'anthropic' | 'cohere' | 'custom';
+export type EmbedProvider = ProviderType;
+export type LLMProvider = ProviderType;
+
+// Provider configuration that can be defined in the `providers` map
+export interface ProviderConfig {
+  type: ProviderType;
+  // Supported by all: baseUrl, model, apiKeyEnv, apiKey (direct), headers
+  baseUrl?: string;
+  model?: string;
+  apiKeyEnv?: string; // read API key from this env var
+  apiKey?: string; // direct API key (less secure, for testing)
+  headers?: Record<string, string>;
+  // Ollama-specific
+  url?: string; // alias for baseUrl
+  // OpenAI-specific
+  organization?: string;
+  project?: string;
+  // Custom endpoint path
+  endpointPath?: string;
+  // Request/response transforms (advanced)
+  requestTransform?: (body: any) => any;
+  responseTransform?: (data: any) => any;
+}
+
+// Provider capabilities
+export interface ProviderCapabilities {
+  embeddings: boolean; // supports embedding generation
+  llm: boolean; // supports LLM completion/chat
+}
+
+export const PROVIDER_CAPABILITIES: Record<ProviderType, ProviderCapabilities> = {
+  ollama: { embeddings: true, llm: true },
+  openai: { embeddings: true, llm: true },
+  anthropic: { embeddings: false, llm: true },
+  cohere: { embeddings: true, llm: false },
+  custom: { embeddings: true, llm: true }, // assume both, depends on implementation
+};
 
 export interface DatabaseConfig {
   driver: DatabaseDriver;
@@ -9,8 +45,9 @@ export interface DatabaseConfig {
 }
 
 export interface EmbeddingConfig {
-  provider: EmbedProvider;
+  provider: EmbedProvider; // can be a provider name if providers map is defined, else default provider type
   model: string;
+  // Per-provider configs (legacy, used when no providers map)
   ollama?: { url: string };
   openai?: { apiKeyEnv: string; model: string };
   cohere?: { apiKeyEnv: string; model: string };
@@ -18,12 +55,17 @@ export interface EmbeddingConfig {
 }
 
 export interface LLMConfig {
-  provider: LLMProvider;
+  provider: LLMProvider; // can be a provider name if providers map is defined, else default provider type
   model: string;
   ollama?: { url: string };
   openai?: { apiKeyEnv: string; model: string };
   anthropic?: { apiKeyEnv: string; model: string };
   custom?: { baseUrl: string; model: string; apiKeyEnv?: string; headers?: Record<string, string> };
+}
+
+// New: provider registry configuration
+export interface ProvidersConfig {
+  [name: string]: ProviderConfig;
 }
 
 export interface GuardrailsConfig {
@@ -51,6 +93,8 @@ export interface NautalisConfig {
   connectors: ConnectorEntry[];
   guardrails: GuardrailsConfig;
   rules: RuleConfig[];
+  // New: provider registry for multi-provider support
+  providers?: ProvidersConfig;
 }
 
 export interface RuleConfig {
