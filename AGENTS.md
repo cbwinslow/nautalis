@@ -138,10 +138,44 @@ The project has exceptional architectural foundations and most core features are
 | **Observability**   | OpenTelemetry    | Traces, metrics, logs                          |
 | **Auth**            | Supabase GoTrue  | When using Supabase driver                     |
 | **Package Manager** | bun              | `bun install`, `bun run`, `bun test`           |
+ 
+ ### Multi-Provider Configuration
+
+Nautalis supports multiple embedding and LLM providers via a registry system. Define named providers in the `providers` section of your config:
+
+```json
+{
+  "providers": {
+    "ollama-local": {
+      "type": "ollama",
+      "url": "http://localhost:11434",
+      "model": "nomic-embed-text"
+    },
+    "openai-gpt": {
+      "type": "openai",
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "model": "gpt-4-turbo"
+    }
+  },
+  "embeddings": {
+    "provider": "ollama-local"
+  },
+  "llm": {
+    "provider": "openai-gpt"
+  }
+}
+```
+
+The `ProviderRegistry` resolves the named provider and instantiates the appropriate service. Legacy direct configuration (without `providers` map) continues to work for backward compatibility.
+
+- `providers` — map of provider name → `ProviderConfig`
+- `ProviderConfig.type` — one of: `ollama`, `openai`, `anthropic`, `cohere`, `custom`
+- Each provider can define `baseUrl`, `model`, `apiKeyEnv`, `apiKey`, and provider-specific options.
+- Capabilities vary: Anthropic does not provide embeddings; Cohere only provides embeddings. The registry enforces capabilities.
 
 ---
 
-## 4. Project Structure
+ ## 4. Project Structure
 
 ```
 nautalis/
