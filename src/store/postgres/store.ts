@@ -812,103 +812,129 @@ export class PostgresStore implements Store {
      }
    }
 
-   async updateMemory(id: string, updates: Partial<Memory>, options?: { userId?: string; teamId?: string }) {
-     if (!options?.teamId) {
-       throw new Error('teamId is required for updateMemory');
-     }
-     if (!options?.userId) {
-       throw new Error('userId is required for updateMemory');
-     }
+    async updateMemory(id: string, updates: Partial<Memory>, options?: { userId?: string; teamId?: string }) {
+      if (!options?.teamId) {
+        throw new Error('teamId is required for updateMemory');
+      }
+      if (!options?.userId) {
+        throw new Error('userId is required for updateMemory');
+      }
+      const teamId = options.teamId;
+      const userId = options.userId;
 
-     return await this.withTeamContext<void>(
-       options.teamId,
-       options.userId,
-       'memory',
-       'write',
-       async (client) => {
-         // Build dynamic UPDATE statement
-         const setClauses: string[] = [];
-         const params: any[] = [];
-         let idx = 1;
+      return await this.withTeamContext<void>(
+        teamId,
+        userId,
+        'memory',
+        'write',
+        async (client) => {
+          // Fetch existing memory for audit
+          const oldResult = await client.query('SELECT * FROM memories WHERE id = $1 AND team_id = $2', [id, teamId]);
+          if (oldResult.rows.length === 0) {
+            throw new Error(`Memory ${id} not found`);
+          }
+          const oldMemory = oldResult.rows[0];
 
-         // Team id cannot be updated
-         if (updates.context?.teamId) {
-           throw new Error('Cannot change memory teamId');
-         }
+          // Build dynamic UPDATE statement
+          const setClauses: string[] = [];
+          const params: any[] = [];
+          let idx = 1;
 
-         // Map of updatable fields
-         if (updates.classification) {
-           if (updates.classification.memoryType) { setClauses.push(`memory_type = $${idx++}`); params.push(updates.classification.memoryType); }
-           if (updates.classification.blockLabel !== undefined) { setClauses.push(`block_label = $${idx++}`); params.push(updates.classification.blockLabel); }
-           if (updates.classification.topics) { setClauses.push(`topics = $${idx++}`); params.push(updates.classification.topics); }
-           if (updates.classification.confidence !== undefined) { setClauses.push(`confidence = $${idx++}`); params.push(updates.classification.confidence); }
-           if (updates.classification.importance !== undefined) { setClauses.push(`importance = $${idx++}`); params.push(updates.classification.importance); }
-           if (updates.classification.sensitivity) { setClauses.push(`sensitivity = $${idx++}`); params.push(updates.classification.sensitivity); }
-         }
+          // Team id cannot be updated
+          if (updates.context?.teamId) {
+            throw new Error('Cannot change memory teamId');
+          }
 
-         if (updates.content) {
-           if (updates.content.summary) { setClauses.push(`summary = $${idx++}`); params.push(updates.content.summary); }
-           if (updates.content.detail !== undefined) { setClauses.push(`detail = $${idx++}`); params.push(updates.content.detail); }
-           if (updates.content.filesInvolved) { setClauses.push(`files_involved = $${idx++}`); params.push(updates.content.filesInvolved); }
-           if (updates.content.commandsExec) { setClauses.push(`commands_exec = $${idx++}`); params.push(updates.content.commandsExec); }
-           if (updates.content.errorsSeen) { setClauses.push(`errors_seen = $${idx++}`); params.push(updates.content.errorsSeen); }
-           if (updates.content.codeSnippets) { setClauses.push(`code_snippets = $${idx++}`); params.push(updates.content.codeSnippets); }
-         }
+          // Map of updatable fields
+          if (updates.classification) {
+            if (updates.classification.memoryType) { setClauses.push(`memory_type = $${idx++}`); params.push(updates.classification.memoryType); }
+            if (updates.classification.blockLabel !== undefined) { setClauses.push(`block_label = $${idx++}`); params.push(updates.classification.blockLabel); }
+            if (updates.classification.topics) { setClauses.push(`topics = $${idx++}`); params.push(updates.classification.topics); }
+            if (updates.classification.confidence !== undefined) { setClauses.push(`confidence = $${idx++}`); params.push(updates.classification.confidence); }
+            if (updates.classification.importance !== undefined) { setClauses.push(`importance = $${idx++}`); params.push(updates.classification.importance); }
+            if (updates.classification.sensitivity) { setClauses.push(`sensitivity = $${idx++}`); params.push(updates.classification.sensitivity); }
+          }
 
-         if (updates.relationships) {
-           if (updates.relationships.parentMemoryId !== undefined) { setClauses.push(`parent_memory_id = $${idx++}`); params.push(updates.relationships.parentMemoryId); }
-           if (updates.relationships.supersedes) { setClauses.push(`supersedes = $${idx++}`); params.push(updates.relationships.supersedes); }
-           if (updates.relationships.contradicts) { setClauses.push(`contradicts = $${idx++}`); params.push(updates.relationships.contradicts); }
-           if (updates.relationships.supports) { setClauses.push(`supports = $${idx++}`); params.push(updates.relationships.supports); }
-           if (updates.relationships.tags) { setClauses.push(`tags = $${idx++}`); params.push(updates.relationships.tags); }
-         }
+          if (updates.content) {
+            if (updates.content.summary) { setClauses.push(`summary = $${idx++}`); params.push(updates.content.summary); }
+            if (updates.content.detail !== undefined) { setClauses.push(`detail = $${idx++}`); params.push(updates.content.detail); }
+            if (updates.content.filesInvolved) { setClauses.push(`files_involved = $${idx++}`); params.push(updates.content.filesInvolved); }
+            if (updates.content.commandsExec) { setClauses.push(`commands_exec = $${idx++}`); params.push(updates.content.commandsExec); }
+            if (updates.content.errorsSeen) { setClauses.push(`errors_seen = $${idx++}`); params.push(updates.content.errorsSeen); }
+            if (updates.content.codeSnippets) { setClauses.push(`code_snippets = $${idx++}`); params.push(updates.content.codeSnippets); }
+          }
 
-         if (updates.lifecycle) {
-           if (updates.lifecycle.ttl !== undefined) { setClauses.push(`ttl = $${idx++}`); params.push(updates.lifecycle.ttl); }
-           if (updates.lifecycle.decayRate !== undefined) { setClauses.push(`decay_rate = $${idx++}`); params.push(updates.lifecycle.decayRate); }
-           if (updates.lifecycle.isStale !== undefined) { setClauses.push(`is_stale = $${idx++}`); params.push(updates.lifecycle.isStale); }
-         }
+          if (updates.relationships) {
+            if (updates.relationships.parentMemoryId !== undefined) { setClauses.push(`parent_memory_id = $${idx++}`); params.push(updates.relationships.parentMemoryId); }
+            if (updates.relationships.supersedes) { setClauses.push(`supersedes = $${idx++}`); params.push(updates.relationships.supersedes); }
+            if (updates.relationships.contradicts) { setClauses.push(`contradicts = $${idx++}`); params.push(updates.relationships.contradicts); }
+            if (updates.relationships.supports) { setClauses.push(`supports = $${idx++}`); params.push(updates.relationships.supports); }
+            if (updates.relationships.tags) { setClauses.push(`tags = $${idx++}`); params.push(updates.relationships.tags); }
+          }
 
-         if (updates.context) {
-           if (updates.context.projectId !== undefined) { setClauses.push(`project_id = $${idx++}`); params.push(updates.context.projectId); }
-           if (updates.context.repoPath !== undefined) { setClauses.push(`repo_path = $${idx++}`); params.push(updates.context.repoPath); }
-           if (updates.context.repoUrl !== undefined) { setClauses.push(`repo_url = $${idx++}`); params.push(updates.context.repoUrl); }
-           if (updates.context.branch !== undefined) { setClauses.push(`branch = $${idx++}`); params.push(updates.context.branch); }
-           if (updates.context.cwd !== undefined) { setClauses.push(`cwd = $${idx++}`); params.push(updates.context.cwd); }
-         }
+          if (updates.lifecycle) {
+            if (updates.lifecycle.ttl !== undefined) { setClauses.push(`ttl = $${idx++}`); params.push(updates.lifecycle.ttl); }
+            if (updates.lifecycle.decayRate !== undefined) { setClauses.push(`decay_rate = $${idx++}`); params.push(updates.lifecycle.decayRate); }
+            if (updates.lifecycle.isStale !== undefined) { setClauses.push(`is_stale = $${idx++}`); params.push(updates.lifecycle.isStale); }
+          }
 
-         if (setClauses.length === 0) {
-           throw new Error('No updates provided');
-         }
+          if (updates.context) {
+            if (updates.context.projectId !== undefined) { setClauses.push(`project_id = $${idx++}`); params.push(updates.context.projectId); }
+            if (updates.context.repoPath !== undefined) { setClauses.push(`repo_path = $${idx++}`); params.push(updates.context.repoPath); }
+            if (updates.context.repoUrl !== undefined) { setClauses.push(`repo_url = $${idx++}`); params.push(updates.context.repoUrl); }
+            if (updates.context.branch !== undefined) { setClauses.push(`branch = $${idx++}`); params.push(updates.context.branch); }
+            if (updates.context.cwd !== undefined) { setClauses.push(`cwd = $${idx++}`); params.push(updates.context.cwd); }
+          }
 
-         setClauses.push(`updated_at = NOW()`);
+          if (setClauses.length === 0) {
+            throw new Error('No updates provided');
+          }
 
-         params.push(id, options.teamId);
-         const sql = `UPDATE memories SET ${setClauses.join(', ')} WHERE id = $${idx++} AND team_id = $${idx++}`;
+          setClauses.push(`updated_at = NOW()`);
 
-         await client.query(sql, params);
-       },
-     );
-   }
+          params.push(id, teamId);
+          const sql = `UPDATE memories SET ${setClauses.join(', ')} WHERE id = $${idx++} AND team_id = $${idx++} RETURNING *`;
 
-   async deleteMemory(id: string, options?: { userId?: string; teamId?: string }): Promise<void> {
-     if (!options?.teamId) {
-       throw new Error('teamId is required for deleteMemory');
-     }
-     if (!options?.userId) {
-       throw new Error('userId is required for deleteMemory');
-     }
+          const result = await client.query(sql, params);
+          const newMemory = result.rows[0];
 
-     return await this.withTeamContext<void>(
-       options.teamId,
-       options.userId,
-       'memory',
-       'delete',
-       async (client) => {
-         await client.query(`DELETE FROM memories WHERE id = $1 AND team_id = $2`, [id, options.teamId]);
-       },
-     );
+          // Audit log using the same client (within transaction)
+          await this.logAudit(teamId, userId, 'update', 'memory', id, { oldValues: oldMemory, newValues: newMemory }, client);
+        },
+      );
     }
+
+    async deleteMemory(id: string, options?: { userId?: string; teamId?: string }): Promise<void> {
+      if (!options?.teamId) {
+        throw new Error('teamId is required for deleteMemory');
+      }
+      if (!options?.userId) {
+        throw new Error('userId is required for deleteMemory');
+      }
+      const teamId = options.teamId;
+      const userId = options.userId;
+
+      return await this.withTeamContext<void>(
+        teamId,
+        userId,
+        'memory',
+        'delete',
+        async (client) => {
+          // Fetch existing memory for audit
+          const oldResult = await client.query('SELECT * FROM memories WHERE id = $1 AND team_id = $2', [id, teamId]);
+          if (oldResult.rows.length === 0) {
+            throw new Error(`Memory ${id} not found`);
+          }
+          const oldMemory = oldResult.rows[0];
+
+          // Delete
+          await client.query('DELETE FROM memories WHERE id = $1 AND team_id = $2', [id, teamId]);
+
+          // Audit log using the same client (within transaction)
+          await this.logAudit(teamId, userId, 'delete', 'memory', id, { oldValues: oldMemory }, client);
+        },
+      );
+     }
 
     // Old duplicate removed — use the version with options above
 
@@ -1217,14 +1243,15 @@ export class PostgresStore implements Store {
     );
   }
 
-  // Audit
-  async logAudit(teamId: string, userId: string, action: string, resourceType: string, resourceId?: string, details?: Record<string, unknown>) {
-    await this.pool.query(
-      `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, old_values, new_values, timestamp)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-      [teamId, userId, action, resourceType, resourceId || null, details?.oldValues ? JSON.stringify(details.oldValues) : null, details?.newValues ? JSON.stringify(details.newValues) : null]
-    );
-  }
+   // Audit
+   async logAudit(teamId: string, userId: string, action: string, resourceType: string, resourceId?: string, details?: Record<string, unknown>, client?: pg.Client) {
+     const queryClient = client || this.pool;
+     await queryClient.query(
+       `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, old_values, new_values, timestamp)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+       [teamId, userId, action, resourceType, resourceId || null, details?.oldValues ? JSON.stringify(details.oldValues) : null, details?.newValues ? JSON.stringify(details.newValues) : null]
+     );
+   }
 
    // Stats
    async getTeamDashboard(teamId: string) {
