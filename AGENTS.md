@@ -30,25 +30,27 @@ Nautalis solves a critical problem: **AI coding agents are siloed**. Developers 
 
 **Read First:** [Comprehensive Review Analysis](./docs/decisions/COMPREHENSIVE_REVIEW_2026-04-03.md) and [FEATURES.md](./FEATURES.md) for product goals and MVP definition
 
-The project has exceptional architectural foundations but significant implementation gaps remain (~60% complete vs 95% designed). Key insights:
+The project has exceptional architectural foundations and most core features are implemented (~80% complete vs 95% designed). Key insights:
 
 ### Top Immediate Priorities (Next 90 Days)
 
-1. **Define MVP scope** — Reduce from 70+ requirements to 30% (issue #42)
-2. **Validate connectors** — Test Claude Code hooks on real installations (critical)
-3. **Complete RAG-to-Store integration** — Bridge LlamaIndex to PostgreSQL for functional search (issue #18)
-4. **Implement test suite** — 80%+ coverage (issue #34)
-5. **Add error resilience** — Retry, circuit breakers (issue #44)
-6. **Benchmark performance** — Meet latency targets (issue #45)
-7. **Implement PII detection** — Security prerequisite (issue #47)
+1. **Validate connectors** — Test Claude Code hooks on real installations (critical)
+2. **Implement test suite** — Expand unit and integration tests to 80%+ coverage (issue #34)
+3. **Add error resilience** — Verify retry/circuit breaker coverage for all external calls (issue #44)
+4. **Benchmark performance** — Measure search/embedding latencies; optimize to <500ms p95 (issue #45)
+5. **Complete Context Injection** — Make inject use semantic relevance instead of recency
+6. **Setup Wizard** — Interactive CLI wizard to lower onboarding barrier (issue #46)
+7. **Multi-provider API management** — Support multiple LLM/embedding providers with secure key storage (issue #61)
 
 ### Largest Gaps by Component
 
-- **RAG/Search:** 40% complete — Query uses raw pgvector; LlamaIndex index build implemented but not used by default; multi-provider LLM synthesis integrated
-- **Context Injection:** 10% complete — inject command uses recency, not semantic relevance
-- **Connectors:** 20% complete — drafted but untested on real tools
-- **Security:** 5% complete — PII, input validation not enforced
-- **CLI:** 70% complete — all commands registered, most functional manually
+- **RAG/Search:** 85% complete — Indexes (HNSW, FTS) functional, LlamaIndex integration complete, hybrid search implemented
+- **Context Injection:** 30% complete — Daemon uses recency; semantic injection not yet implemented
+- **Connectors:** 60% complete — Claude Code hook conversion validated, Kilo parser exists, FileSystem stub; real-world testing needed
+- **Security:** 40% complete — PII detection done, input validation incomplete, audit logging partial
+- **CLI:** 90% complete — All 16 commands registered and functional
+- **Test Suite:** 20% complete — Unit tests present, integration tests in progress; target 80%+
+- **Observability:** 40% complete — Structured logging, partial OTel instrumentation; Jaeger/Grafana pending
 - **Team Features:** 80% complete — permissions enforced for all core resources (memories, KB, teams, projects, agents, sessions)
 
 ### Critical Success Factors
