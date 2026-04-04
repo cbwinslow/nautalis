@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { createSpan, recordMetric, logMessage, benchmarkOperation } from '../telemetry/api.js';
 import { SPAN_NAMES, METRIC_NAMES } from '../types/telemetry.js';
 import { NautalisEventSchema } from '../validation/schemas.js';
+import { redactSensitiveData } from '../utils/pii-detector.js';
 
 export class MemoryEngine {
   private classifier: MemoryClassifier;
@@ -152,9 +153,16 @@ export class MemoryEngine {
   async ingestEvents(events: NautalisEvent[]): Promise<number> {
     const allMemories: Memory[] = [];
 
-    for (const event of events) {
-      // Validate and ensure teamId
-      const validatedEvent = NautalisEventSchema.parse(event);
+    for (let event of events) {
+      // Validate incoming event
+      let validatedEvent = NautalisEventSchema.parse(event);
+
+      // Apply PII redaction if enabled
+      if (this.config.guardrails.piiDetection) {
+        validatedEvent = redactSensitiveData(validatedEvent) as any;
+      }
+
+      // Ensure teamId is set: use event context or fall back to config
       const teamId = validatedEvent.context.teamId || this.config.general.teamId;
       if (!teamId) {
         throw new Error(
