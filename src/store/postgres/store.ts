@@ -217,31 +217,46 @@ export class PostgresStore implements Store {
   }
 
   // Teams
-  async createTeam(team: { name: string; slug: string; ownerId: string }) {
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
+   async createTeam(team: { name: string; slug: string; ownerId: string }) {
+     const client = await this.pool.connect();
+     try {
+       await client.query('BEGIN');
 
-      const teamResult = await client.query(
-        `INSERT INTO teams (name, slug) VALUES ($1, $2) RETURNING *`,
-        [team.name, team.slug]
-      );
-      const newTeam = teamResult.rows[0];
+       const teamResult = await client.query(
+         `INSERT INTO teams (name, slug) VALUES ($1, $2) RETURNING *`,
+         [team.name, team.slug]
+       );
+       const newTeam = teamResult.rows[0];
 
-      await client.query(
-        `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'owner')`,
-        [newTeam.id, team.ownerId]
-      );
+       // Audit log for team creation
+       await client.query(
+         `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, new_values, timestamp)
+          VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+         [newTeam.id, team.ownerId, 'create', 'team', newTeam.id, JSON.stringify(newTeam)]
+       );
 
-      await client.query('COMMIT');
-      return newTeam;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
+       const memberResult = await client.query(
+         `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'owner') RETURNING *`,
+         [newTeam.id, team.ownerId]
+       );
+       const newMember = memberResult.rows[0];
+
+       // Audit log for adding owner as team member
+       await client.query(
+         `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, new_values, timestamp)
+          VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+         [newTeam.id, team.ownerId, 'add', 'team_member', `${newTeam.id}:${team.ownerId}`, JSON.stringify(newMember)]
+       );
+
+       await client.query('COMMIT');
+       return newTeam;
+     } catch (error) {
+       await client.query('ROLLBACK');
+       throw error;
+     } finally {
+       client.release();
+     }
+   }
 
    async getTeam(id: string, options?: { userId?: string }) {
      if (!options?.userId) {
@@ -277,91 +292,166 @@ export class PostgresStore implements Store {
     return result.rows;
   }
 
-   async updateTeam(id: string, updates: Partial<any>, options?: { userId?: string }) {
-     if (!options?.userId) {
-       throw new Error('userId is required for updateTeam');
-     }
+    async updateTeam(id: string, updates: Partial<any>, options?: { userId?: string }) {
+      if (!options?.userId) {
+        throw new Error('userId is required for updateTeam');
+      }
 
-     const fields = Object.keys(updates).filter(k => k !== 'id');
-     if (fields.length === 0) return;
+      const fields = Object.keys(updates).filter(k => k !== 'id');
+      if (fields.length === 0) return;
 
-     return await this.withTeamContext<void>(
-       id,
-       options.userId,
-       'team',
-       'write',
-       async (client) => {
-         const setClauses = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
-         const values = [id, ...fields.map(f => updates[f])];
+      return await this.withTeamContext<void>(
+        id,
+        options.userId,
+        'team',
+        'write',
+        async (client) => {
+          // Fetch old team data for audit
+          const oldResult = await client.query(`SELECT * FROM teams WHERE id = $1`, [id]);
+          const oldTeam = oldResult.rows[0] || null;
 
-         await client.query(`UPDATE teams SET ${setClauses}, updated_at = NOW() WHERE id = $1`, values);
-       },
-     );
-   }
+          const setClauses = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
+          const values = [id, ...fields.map(f => updates[f])];
 
-  // Team Members
-   async addTeamMember(teamId: string, userId: string, role: string, options?: { actingUserId?: string }) {
-     const actingUserId = options?.actingUserId || userId;
-     if (!actingUserId) {
-       throw new Error('actingUserId is required for addTeamMember');
-     }
+          const result = await client.query(
+            `UPDATE teams SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
+            values
+          );
+          const newTeam = result.rows[0];
 
-     return await this.withTeamContext<TeamMember>(
-       teamId,
-       actingUserId,
-       'team',
-       'write',
-       async (client) => {
-         const result = await client.query(
-           `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)
-            ON CONFLICT (team_id, user_id) DO UPDATE SET role = $3, is_active = true, updated_at = NOW()
-            RETURNING *`,
-           [teamId, userId, role]
-         );
-         return result.rows[0];
-       },
-     );
-   }
+          // Audit log
+          if (oldTeam) {
+            await client.query(
+              `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, old_values, new_values, timestamp)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+              [id, options.userId, 'update', 'team', id, JSON.stringify(oldTeam), JSON.stringify(newTeam)]
+            );
+          }
+        },
+      );
+    }
 
-   async removeTeamMember(teamId: string, userId: string, options?: { actingUserId?: string }) {
-     const actingUserId = options?.actingUserId || userId;
-     if (!actingUserId) {
-       throw new Error('actingUserId is required for removeTeamMember');
-     }
+   // Team Members
+    async addTeamMember(teamId: string, userId: string, role: string, options?: { actingUserId?: string }) {
+      const actingUserId = options?.actingUserId || userId;
+      if (!actingUserId) {
+        throw new Error('actingUserId is required for addTeamMember');
+      }
 
-     return await this.withTeamContext<void>(
-       teamId,
-       actingUserId,
-       'team',
-       'write',
-       async (client) => {
-         await client.query(
-           `UPDATE team_members SET is_active = false, updated_at = NOW() WHERE team_id = $1 AND user_id = $2`,
-           [teamId, userId]
-         );
-       },
-     );
-   }
+      return await this.withTeamContext<TeamMember>(
+        teamId,
+        actingUserId,
+        'team',
+        'write',
+        async (client) => {
+          // Fetch existing membership for audit
+          const oldResult = await client.query(
+            `SELECT * FROM team_members WHERE team_id = $1 AND user_id = $2`,
+            [teamId, userId]
+          );
+          const oldMember = oldResult.rows[0] || null;
 
-   async updateMemberRole(teamId: string, userId: string, role: string, options?: { actingUserId?: string }) {
-     const actingUserId = options?.actingUserId || userId;
-     if (!actingUserId) {
-       throw new Error('actingUserId is required for updateMemberRole');
-     }
+          const result = await client.query(
+            `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)
+             ON CONFLICT (team_id, user_id) DO UPDATE SET role = $3, is_active = true, updated_at = NOW()
+             RETURNING *`,
+            [teamId, userId, role]
+          );
+          const newMember = result.rows[0];
 
-     return await this.withTeamContext<void>(
-       teamId,
-       actingUserId,
-       'team',
-       'write',
-       async (client) => {
-         await client.query(
-           `UPDATE team_members SET role = $3, updated_at = NOW() WHERE team_id = $1 AND user_id = $2`,
-           [teamId, userId, role]
-         );
-       },
-     );
-   }
+          // Audit log
+          const action = oldMember ? 'update' : 'add';
+          await client.query(
+            `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, old_values, new_values, timestamp)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+            [
+              teamId,
+              actingUserId,
+              action,
+              'team_member',
+              `${teamId}:${userId}`,
+              oldMember ? JSON.stringify(oldMember) : null,
+              JSON.stringify(newMember),
+            ]
+          );
+
+          return newMember;
+        },
+      );
+    }
+
+    async removeTeamMember(teamId: string, userId: string, options?: { actingUserId?: string }) {
+      const actingUserId = options?.actingUserId || userId;
+      if (!actingUserId) {
+        throw new Error('actingUserId is required for removeTeamMember');
+      }
+
+      return await this.withTeamContext<void>(
+        teamId,
+        actingUserId,
+        'team',
+        'write',
+        async (client) => {
+          // Fetch current membership for audit
+          const oldResult = await client.query(
+            `SELECT * FROM team_members WHERE team_id = $1 AND user_id = $2`,
+            [teamId, userId]
+          );
+          const oldMember = oldResult.rows[0] || null;
+
+          await client.query(
+            `UPDATE team_members SET is_active = false, updated_at = NOW() WHERE team_id = $1 AND user_id = $2`,
+            [teamId, userId]
+          );
+
+          // Audit log
+          if (oldMember) {
+            await client.query(
+              `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, old_values, timestamp)
+               VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+              [teamId, actingUserId, 'remove', 'team_member', `${teamId}:${userId}`, JSON.stringify(oldMember)]
+            );
+          }
+        },
+      );
+    }
+
+    async updateMemberRole(teamId: string, userId: string, role: string, options?: { actingUserId?: string }) {
+      const actingUserId = options?.actingUserId || userId;
+      if (!actingUserId) {
+        throw new Error('actingUserId is required for updateMemberRole');
+      }
+
+      return await this.withTeamContext<void>(
+        teamId,
+        actingUserId,
+        'team',
+        'write',
+        async (client) => {
+          // Fetch current membership for audit
+          const oldResult = await client.query(
+            `SELECT * FROM team_members WHERE team_id = $1 AND user_id = $2`,
+            [teamId, userId]
+          );
+          const oldMember = oldResult.rows[0] || null;
+
+          await client.query(
+            `UPDATE team_members SET role = $3, updated_at = NOW() WHERE team_id = $1 AND user_id = $2`,
+            [teamId, userId, role]
+          );
+
+          // Audit log
+          if (oldMember && oldMember.role !== role) {
+            const newMember = { ...oldMember, role };
+            await client.query(
+              `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, old_values, new_values, timestamp)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+              [teamId, actingUserId, 'update', 'team_member', `${teamId}:${userId}`, JSON.stringify(oldMember), JSON.stringify(newMember)]
+            );
+          }
+        },
+      );
+    }
 
    async getTeamMembers(teamId: string, options?: { userId?: string }) {
      if (!options?.userId) {
