@@ -6,6 +6,7 @@ import { MemoryClassifier } from './classify.js';
 import { DecisionExtractor } from './extract.js';
 import { OllamaLLM } from './ollama-llm.js';
 import { EmbeddingService } from './embed.js';
+import { createEmbeddingService } from './embed-factory.js';
 import { RAGEngine } from './rag.js';
 import { v4 as uuidv4 } from 'uuid';
 import { createSpan, recordMetric, logMessage, benchmarkOperation } from '../telemetry/api.js';
@@ -17,9 +18,11 @@ export class MemoryEngine {
   private embeddingService: EmbeddingService;
   private ragEngine: RAGEngine;
   private store: Store;
+  private config: NautalisConfig;
 
   constructor(store: Store, config: NautalisConfig) {
     this.store = store;
+    this.config = config;
     this.classifier = new MemoryClassifier();
 
     // Initialize LLM for decision extraction if configured
@@ -32,11 +35,8 @@ export class MemoryEngine {
         : undefined;
 
     this.decisionExtractor = new DecisionExtractor(llm);
-    this.embeddingService = new EmbeddingService({
-      baseUrl: config.embeddings.ollama?.url || 'http://localhost:11434',
-      model: config.embeddings.model,
-    });
-    this.ragEngine = new RAGEngine(config);
+    this.embeddingService = createEmbeddingService(config);
+    this.ragEngine = new RAGEngine(config, store, this.embeddingService);
   }
 
   async processEvent(event: NautalisEvent): Promise<Memory[]> {
@@ -55,13 +55,27 @@ export class MemoryEngine {
       const summary = this.generateSummary(event);
       const embeddingResult = await this.embeddingService.embed(summary);
 
+      // Ensure teamId is set: use event context or fall back to config
+      const teamId = event.context.teamId || this.config.general.teamId;
+      if (!teamId) {
+        throw new Error(
+          'teamId is required for memory processing. Set in config or event context.',
+        );
+      }
+
+      // Build context with teamId
+      const memoryContext = {
+        ...event.context,
+        teamId,
+      };
+
       // Create memory
       const memory: Memory = {
         id: uuidv4(),
         createdAt: new Date(),
         updatedAt: new Date(),
         agentIdentity: event.source,
-        context: event.context,
+        context: memoryContext,
         classification,
         content: {
           summary,
@@ -113,7 +127,10 @@ export class MemoryEngine {
 
       // Store all memories
       for (const mem of memories) {
-        await this.store.insertMemory(mem);
+        await this.store.insertMemory(mem, {
+          userId: mem.agentIdentity.userId,
+          teamId: mem.context.teamId,
+        });
       }
 
       span.end();
@@ -137,9 +154,27 @@ export class MemoryEngine {
     return allMemories.length;
   }
 
-  async query(query: string, options?: { projectId?: string; limit?: number }) {
+  async query(query: string, options?: { projectId?: string; limit?: number; teamId?: string; userId?: string }) {
     return this.ragEngine.query(query, options);
   }
+
+   async ask(question: string, options?: { projectId?: string; limit?: number; teamId?: string; userId?: string }): Promise<string> {
+     const results = await this.ragEngine.query(question, options);
+     if (results.length === 0) {
+       return "I don't know based on the available memories.";
+     }
+
+     const context = results.map((r) => {
+       const mem = r.memory;
+       let text = mem.content.summary;
+       if (mem.content.detail) {
+         text += '\n' + mem.content.detail;
+       }
+       return text;
+     });
+
+     return this.ragEngine.synthesize(question, context);
+   }
 
   private generateSummary(event: NautalisEvent): string {
     if (event.toolName && event.toolInput) {

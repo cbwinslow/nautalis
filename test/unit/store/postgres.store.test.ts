@@ -223,24 +223,24 @@ describe('PostgresStore', () => {
       });
     });
 
-    describe('getTeam', () => {
-      it('should get team by id', async () => {
-        const mockTeam = { id: 'team_123', name: 'Test Team' };
-        mockClient.query.mockResolvedValueOnce({ rows: [mockTeam] });
+     describe('getTeam', () => {
+       it('should get team by id', async () => {
+         const mockTeam = { id: 'team_123', name: 'Test Team' };
+         mockClient.query.mockResolvedValueOnce({ rows: [mockTeam] });
 
-        const result = await store.getTeam('team_123');
+         const result = await store.getTeam('team_123', { userId: 'user_123' });
 
-        expect(result).toEqual(mockTeam);
-      });
+         expect(result).toEqual(mockTeam);
+       });
 
-      it('should return null if team not found', async () => {
-        mockClient.query.mockResolvedValueOnce({ rows: [] });
+       it('should return null if team not found', async () => {
+         mockClient.query.mockResolvedValueOnce({ rows: [] });
 
-        const result = await store.getTeam('nonexistent');
+         const result = await store.getTeam('nonexistent', { userId: 'user_123' });
 
-        expect(result).toBeNull();
-      });
-    });
+         expect(result).toBeNull();
+       });
+     });
 
     describe('getTeamBySlug', () => {
       it('should get team by slug', async () => {

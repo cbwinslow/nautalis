@@ -1,7 +1,7 @@
 # 🐙 Nautalis — AI Agent Instructions
 
 > **Universal AI Agent Memory & Orchestration Platform**
-> 
+>
 > This document is for AI agents (Kilo Code, Claude Code, Cursor, etc.) working on this project. Read it thoroughly before making changes.
 
 ---
@@ -11,6 +11,7 @@
 Nautalis solves a critical problem: **AI coding agents are siloed**. Developers use multiple tools (Claude Code, Kilo Code, Cursor, Windsurf, etc.) and none of them share memory, context, or awareness. When you switch agents, context is lost. When teammates work on the same project, duplicate effort happens.
 
 **Nautalis sits behind ALL AI agents and:**
+
 1. **Aggregates** every event — tool calls, file edits, commands, decisions, errors
 2. **Enriches** with rich metadata — agent identity, project context, classification, relationships
 3. **Stores** with vector embeddings — semantic search across all AI activity
@@ -22,9 +23,51 @@ Nautalis solves a critical problem: **AI coding agents are siloed**. Developers 
 
 ---
 
+## 1.5 Current Status & Critical Priorities
+
+**Last Updated:** 2026-04-04  
+**Status:** Early Alpha (v0.1.0) — Design Complete, Implementation In Progress
+
+**Read First:** [Comprehensive Review Analysis](./docs/decisions/COMPREHENSIVE_REVIEW_2026-04-03.md)
+
+The project has exceptional architectural foundations but significant implementation gaps remain (~60% complete vs 95% designed). Key insights:
+
+### Top Immediate Priorities (Next 90 Days)
+
+1. **Define MVP scope** — Reduce from 70+ requirements to 30% (issue #42)
+2. **Validate connectors** — Test Claude Code hooks on real installations (critical)
+3. **Complete RAG-to-Store integration** — Bridge LlamaIndex to PostgreSQL for functional search (issue #18)
+4. **Implement test suite** — 80%+ coverage (issue #34)
+5. **Add error resilience** — Retry, circuit breakers (issue #44)
+6. **Benchmark performance** — Meet latency targets (issue #45)
+7. **Implement PII detection** — Security prerequisite (issue #47)
+
+### Largest Gaps by Component
+
+- **RAG/Search:** 40% complete — Query uses raw pgvector; LlamaIndex index build implemented but not used by default; multi-provider LLM synthesis integrated
+- **Context Injection:** 10% complete — inject command uses recency, not semantic relevance
+- **Connectors:** 20% complete — drafted but untested on real tools
+- **Security:** 5% complete — PII, input validation not enforced
+- **CLI:** 70% complete — all commands registered, most functional manually
+- **Team Features:** 80% complete — permissions enforced for all core resources (memories, KB, teams, projects, agents, sessions)
+
+### Critical Success Factors
+
+- **Connector validation** — Must test hooks on actual Claude/Kilo installations
+- **RAG performance** — Search latency must be <500ms p95
+- **Test coverage** — Without tests, refactoring is risky
+- **MVP clarity** — Ruthlessly cut scope to ship functional system
+
+**DO NOT** start work on non-MVP features until MVP scope is defined and approved. Refer to [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for detailed component-wise completeness.
+
+---
+
+## 2. Critical Architecture Decisions
+
 ## 2. Critical Architecture Decisions
 
 ### 2.1 TypeScript, Not Go
+
 - **Decision:** Primary language is TypeScript, not Go
 - **Why:** Faster development, better AI tool integration (most have TS/JS SDKs), native web support, Bun runtime is extremely fast
 - **Package manager:** Bun (fastest installs, native TypeScript, built-in test runner)
@@ -32,6 +75,7 @@ Nautalis solves a critical problem: **AI coding agents are siloed**. Developers 
 - **TUI framework:** ink (React-based terminal UI)
 
 ### 2.2 PostgreSQL Only — SQLite Was Dropped
+
 - **Decision:** SQLite was completely removed. PostgreSQL is the ONLY database.
 - **Why:** User is building a data bottleneck — logs, errors, warnings, results, network traffic, conversations, ETL pipelines. Millions of rows. Multi-user, multi-team, granular permissions. SQLite can't handle this.
 - **Extensions:** pgvector (embeddings), TimescaleDB (time-series), pg_trgm (fuzzy search), uuid-ossp
@@ -39,24 +83,28 @@ Nautalis solves a critical problem: **AI coding agents are siloed**. Developers 
 - **Supabase:** Used for auth (GoTrue), RLS, Realtime, and managed Postgres
 
 ### 2.3 TimescaleDB for Time-Series
+
 - **Decision:** TimescaleDB as a PostgreSQL extension for all time-series data
 - **Why:** User accumulates massive data over time. Needs automatic compression, retention policies, and continuous aggregates for dashboards.
 - **Hypertables:** events (7d chunks, compress 30d, retain 365d), telemetry (1d chunks, compress 7d, retain 90d), audit_log (7d chunks, compress 30d, retain 730d)
 - **Continuous aggregates:** daily event stats, daily memory stats, hourly latency percentiles (p50/p95/p99)
 
 ### 2.4 LlamaIndex.TS for RAG
+
 - **Decision:** LlamaIndex.TS for retrieval-augmented generation and embeddings
 - **Why:** Leading TypeScript framework for context engineering. Native Bun support. Handles indexing, retrieval, synthesis, and agent workflows.
 - **Embeddings:** Ollama (local, free, default) via custom OllamaEmbedding class. OpenAI and Cohere as alternatives.
 - **Vector store:** pgvector in PostgreSQL (not separate vector DB)
 
 ### 2.5 OpenTelemetry for Observability
+
 - **Decision:** Full OpenTelemetry SDK for traces, metrics, and logs
 - **Why:** User wants a sophisticated log and capture system that feeds into a pipeline for diagnosing and benchmarking issues. Every operation is traced, every metric recorded, every log correlated.
 - **Enterprise stack:** OTel Collector → Jaeger (traces) + Grafana (metrics)
 - **Benchmarking utility:** Built-in `benchmarkOperation()` wraps any async function with timing, tracing, and metrics
 
 ### 2.6 Row Level Security + RBAC
+
 - **Decision:** PostgreSQL RLS policies on EVERY table, combined with application-level RBAC
 - **Why:** Multi-tenant system where managers assign permissions. Users only see what they're allowed to see. Security at the database level, not just the application level.
 - **Role hierarchy:** owner > admin > manager > member > viewer
@@ -65,6 +113,7 @@ Nautalis solves a critical problem: **AI coding agents are siloed**. Developers 
 - **Helper function:** `can(user_id, scope, action)` — shorthand for permission checks
 
 ### 2.7 Universal Knowledge Base
+
 - **Decision:** Dedicated knowledge base table that AI agents can pull from
 - **Why:** User wants a centralized knowledge repository — not just raw memories, but curated, versioned, categorized knowledge entries with visibility controls.
 - **Features:** Vector + full-text search, versioning with edit history, visibility levels (public/team/project/private), view tracking
@@ -74,19 +123,19 @@ Nautalis solves a critical problem: **AI coding agents are siloed**. Developers 
 
 ## 3. Tech Stack
 
-| Layer | Technology | Notes |
-|---|---|---|
-| **Runtime** | Bun | Fastest Node.js alternative, native TypeScript |
-| **CLI** | commander.js | Standard, well-documented |
-| **TUI** | ink (React) | Component-based terminal UI |
-| **Database** | PostgreSQL 16 | ONLY database — no SQLite |
-| **Time-Series** | TimescaleDB 2.26 | PostgreSQL extension |
-| **Vector Search** | pgvector | PostgreSQL extension |
-| **RAG** | LlamaIndex.TS | Context engineering framework |
-| **Embeddings** | Ollama (default) | Local, free, nomic-embed-text (384-dim) |
-| **Observability** | OpenTelemetry | Traces, metrics, logs |
-| **Auth** | Supabase GoTrue | When using Supabase driver |
-| **Package Manager** | bun | `bun install`, `bun run`, `bun test` |
+| Layer               | Technology       | Notes                                          |
+| ------------------- | ---------------- | ---------------------------------------------- |
+| **Runtime**         | Bun              | Fastest Node.js alternative, native TypeScript |
+| **CLI**             | commander.js     | Standard, well-documented                      |
+| **TUI**             | ink (React)      | Component-based terminal UI                    |
+| **Database**        | PostgreSQL 16    | ONLY database — no SQLite                      |
+| **Time-Series**     | TimescaleDB 2.26 | PostgreSQL extension                           |
+| **Vector Search**   | pgvector         | PostgreSQL extension                           |
+| **RAG**             | LlamaIndex.TS    | Context engineering framework                  |
+| **Embeddings**      | Ollama (default) | Local, free, nomic-embed-text (384-dim)        |
+| **Observability**   | OpenTelemetry    | Traces, metrics, logs                          |
+| **Auth**            | Supabase GoTrue  | When using Supabase driver                     |
+| **Package Manager** | bun              | `bun install`, `bun run`, `bun test`           |
 
 ---
 
@@ -192,6 +241,7 @@ nautalis/
 ## 5. Database Schema Overview
 
 ### Core Tables
+
 - **users** — User profiles, linked to Supabase auth.users
 - **teams** — Team/org units with settings and limits
 - **team_members** — Membership with role (owner/admin/manager/member/viewer)
@@ -211,16 +261,19 @@ nautalis/
 - **telemetry** — OpenTelemetry traces, metrics, logs
 
 ### TimescaleDB Hypertables
+
 - **events** — 7-day chunks, compress after 30d, retain 365d
 - **audit_log** — 7-day chunks, compress after 30d, retain 730d
 - **telemetry** — 1-day chunks, compress after 7d, retain 90d
 
 ### Continuous Aggregates
+
 - **events_daily_stats** — Daily event counts, session counts, error rates
 - **memories_daily_stats** — Daily memory growth, importance, staleness
 - **telemetry_hourly_latency** — p50/p95/p99 latency percentiles
 
 ### Key Helper Functions
+
 - `has_team_role(team_id, user_id, role)` — Check user's role in a team
 - `get_user_teams(user_id)` — Get all teams a user belongs to
 - `has_permission(user_id, team_id, scope, action)` — Check if user has permission
@@ -237,30 +290,34 @@ nautalis/
 ## 6. Permission Model
 
 ### Role Hierarchy
+
 ```
 owner > admin > manager > member > viewer
 ```
 
 ### Permission Matrix (defaults, seeded in migration 004)
 
-| Scope | owner | admin | manager | member | viewer |
-|---|---|---|---|---|---|
-| team | admin,read,write,delete | read,write | read | — | — |
-| project | admin,read,write,delete | admin,read,write,delete | admin,read,write,delete | read,write | read |
-| agent | admin,read,write,delete | admin,read,write,delete | read,write | read,write | read |
-| memory | read,write,delete,export,share | read,write,delete,export,share | read,write,delete,export,share | read,write,export | read |
-| knowledge_base | read,write,delete,share | read,write,delete,share | read,write,share | read,write | read |
-| telemetry | read,export | read,export | read | read | read |
-| settings | admin,read,write | read,write | read | — | — |
+| Scope          | owner                          | admin                          | manager                        | member            | viewer |
+| -------------- | ------------------------------ | ------------------------------ | ------------------------------ | ----------------- | ------ |
+| team           | admin,read,write,delete        | read,write                     | read                           | —                 | —      |
+| project        | admin,read,write,delete        | admin,read,write,delete        | admin,read,write,delete        | read,write        | read   |
+| agent          | admin,read,write,delete        | admin,read,write,delete        | read,write                     | read,write        | read   |
+| memory         | read,write,delete,export,share | read,write,delete,export,share | read,write,delete,export,share | read,write,export | read   |
+| knowledge_base | read,write,delete,share        | read,write,delete,share        | read,write,share               | read,write        | read   |
+| telemetry      | read,export                    | read,export                    | read                           | read              | read   |
+| settings       | admin,read,write               | read,write                     | read                           | —                 | —      |
 
 ### RLS Policies
+
 Every table has Row Level Security enabled. Key policies:
+
 - **memories**: Sensitivity-based — public (all), internal (all team), confidential (manager+), secret (admin+)
 - **knowledge_base**: Visibility-based — public (all), team (team members), project (project members), private (creator only)
 - **audit_log**: Admin/owner only
 - **All other tables**: Team membership required
 
 ### Custom Overrides
+
 `team_permissions` table allows granular overrides that bypass role defaults. PermissionManager caches role lookups for 60 seconds.
 
 ---
@@ -268,23 +325,29 @@ Every table has Row Level Security enabled. Key policies:
 ## 7. Connector Architecture
 
 ### How Connectors Work
+
 1. Each connector implements the `Connector` interface (metadata, setup, ingest, watch, inject, health)
 2. Connectors auto-register via module imports (no manual registration needed)
 3. `ConnectorRegistry` manages all connectors and provides batch operations
 4. Each connector has its own config in `config.connectors[]`
 
 ### Adding a New Connector
+
 1. Create `src/connectors/<name>.ts` extending `BaseConnector`
 2. Implement `metadata`, `ingest()`, and optionally `setup()`, `watch()`, `inject()`, `health()`
 3. Export from `src/connectors/index.ts`
 4. The connector auto-registers when imported
 
 ### Hook Installation
+
 Claude Code hooks are installed by writing to `~/.claude/settings.json`. The hooks are:
+
 - **PostToolUse** → `nautalis ingest claude-event --async` (records every tool call)
 - **Stop** → `nautalis summarize-session` (triggers session summarization)
 - **SessionEnd** → `nautalis finalize-session` (finalizes session data)
 - **SessionStart** → `nautalis inject-context` (injects relevant context into new session)
+
+**Note:** The hook scripts read `NAUTALIS_SERVER_URL` environment variable to determine where to send requests. Set this to your Nautalis server address (e.g., `http://100.x.y.z:3001`) for remote deployments. Default is `http://localhost:3001`.
 
 ---
 
@@ -302,13 +365,16 @@ Raw Event → MemoryClassifier → DecisionExtractor → EmbeddingService → St
 4. **Store** — Inserts memory + embedding into PostgreSQL
 
 ### Memory Relationships
+
 Memories can link to each other:
+
 - `parent_memory_id` — Hierarchical relationship
 - `supersedes[]` — This memory replaces older ones
 - `contradicts[]` — This memory conflicts with others (flagged for review)
 - `supports[]` — This memory reinforces others
 
 ### Lifecycle Management
+
 - `ttl` — Optional expiration date
 - `decay_rate` — How fast relevance decreases (0.0-1.0)
 - `is_stale` — Auto-detected staleness (no access for 30d, or past TTL)
@@ -319,6 +385,7 @@ Memories can link to each other:
 ## 9. OpenTelemetry Integration
 
 ### What's Instrumented
+
 - **All store operations** — insertEvent, insertMemory, queryMemories, etc.
 - **All connector operations** — setup, ingest, watch, inject
 - **All memory operations** — enrich, classify, embed
@@ -326,6 +393,7 @@ Memories can link to each other:
 - **All context operations** — build, inject
 
 ### Span Names (convention: `nautalis.<domain>.<operation>`)
+
 - `nautalis.ingest.event` — Event ingestion
 - `nautalis.memory.enrich` — Memory enrichment
 - `nautalis.memory.store` — Memory storage
@@ -336,6 +404,7 @@ Memories can link to each other:
 - `nautalis.context.build/inject` — Context operations
 
 ### Metric Names
+
 - `nautalis.events.ingested` — Counter of ingested events
 - `nautalis.memories.stored` — Counter of stored memories
 - `nautalis.memories.queried` — Counter of memory queries
@@ -345,7 +414,9 @@ Memories can link to each other:
 - `nautalis.memory.total_count` — Gauge of total memories
 
 ### Benchmarking
+
 Use `benchmarkOperation(fn, { spanName, metricName, attributes, logResult })` to wrap any async function. It automatically:
+
 - Creates a span with attributes
 - Records duration metric
 - Logs success/failure
@@ -356,24 +427,42 @@ Use `benchmarkOperation(fn, { spanName, metricName, attributes, logResult })` to
 ## 10. Configuration System
 
 ### Priority Order (lowest to highest)
+
 1. **Defaults** (`src/config/defaults.ts`)
 2. **Config file** (cosmiconfig: `.nautalisrc`, `nautalis.config.toml`, etc.)
 3. **Environment variables** (`DATABASE_URL`, `NAUTALIS_*`, `OTEL_*`)
 4. **CLI flags** (command-specific overrides)
 
 ### Required Environment Variables
+
 ```bash
 DATABASE_URL=postgresql://user:pass@host:5432/nautalis  # Required
 NAUTALIS_DB_DRIVER=postgres                               # postgres | supabase
-NAUTALIS_EMBED_PROVIDER=ollama                            # ollama | openai | cohere
-NAUTALIS_LLM_PROVIDER=ollama                              # ollama | openai | anthropic
+NAUTALIS_EMBED_PROVIDER=ollama                            # ollama | openai | cohere | custom
+NAUTALIS_LLM_PROVIDER=ollama                              # ollama | openai | anthropic | custom
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318         # OTel collector
 ```
 
+**Custom Provider Configuration:**
+
+For `custom` providers, additional environment variables are required:
+
+- **Embeddings (custom):**  
+  `NAUTALIS_EMBED_CUSTOM_BASE_URL` – Remote endpoint (e.g., `http://100.x.y.z:11434`)  
+  `NAUTALIS_EMBED_CUSTOM_MODEL` – Model name (e.g., `nomic-embed-text`)  
+  `NAUTALIS_EMBED_CUSTOM_API_KEY_ENV` – Optional env var name for API key  
+- **LLM (custom):**  
+  `NAUTALIS_LLM_CUSTOM_BASE_URL` – Remote endpoint (e.g., `http://100.x.y.z:11434`)  
+  `NAUTALIS_LLM_CUSTOM_MODEL` – Model name (e.g., `qwen2.5:3b`)  
+  `NAUTALIS_LLM_CUSTOM_API_KEY_ENV` – Optional env var name for API key  
+
+Custom providers accept any REST endpoint that follows OpenAI-compatible schemas (`/embeddings` for embeddings, `/chat/completions` for LLM). Transformations can be configured via code if needed.
+
 ### Default Configuration
+
 - Database: PostgreSQL (NOT SQLite)
-- Embeddings: Ollama (nomic-embed-text, localhost:11434)
-- LLM: Ollama (qwen2.5:3b, localhost:11434)
+- Embeddings: Ollama (nomic-embed-text, localhost:11434) — can be switched to remote via config
+- LLM: Ollama (qwen2.5:3b, localhost:11434) — can be switched to remote via config
 - Connectors: Claude Code + Kilo Code enabled
 
 ---
@@ -381,6 +470,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318         # OTel collector
 ## 11. What's Built vs What's Pending
 
 ### ✅ Built and Functional
+
 - Full PostgreSQL migration schema (13 files, 8 core + 3 TimescaleDB + 2 RLS)
 - PostgresStore with full CRUD for all tables
 - SupabaseStore extending Postgres with auth integration
@@ -398,6 +488,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318         # OTel collector
 - GitHub issues (18 open, properly labeled and linked)
 
 ### ⏳ Pending Implementation
+
 - Team management CLI commands (file exists, needs to be wired into command registration)
 - Permission CLI commands (file exists, needs to be wired into command registration)
 - Knowledge base CLI commands (file exists, needs to be wired into command registration)
@@ -414,6 +505,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318         # OTel collector
 ## 12. Coding Standards
 
 ### TypeScript
+
 - **Strict mode** enabled in tsconfig.json
 - **ESM modules** — use `.js` extensions in imports (TypeScript resolves to `.ts`)
 - **`import type`** for type-only imports
@@ -421,17 +513,20 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318         # OTel collector
 - **JSDoc** — document all public functions, types, and constants
 
 ### Git
+
 - **Conventional commits** — `feat:`, `fix:`, `docs:`, `refactor:`, `perf:`, `test:`, `chore:`, `ci:`, `build:`, `revert:`, `deps:`
 - **Branch naming** — `feature/description`, `bugfix/description`, `hotfix/description`
 - **PR titles** — must follow conventional commit format (enforced by CI)
 - **Squash merge** — all PRs should be squash merged to main
 
 ### Testing
+
 - **Bun test** — `bun run test`
 - **Coverage target** — 80%+
 - **Integration tests** — require PostgreSQL service (TimescaleDB)
 
 ### Dependencies
+
 - **Only free/open-source** — no paid dependencies
 - **Security audit** — run `bun audit` before adding new dependencies
 - **No hardcoded secrets** — use environment variables or config files (gitignored)
@@ -441,6 +536,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318         # OTel collector
 ## 13. Important Conversation History
 
 ### Key Decisions Made
+
 1. **Go → TypeScript** — User changed from Go to TypeScript mid-project. All Go code was discarded and rebuilt in TypeScript.
 2. **SQLite → PostgreSQL** — User explicitly dropped SQLite in favor of PostgreSQL + Supabase + TimescaleDB. User is building a data bottleneck and needs multi-user, multi-team, permissions, and time-series analytics. SQLite cannot handle this.
 3. **Mem0/Letta → Custom** — User decided against using Mem0 or Letta as the memory backend. Built custom enrichment layer on top of PostgreSQL with pgvector.
@@ -450,6 +546,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318         # OTel collector
 7. **Security at the database level** — RLS policies on every table. Managers assign permissions. Users only see what they're allowed to see.
 
 ### User's Vision
+
 - "A bottleneck or aggregator for all things AI agent"
 - "Universal memory shared across instances, conversations, AI agents"
 - "System that works behind the scenes by gathering, aggregating and organizing and storing and recalling data"
@@ -458,6 +555,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318         # OTel collector
 - "Stop you from duplicating efforts or could help you synergize work"
 
 ### Things to Remember
+
 - The user switches between Windows and Linux environments
 - The user values speed — "this is taking forever" feedback means we need to batch operations and commit frequently
 - The user wants everything to be free — no paid APIs, no subscriptions
@@ -469,6 +567,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318         # OTel collector
 ## 14. Quick Reference
 
 ### Common Commands
+
 ```bash
 bun install                    # Install dependencies
 bun run dev                    # Run with watch mode
@@ -490,6 +589,7 @@ nautalis kb search "auth"      # Search knowledge base
 ```
 
 ### Docker
+
 ```bash
 # Personal
 docker compose -f docker/docker-compose.yml up -d
@@ -502,6 +602,7 @@ docker compose -f docker/docker-compose.enterprise.yml up -d
 ```
 
 ### Database
+
 ```bash
 # Connect to PostgreSQL
 psql "postgresql://nautalis:nautalis@localhost:5432/nautalis"

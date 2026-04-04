@@ -1,6 +1,6 @@
 export type DatabaseDriver = 'postgres' | 'supabase';
-export type EmbedProvider = 'ollama' | 'openai' | 'cohere';
-export type LLMProvider = 'ollama' | 'openai' | 'anthropic';
+export type EmbedProvider = 'ollama' | 'openai' | 'cohere' | 'custom';
+export type LLMProvider = 'ollama' | 'openai' | 'anthropic' | 'custom';
 
 export interface DatabaseConfig {
   driver: DatabaseDriver;
@@ -14,6 +14,7 @@ export interface EmbeddingConfig {
   ollama?: { url: string };
   openai?: { apiKeyEnv: string; model: string };
   cohere?: { apiKeyEnv: string; model: string };
+  custom?: { baseUrl: string; model: string; apiKeyEnv?: string; headers?: Record<string, string> };
 }
 
 export interface LLMConfig {
@@ -22,6 +23,7 @@ export interface LLMConfig {
   ollama?: { url: string };
   openai?: { apiKeyEnv: string; model: string };
   anthropic?: { apiKeyEnv: string; model: string };
+  custom?: { baseUrl: string; model: string; apiKeyEnv?: string; headers?: Record<string, string> };
 }
 
 export interface GuardrailsConfig {

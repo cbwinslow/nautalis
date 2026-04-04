@@ -15,41 +15,25 @@ export function registerAskCommand(program: Command): void {
     .option('--json', 'Output as JSON')
     .action(async (question, opts) => {
       const spinner = ora(`Thinking about "${question}"...`).start();
-      
+
       try {
         initTelemetry();
         const config = await loadConfig();
         const store = await getStore(config);
         await store.init();
-        
-        const memoryEngine = new MemoryEngine(store, config);
-        const results = await memoryEngine.query(question, {
-          projectId: opts.project,
-          limit: 10,
-        });
-        
-        // TODO: Use LlamaIndex synthesizer for natural language answer
-        // For now, return formatted results
+
+         const memoryEngine = new MemoryEngine(store, config);
+         const answer = await memoryEngine.ask(question, {
+           projectId: opts.project,
+           limit: 10,
+           teamId: config.general.teamId,
+           userId: config.general.userId,
+         });
+
         spinner.stop();
-        
-        if (results.length === 0) {
-          console.log(chalk.yellow('No relevant memories found to answer your question.'));
-          return;
-        }
-        
-        console.log(chalk.cyan(`\n  Based on your AI agent history:\n`));
-        
-        for (const result of results) {
-          const memory = result.memory;
-          console.log(chalk.bold(`  • ${memory.content.summary}`));
-          if (memory.content.detail) {
-            console.log(chalk.gray(`    ${memory.content.detail}`));
-          }
-          console.log(chalk.gray(`    — from ${memory.agentIdentity.toolName}`));
-          console.log('');
-        }
-        
-        console.log(chalk.gray(`  Found ${results.length} relevant memories`));
+
+        console.log(chalk.cyan(`\n  Answer:\n`));
+        console.log(chalk.white(`  ${answer}\n`));
       } catch (error) {
         spinner.fail(chalk.red(`Query failed: ${error}`));
         process.exit(1);

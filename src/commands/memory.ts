@@ -27,11 +27,12 @@ export function registerMemoryCommand(program: Command): void {
           throw new Error('Team ID required. Use --team flag or set teamId in config.');
         }
 
-        const memories = await store.listMemories(config.general.teamId, {
-          projectId: opts.project,
-          memoryType: opts.type,
-          limit: parseInt(opts.limit),
-        });
+         const memories = await store.listMemories(config.general.teamId, {
+           projectId: opts.project,
+           memoryType: opts.type,
+           limit: parseInt(opts.limit),
+           userId: config.general.userId,
+         });
 
         spinner.stop();
         console.log(chalk.cyan(`\n  Memories (${memories.length}):\n`));
@@ -65,7 +66,7 @@ export function registerMemoryCommand(program: Command): void {
         const store = await getStore(config);
         await store.init();
 
-        await store.deleteMemory(id);
+         await store.deleteMemory(id, { userId: config.general.userId, teamId: config.general.teamId });
         spinner.succeed(chalk.green('Memory deleted'));
       } catch (error) {
         spinner.fail(chalk.red(`Failed: ${error}`));

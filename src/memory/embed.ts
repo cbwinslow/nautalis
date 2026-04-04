@@ -7,40 +7,85 @@ export interface EmbeddingResult {
   dimensions: number;
 }
 
+export interface EmbeddingOptions {
+  baseUrl: string;
+  model: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
+  endpointPath?: string; // default: /api/embeddings
+  requestTransform?: (body: any) => any; // customize request body format
+  responseTransform?: (data: any) => { embedding: number[] }; // customize response parsing
+}
+
 export class EmbeddingService {
   private baseUrl: string;
   private model: string;
-  
-  constructor(options: { baseUrl: string; model: string }) {
-    this.baseUrl = options.baseUrl;
+  private apiKey?: string;
+  private headers: Record<string, string>;
+  private endpointPath: string;
+  private requestTransform?: (body: any) => any;
+  private responseTransform?: (data: any) => { embedding: number[] };
+
+  constructor(options: EmbeddingOptions) {
+    this.baseUrl = options.baseUrl.replace(/\/$/, ''); // strip trailing slash
     this.model = options.model;
+    this.apiKey = options.apiKey;
+    this.headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    };
+    this.endpointPath = options.endpointPath || '/api/embeddings';
+    this.requestTransform = options.requestTransform;
+    this.responseTransform = options.responseTransform;
   }
-  
+
   async embed(text: string): Promise<EmbeddingResult> {
     const span = createSpan(SPAN_NAMES.EMBED_TEXT, {
       'embedding.model': this.model,
       'embedding.text_length': text.length,
     });
-    
+
     try {
-      const response = await fetch(`${this.baseUrl}/api/embeddings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: this.model, prompt: text }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Embedding API error: ${response.status} ${response.statusText}`);
+      let body: any = { model: this.model, prompt: text };
+      if (this.requestTransform) {
+        body = this.requestTransform({ model: this.model, prompt: text });
       }
-      
-      const data = await response.json() as { embedding: number[] };
-      
+
+      const response = await fetch(`${this.baseUrl}${this.endpointPath}`, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Embedding API error: ${response.status} ${response.statusText}\n${errorText}`);
+      }
+
+      const data = await response.json();
+      let embedding: number[];
+
+      if (this.responseTransform) {
+        const transformed = this.responseTransform(data);
+        embedding = transformed.embedding;
+      } else {
+        // Default: expect { embedding: number[] }
+        embedding = data.embedding;
+        if (!Array.isArray(embedding)) {
+          // Some APIs return { data: [{ embedding: number[] }] }
+          if (Array.isArray(data.data) && data.data[0]?.embedding) {
+            embedding = data.data[0].embedding;
+          } else {
+            throw new Error('Unexpected embedding response format');
+          }
+        }
+      }
+
       span.end();
-      
       return {
-        embedding: data.embedding,
+        embedding,
         model: this.model,
-        dimensions: data.embedding.length,
+        dimensions: embedding.length,
       };
     } catch (error) {
       span.end(error as Error);

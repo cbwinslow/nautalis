@@ -4,6 +4,9 @@
 
 const { stdin, stdout, stderr } = process;
 
+// Read Nautalis server URL from environment (or default to localhost:3001)
+const NAUTALIS_URL = process.env.NAUTALIS_SERVER_URL || 'http://localhost:3001';
+
 async function main() {
   let data = '';
   stdin.setEncoding('utf8');
@@ -16,7 +19,7 @@ async function main() {
     const event = JSON.parse(data);
     
     // Send to nautalis daemon
-    const response = await fetch('http://localhost:3001/api/events', {
+    const response = await fetch(`${NAUTALIS_URL}/api/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // Claude Code SessionStart hook — injects context from nautalis
 
+const NAUTALIS_URL = process.env.NAUTALIS_SERVER_URL || 'http://localhost:3001';
+
 async function main() {
   try {
-    const response = await fetch('http://localhost:3001/api/context/inject', {
+    const response = await fetch(`${NAUTALIS_URL}/api/context/inject`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

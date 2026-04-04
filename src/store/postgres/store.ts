@@ -2,6 +2,7 @@ import pg from 'pg';
 import type { Store } from '../interface.js';
 import type { NautalisEvent } from '../../types/event.js';
 import type { Memory, MemoryQuery, MemoryQueryResult } from '../../types/memory.js';
+import type { Team, TeamMember } from '../../types/team.js';
 import { createSpan, recordMetric, logMessage } from '../../telemetry/api.js';
 import { SPAN_NAMES, METRIC_NAMES } from '../../types/telemetry.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -60,11 +61,57 @@ export class PostgresStore implements Store {
     }
   }
 
-  async close(): Promise<void> {
-    await this.pool.end();
-  }
+   async close(): Promise<void> {
+     await this.pool.end();
+   }
 
-  // Users
+   // Helper: Execute operation with team context and permission check
+   private async withTeamContext<T>(
+     teamId: string,
+     userId: string,
+     scope: string,
+     action: string,
+     fn: (client: any) => Promise<T>,
+   ): Promise<T> {
+     const span = createSpan(SPAN_NAMES.STORE_PERMISSION, {
+       'permission.userId': userId,
+       'permission.teamId': teamId,
+       'permission.scope': scope,
+       'permission.action': action,
+     });
+
+     try {
+       const client = await this.pool.connect();
+       try {
+         await client.query('BEGIN');
+         
+         // Set team context for RLS
+         await client.query('SELECT set_current_team($1)', [teamId]);
+         
+         // Check permission
+         const hasPermission = await this.permissionManager.check(userId, teamId, scope, action);
+         if (!hasPermission) {
+           throw new Error(`Permission denied: user ${userId} cannot ${action} ${scope} in team ${teamId}`);
+         }
+
+         const result = await fn(client);
+         await client.query('COMMIT');
+         span.end();
+         return result;
+       } catch (error) {
+         await client.query('ROLLBACK');
+         span.end(error as Error);
+         throw error;
+       } finally {
+         client.release();
+       }
+     } catch (error) {
+       span.end(error as Error);
+       throw error;
+     }
+   }
+
+   // Users
   async createUser(user: { email: string; name?: string; authId?: string }) {
     const result = await this.pool.query(
       `INSERT INTO users (email, name, auth_id) VALUES ($1, $2, $3) RETURNING *`,
@@ -110,10 +157,23 @@ export class PostgresStore implements Store {
     }
   }
 
-  async getTeam(id: string) {
-    const result = await this.pool.query(`SELECT * FROM teams WHERE id = $1`, [id]);
-    return result.rows[0] || null;
-  }
+   async getTeam(id: string, options?: { userId?: string }) {
+     if (!options?.userId) {
+       throw new Error('userId is required for getTeam');
+     }
+
+     return await this.withTeamContext<Team | null>(
+       id,
+       options.userId,
+       'team',
+       'read',
+       async (client) => {
+         // Verify team exists
+         const result = await client.query(`SELECT * FROM teams WHERE id = $1`, [id]);
+         return result.rows[0] || null;
+       },
+     );
+   }
 
   async getTeamBySlug(slug: string) {
     const result = await this.pool.query(`SELECT * FROM teams WHERE slug = $1`, [slug]);
@@ -131,51 +191,114 @@ export class PostgresStore implements Store {
     return result.rows;
   }
 
-  async updateTeam(id: string, updates: Partial<any>) {
-    const fields = Object.keys(updates).filter(k => k !== 'id');
-    if (fields.length === 0) return;
+   async updateTeam(id: string, updates: Partial<any>, options?: { userId?: string }) {
+     if (!options?.userId) {
+       throw new Error('userId is required for updateTeam');
+     }
 
-    const setClauses = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
-    const values = [id, ...fields.map(f => updates[f])];
+     const fields = Object.keys(updates).filter(k => k !== 'id');
+     if (fields.length === 0) return;
 
-    await this.pool.query(`UPDATE teams SET ${setClauses}, updated_at = NOW() WHERE id = $1`, values);
-  }
+     return await this.withTeamContext<void>(
+       id,
+       options.userId,
+       'team',
+       'write',
+       async (client) => {
+         const setClauses = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
+         const values = [id, ...fields.map(f => updates[f])];
+
+         await client.query(`UPDATE teams SET ${setClauses}, updated_at = NOW() WHERE id = $1`, values);
+       },
+     );
+   }
 
   // Team Members
-  async addTeamMember(teamId: string, userId: string, role: string) {
-    const result = await this.pool.query(
-      `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)
-       ON CONFLICT (team_id, user_id) DO UPDATE SET role = $3, is_active = true, updated_at = NOW()
-       RETURNING *`,
-      [teamId, userId, role]
-    );
-    return result.rows[0];
-  }
+   async addTeamMember(teamId: string, userId: string, role: string, options?: { actingUserId?: string }) {
+     const actingUserId = options?.actingUserId || userId;
+     if (!actingUserId) {
+       throw new Error('actingUserId is required for addTeamMember');
+     }
 
-  async removeTeamMember(teamId: string, userId: string) {
-    await this.pool.query(
-      `UPDATE team_members SET is_active = false, updated_at = NOW() WHERE team_id = $1 AND user_id = $2`,
-      [teamId, userId]
-    );
-  }
+     return await this.withTeamContext<TeamMember>(
+       teamId,
+       actingUserId,
+       'team',
+       'write',
+       async (client) => {
+         const result = await client.query(
+           `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)
+            ON CONFLICT (team_id, user_id) DO UPDATE SET role = $3, is_active = true, updated_at = NOW()
+            RETURNING *`,
+           [teamId, userId, role]
+         );
+         return result.rows[0];
+       },
+     );
+   }
 
-  async updateMemberRole(teamId: string, userId: string, role: string) {
-    await this.pool.query(
-      `UPDATE team_members SET role = $3, updated_at = NOW() WHERE team_id = $1 AND user_id = $2`,
-      [teamId, userId, role]
-    );
-  }
+   async removeTeamMember(teamId: string, userId: string, options?: { actingUserId?: string }) {
+     const actingUserId = options?.actingUserId || userId;
+     if (!actingUserId) {
+       throw new Error('actingUserId is required for removeTeamMember');
+     }
 
-  async getTeamMembers(teamId: string) {
-    const result = await this.pool.query(
-      `SELECT tm.*, u.email, u.name FROM team_members tm
-       JOIN users u ON u.id = tm.user_id
-       WHERE tm.team_id = $1 AND tm.is_active = true
-       ORDER BY tm.role, u.name`,
-      [teamId]
-    );
-    return result.rows;
-  }
+     return await this.withTeamContext<void>(
+       teamId,
+       actingUserId,
+       'team',
+       'write',
+       async (client) => {
+         await client.query(
+           `UPDATE team_members SET is_active = false, updated_at = NOW() WHERE team_id = $1 AND user_id = $2`,
+           [teamId, userId]
+         );
+       },
+     );
+   }
+
+   async updateMemberRole(teamId: string, userId: string, role: string, options?: { actingUserId?: string }) {
+     const actingUserId = options?.actingUserId || userId;
+     if (!actingUserId) {
+       throw new Error('actingUserId is required for updateMemberRole');
+     }
+
+     return await this.withTeamContext<void>(
+       teamId,
+       actingUserId,
+       'team',
+       'write',
+       async (client) => {
+         await client.query(
+           `UPDATE team_members SET role = $3, updated_at = NOW() WHERE team_id = $1 AND user_id = $2`,
+           [teamId, userId, role]
+         );
+       },
+     );
+   }
+
+   async getTeamMembers(teamId: string, options?: { userId?: string }) {
+     if (!options?.userId) {
+       throw new Error('userId is required for getTeamMembers');
+     }
+
+     return await this.withTeamContext<TeamMember[]>(
+       teamId,
+       options.userId,
+       'team',
+       'read',
+       async (client) => {
+         const result = await client.query(
+           `SELECT tm.*, u.email, u.name FROM team_members tm
+            JOIN users u ON u.id = tm.user_id
+            WHERE tm.team_id = $1 AND tm.is_active = true
+            ORDER BY tm.role, u.name`,
+           [teamId]
+         );
+         return result.rows;
+       },
+     );
+   }
 
   // Permissions
   async checkPermission(userId: string, teamId: string, scope: string, action: string): Promise<boolean> {
@@ -195,76 +318,172 @@ export class PostgresStore implements Store {
     );
   }
 
-  // Projects
-  async createProject(project: { teamId: string; name: string; slug?: string; repoPath?: string; repoUrl?: string }) {
-    const result = await this.pool.query(
-      `INSERT INTO projects (team_id, name, slug, repo_path, repo_url) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [project.teamId, project.name, project.slug || null, project.repoPath || null, project.repoUrl || null]
-    );
-    return result.rows[0].id;
-  }
+   // Projects
+   async createProject(project: { teamId: string; name: string; slug?: string; repoPath?: string; repoUrl?: string }, options?: { userId?: string }) {
+     if (!options?.userId) {
+       throw new Error('userId is required for createProject');
+     }
 
-  async getProject(id: string) {
-    const result = await this.pool.query(`SELECT * FROM projects WHERE id = $1`, [id]);
-    return result.rows[0] || null;
-  }
+     return await this.withTeamContext<string>(
+       project.teamId,
+       options.userId,
+       'project',
+       'write',
+       async (client) => {
+         const result = await client.query(
+           `INSERT INTO projects (team_id, name, slug, repo_path, repo_url) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+           [project.teamId, project.name, project.slug || null, project.repoPath || null, project.repoUrl || null]
+         );
+         return result.rows[0].id;
+       },
+     );
+   }
 
-  async getProjectsForTeam(teamId: string) {
-    const result = await this.pool.query(
-      `SELECT * FROM projects WHERE team_id = $1 AND is_active = true ORDER BY name`,
-      [teamId]
-    );
-    return result.rows;
-  }
+   async getProject(id: string, options?: { userId?: string }) {
+     if (!options?.userId) {
+       throw new Error('userId is required for getProject');
+     }
 
-  // Agents
-  async upsertAgent(agent: { teamId: string; userId?: string; projectId?: string; toolName: string; toolVersion?: string; instanceId: string; agentName?: string }) {
-    const result = await this.pool.query(
-      `INSERT INTO agents (team_id, user_id, project_id, tool_name, tool_version, instance_id, agent_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (team_id, instance_id) DO UPDATE SET
-         tool_version = $5, agent_name = $7, last_seen_at = NOW(), updated_at = NOW()
-       RETURNING id`,
-      [agent.teamId, agent.userId || null, agent.projectId || null, agent.toolName, agent.toolVersion || null, agent.instanceId, agent.agentName || null]
-    );
-    return result.rows[0].id;
-  }
+     // Get project's teamId
+     const result = await this.pool.query(`SELECT team_id FROM projects WHERE id = $1`, [id]);
+     if (!result.rows[0]) return null;
+     const teamId = result.rows[0].team_id;
 
-  async getAgentsForTeam(teamId: string) {
-    const result = await this.pool.query(
-      `SELECT * FROM agents WHERE team_id = $1 AND is_active = true ORDER BY last_seen_at DESC`,
-      [teamId]
-    );
-    return result.rows;
-  }
+     return await this.withTeamContext<any>(
+       teamId,
+       options.userId,
+       'project',
+       'read',
+       async (client) => {
+         const within = await client.query(`SELECT * FROM projects WHERE id = $1`, [id]);
+         return within.rows[0] || null;
+       },
+     );
+   }
 
-  // Sessions
-  async createSession(session: { id: string; agentId: string; teamId: string; projectId?: string; userId?: string; branch?: string }) {
-    await this.pool.query(
-      `INSERT INTO sessions (id, agent_id, team_id, project_id, user_id, branch, started_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-      [session.id, session.agentId, session.teamId, session.projectId || null, session.userId || null, session.branch || null]
-    );
-  }
+   async getProjectsForTeam(teamId: string, options?: { userId?: string }) {
+     if (!options?.userId) {
+       throw new Error('userId is required for getProjectsForTeam');
+     }
 
-  async updateSession(id: string, updates: { endedAt?: Date; summary?: string; status?: string; eventCount?: number }) {
-    const parts: string[] = [];
-    const params: any[] = [];
-    let idx = 1;
+     return await this.withTeamContext<any[]>(
+       teamId,
+       options.userId,
+       'project',
+       'read',
+       async (client) => {
+         const result = await client.query(
+           `SELECT * FROM projects WHERE team_id = $1 AND is_active = true ORDER BY name`,
+           [teamId]
+         );
+         return result.rows;
+       },
+     );
+   }
 
-    if (updates.endedAt) { parts.push(`ended_at = $${idx++}`); params.push(updates.endedAt); }
-    if (updates.summary) { parts.push(`summary = $${idx++}`); params.push(updates.summary); }
-    if (updates.status) { parts.push(`status = $${idx++}`); params.push(updates.status); }
-    if (updates.eventCount !== undefined) { parts.push(`event_count = $${idx++}`); params.push(updates.eventCount); }
+   // Agents
+   async upsertAgent(agent: { teamId: string; userId?: string; projectId?: string; toolName: string; toolVersion?: string; instanceId: string; agentName?: string }, options?: { userId?: string }) {
+     const actingUserId = options?.userId || agent.userId;
+     if (!actingUserId) {
+       throw new Error('userId is required for upsertAgent (provide as option or agent.userId)');
+     }
 
-    if (parts.length > 0) {
-      parts.push(`updated_at = NOW()`);
-      params.push(id);
-      await this.pool.query(`UPDATE sessions SET ${parts.join(', ')} WHERE id = $${idx}`, params);
-    }
-  }
+     return await this.withTeamContext<string>(
+       agent.teamId,
+       actingUserId,
+       'agent',
+       'write',
+       async (client) => {
+         const result = await client.query(
+           `INSERT INTO agents (team_id, user_id, project_id, tool_name, tool_version, instance_id, agent_name)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (team_id, instance_id) DO UPDATE SET
+              tool_version = $5, agent_name = $7, last_seen_at = NOW(), updated_at = NOW()
+            RETURNING id`,
+           [agent.teamId, agent.userId || null, agent.projectId || null, agent.toolName, agent.toolVersion || null, agent.instanceId, agent.agentName || null]
+         );
+         return result.rows[0].id;
+       },
+     );
+   }
 
-  // Events
+   async getAgentsForTeam(teamId: string, options?: { userId?: string }) {
+     if (!options?.userId) {
+       throw new Error('userId is required for getAgentsForTeam');
+     }
+
+     return await this.withTeamContext<any[]>(
+       teamId,
+       options.userId,
+       'agent',
+       'read',
+       async (client) => {
+         const result = await client.query(
+           `SELECT * FROM agents WHERE team_id = $1 AND is_active = true ORDER BY last_seen_at DESC`,
+           [teamId]
+         );
+         return result.rows;
+       },
+     );
+   }
+
+   // Sessions
+   async createSession(session: { id: string; agentId: string; teamId: string; projectId?: string; userId?: string; branch?: string }, options?: { userId?: string }) {
+     const actingUserId = options?.userId || session.userId;
+     if (!actingUserId) {
+       throw new Error('userId is required for createSession (provide as option or session.userId)');
+     }
+
+     return await this.withTeamContext<void>(
+       session.teamId,
+       actingUserId,
+       'session',
+       'write',
+       async (client) => {
+         await client.query(
+           `INSERT INTO sessions (id, agent_id, team_id, project_id, user_id, branch, started_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+           [session.id, session.agentId, session.teamId, session.projectId || null, session.userId || null, session.branch || null]
+         );
+       },
+     );
+   }
+
+   async updateSession(id: string, updates: { endedAt?: Date; summary?: string; status?: string; eventCount?: number }, options?: { userId?: string; teamId?: string }) {
+     if (!options?.userId) {
+       throw new Error('userId is required for updateSession');
+     }
+     if (!options?.teamId) {
+       throw new Error('teamId is required for updateSession');
+     }
+
+     return await this.withTeamContext<void>(
+       options.teamId,
+       options.userId,
+       'session',
+       'write',
+       async (client) => {
+         const parts: string[] = [];
+         const params: any[] = [];
+         let idx = 1;
+
+         if (updates.endedAt) { parts.push(`ended_at = $${idx++}`); params.push(updates.endedAt); }
+         if (updates.summary) { parts.push(`summary = $${idx++}`); params.push(updates.summary); }
+         if (updates.status) { parts.push(`status = $${idx++}`); params.push(updates.status); }
+         if (updates.eventCount !== undefined) { parts.push(`event_count = $${idx++}`); params.push(updates.eventCount); }
+
+         if (parts.length === 0) return;
+
+         parts.push(`updated_at = NOW()`);
+         params.push(id);
+         const sql = `UPDATE sessions SET ${parts.join(', ')} WHERE id = $${idx} AND team_id = $${idx+1}`;
+         params.push(options.teamId);
+         await client.query(sql, params);
+       },
+     );
+   }
+
+   // Events
   async insertEvent(event: NautalisEvent): Promise<string> {
     const span = createSpan(SPAN_NAMES.INGEST_EVENT, {
       'event.type': event.type,
@@ -334,167 +553,331 @@ export class PostgresStore implements Store {
     return result.rows.map(this.rowToEvent);
   }
 
-  // Memories
-  async insertMemory(memory: Memory): Promise<string> {
-    const span = createSpan(SPAN_NAMES.STORE_MEMORY, {
-      'memory.type': memory.classification.memoryType,
-    });
+   // Memories
+   async insertMemory(memory: Memory, options?: { userId?: string; teamId?: string }): Promise<string> {
+     const span = createSpan(SPAN_NAMES.STORE_MEMORY, {
+       'memory.type': memory.classification.memoryType,
+     });
 
-    try {
-      const id = memory.id || uuidv4();
+     // Determine userId and teamId for permission check
+     const effectiveUserId = options?.userId || memory.agentIdentity.userId;
+     const effectiveTeamId = options?.teamId || memory.context.teamId;
 
-      await this.pool.query(
-        `INSERT INTO memories (
-          id, team_id, agent_id, session_id, project_id, user_id,
-          memory_type, block_label, topics, confidence, importance, sensitivity,
-          summary, detail, files_involved, commands_exec, errors_seen, code_snippets,
-          parent_memory_id, supersedes, contradicts, supports, tags,
-          ttl, decay_rate, is_stale,
-          repo_path, repo_url, branch, cwd
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
-          $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
-        )`,
-        [
-          id,
-          memory.context.teamId || '',
-          null,
-          memory.agentIdentity.sessionId || null,
-          memory.context.projectId || null,
-          memory.agentIdentity.userId || null,
-          memory.classification.memoryType,
-          memory.classification.blockLabel || null,
-          memory.classification.topics,
-          memory.classification.confidence,
-          memory.classification.importance,
-          memory.classification.sensitivity,
-          memory.content.summary,
-          memory.content.detail || null,
-          memory.content.filesInvolved,
-          memory.content.commandsExec,
-          memory.content.errorsSeen,
-          memory.content.codeSnippets,
-          memory.relationships.parentMemoryId || null,
-          memory.relationships.supersedes,
-          memory.relationships.contradicts,
-          memory.relationships.supports,
-          memory.relationships.tags,
-          memory.lifecycle.ttl || null,
-          memory.lifecycle.decayRate,
-          memory.lifecycle.isStale,
-          memory.context.repoPath || null,
-          memory.context.repoUrl || null,
-          memory.context.branch || null,
-          memory.context.cwd,
-        ]
-      );
+     if (!effectiveTeamId) {
+       throw new Error('teamId is required for insertMemory');
+     }
+     if (!effectiveUserId) {
+       throw new Error('userId is required for insertMemory');
+     }
 
-      if (memory.embedding) {
-        await this.insertEmbedding(id, memory.embedding);
-      }
+     return await this.withTeamContext<string>(
+       effectiveTeamId,
+       effectiveUserId,
+       'memory',
+       'write', // insert counts as write
+       async (client) => {
+         const id = memory.id || uuidv4();
 
-      span.end();
-      recordMetric(METRIC_NAMES.MEMORIES_STORED, 1);
-      return id;
-    } catch (error) {
-      span.end(error as Error);
-      throw error;
+         await client.query(
+           `INSERT INTO memories (
+             id, team_id, agent_id, session_id, project_id, user_id,
+             memory_type, block_label, topics, confidence, importance, sensitivity,
+             summary, detail, files_involved, commands_exec, errors_seen, code_snippets,
+             parent_memory_id, supersedes, contradicts, supports, tags,
+             ttl, decay_rate, is_stale,
+             repo_path, repo_url, branch, cwd
+           ) VALUES (
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+             $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
+           )`,
+           [
+             id,
+             effectiveTeamId,
+             null,
+             memory.agentIdentity.sessionId || null,
+             memory.context.projectId || null,
+             effectiveUserId,
+             memory.classification.memoryType,
+             memory.classification.blockLabel || null,
+             memory.classification.topics,
+             memory.classification.confidence,
+             memory.classification.importance,
+             memory.classification.sensitivity,
+             memory.content.summary,
+             memory.content.detail || null,
+             memory.content.filesInvolved,
+             memory.content.commandsExec,
+             memory.content.errorsSeen,
+             memory.content.codeSnippets,
+             memory.relationships.parentMemoryId || null,
+             memory.relationships.supersedes,
+             memory.relationships.contradicts,
+             memory.relationships.supports,
+             memory.relationships.tags,
+             memory.lifecycle.ttl || null,
+             memory.lifecycle.decayRate,
+             memory.lifecycle.isStale,
+             memory.context.repoPath || null,
+             memory.context.repoUrl || null,
+             memory.context.branch || null,
+             memory.context.cwd,
+           ]
+         );
+
+         if (memory.embedding) {
+           await client.query(
+             `INSERT INTO memory_embeddings (memory_id, embedding) VALUES ($1, $2::vector)
+              ON CONFLICT (memory_id) DO UPDATE SET embedding = $2::vector`,
+             [id, `[${memory.embedding.join(',')}]`]
+           );
+         }
+
+         recordMetric(METRIC_NAMES.MEMORIES_STORED, 1);
+         span.end();
+         return id;
+       },
+     );
+   }
+
+   async getMemory(id: string, options?: { userId?: string; teamId?: string }) {
+     if (!options?.teamId) {
+       throw new Error('teamId is required for getMemory');
+     }
+     if (!options?.userId) {
+       throw new Error('userId is required for getMemory');
+     }
+
+     return await this.withTeamContext<Memory | null>(
+       options.teamId,
+       options.userId,
+       'memory',
+       'read',
+       async (client) => {
+         const result = await client.query(
+           `SELECT * FROM memories WHERE id = $1 AND team_id = $2`,
+           [id, options.teamId]
+         );
+         if (!result.rows[0]) return null;
+
+         // Update access tracking within same transaction
+         await client.query(
+           `UPDATE memories SET access_count = access_count + 1, last_accessed_at = NOW() WHERE id = $1`,
+           [id]
+         );
+
+         return this.rowToMemory(result.rows[0]);
+       },
+     );
+   }
+
+   async queryMemories(query: MemoryQuery & { teamId?: string; userId?: string }): Promise<MemoryQueryResult[]> {
+     const span = createSpan(SPAN_NAMES.QUERY_MEMORY, {
+       'query.text': query.query,
+     });
+
+     if (!query.teamId) {
+       throw new Error('teamId is required for queryMemories');
+     }
+     if (!query.userId) {
+       throw new Error('userId is required for queryMemories');
+     }
+
+     try {
+       return await this.withTeamContext<MemoryQueryResult[]>(
+         query.teamId,
+         query.userId,
+         'memory',
+         'read',
+         async (client) => {
+           let sql = `SELECT * FROM memories WHERE team_id = $1`;
+           const params: any[] = [query.teamId];
+           let idx = 2;
+
+           if (query.projectId) { sql += ` AND project_id = $${idx++}`; params.push(query.projectId); }
+           if (query.memoryType) { sql += ` AND memory_type = $${idx++}`; params.push(query.memoryType); }
+           if (query.minImportance !== undefined) { sql += ` AND importance >= $${idx++}`; params.push(query.minImportance); }
+           if (query.dateFrom) { sql += ` AND created_at >= $${idx++}`; params.push(query.dateFrom); }
+           if (query.dateTo) { sql += ` AND created_at <= $${idx++}`; params.push(query.dateTo); }
+
+           sql += ` ORDER BY importance DESC, created_at DESC LIMIT $${idx++}`;
+           params.push(query.limit || 20);
+
+           const result = await client.query(sql, params);
+           const results = result.rows.map((row: any) => ({
+             memory: this.rowToMemory(row),
+             score: 1.0,
+             matchedTopics: [],
+             matchedFiles: [],
+           }));
+
+           span.end();
+           return results;
+         },
+       );
+     } catch (error) {
+       span.end(error as Error);
+       throw error;
+     }
+   }
+
+   async updateMemory(id: string, updates: Partial<Memory>, options?: { userId?: string; teamId?: string }) {
+     if (!options?.teamId) {
+       throw new Error('teamId is required for updateMemory');
+     }
+     if (!options?.userId) {
+       throw new Error('userId is required for updateMemory');
+     }
+
+     return await this.withTeamContext<void>(
+       options.teamId,
+       options.userId,
+       'memory',
+       'write',
+       async (client) => {
+         // Build dynamic UPDATE statement
+         const setClauses: string[] = [];
+         const params: any[] = [];
+         let idx = 1;
+
+         // Team id cannot be updated
+         if (updates.context?.teamId) {
+           throw new Error('Cannot change memory teamId');
+         }
+
+         // Map of updatable fields
+         if (updates.classification) {
+           if (updates.classification.memoryType) { setClauses.push(`memory_type = $${idx++}`); params.push(updates.classification.memoryType); }
+           if (updates.classification.blockLabel !== undefined) { setClauses.push(`block_label = $${idx++}`); params.push(updates.classification.blockLabel); }
+           if (updates.classification.topics) { setClauses.push(`topics = $${idx++}`); params.push(updates.classification.topics); }
+           if (updates.classification.confidence !== undefined) { setClauses.push(`confidence = $${idx++}`); params.push(updates.classification.confidence); }
+           if (updates.classification.importance !== undefined) { setClauses.push(`importance = $${idx++}`); params.push(updates.classification.importance); }
+           if (updates.classification.sensitivity) { setClauses.push(`sensitivity = $${idx++}`); params.push(updates.classification.sensitivity); }
+         }
+
+         if (updates.content) {
+           if (updates.content.summary) { setClauses.push(`summary = $${idx++}`); params.push(updates.content.summary); }
+           if (updates.content.detail !== undefined) { setClauses.push(`detail = $${idx++}`); params.push(updates.content.detail); }
+           if (updates.content.filesInvolved) { setClauses.push(`files_involved = $${idx++}`); params.push(updates.content.filesInvolved); }
+           if (updates.content.commandsExec) { setClauses.push(`commands_exec = $${idx++}`); params.push(updates.content.commandsExec); }
+           if (updates.content.errorsSeen) { setClauses.push(`errors_seen = $${idx++}`); params.push(updates.content.errorsSeen); }
+           if (updates.content.codeSnippets) { setClauses.push(`code_snippets = $${idx++}`); params.push(updates.content.codeSnippets); }
+         }
+
+         if (updates.relationships) {
+           if (updates.relationships.parentMemoryId !== undefined) { setClauses.push(`parent_memory_id = $${idx++}`); params.push(updates.relationships.parentMemoryId); }
+           if (updates.relationships.supersedes) { setClauses.push(`supersedes = $${idx++}`); params.push(updates.relationships.supersedes); }
+           if (updates.relationships.contradicts) { setClauses.push(`contradicts = $${idx++}`); params.push(updates.relationships.contradicts); }
+           if (updates.relationships.supports) { setClauses.push(`supports = $${idx++}`); params.push(updates.relationships.supports); }
+           if (updates.relationships.tags) { setClauses.push(`tags = $${idx++}`); params.push(updates.relationships.tags); }
+         }
+
+         if (updates.lifecycle) {
+           if (updates.lifecycle.ttl !== undefined) { setClauses.push(`ttl = $${idx++}`); params.push(updates.lifecycle.ttl); }
+           if (updates.lifecycle.decayRate !== undefined) { setClauses.push(`decay_rate = $${idx++}`); params.push(updates.lifecycle.decayRate); }
+           if (updates.lifecycle.isStale !== undefined) { setClauses.push(`is_stale = $${idx++}`); params.push(updates.lifecycle.isStale); }
+         }
+
+         if (updates.context) {
+           if (updates.context.projectId !== undefined) { setClauses.push(`project_id = $${idx++}`); params.push(updates.context.projectId); }
+           if (updates.context.repoPath !== undefined) { setClauses.push(`repo_path = $${idx++}`); params.push(updates.context.repoPath); }
+           if (updates.context.repoUrl !== undefined) { setClauses.push(`repo_url = $${idx++}`); params.push(updates.context.repoUrl); }
+           if (updates.context.branch !== undefined) { setClauses.push(`branch = $${idx++}`); params.push(updates.context.branch); }
+           if (updates.context.cwd !== undefined) { setClauses.push(`cwd = $${idx++}`); params.push(updates.context.cwd); }
+         }
+
+         if (setClauses.length === 0) {
+           throw new Error('No updates provided');
+         }
+
+         setClauses.push(`updated_at = NOW()`);
+
+         params.push(id, options.teamId);
+         const sql = `UPDATE memories SET ${setClauses.join(', ')} WHERE id = $${idx++} AND team_id = $${idx++}`;
+
+         await client.query(sql, params);
+       },
+     );
+   }
+
+   async deleteMemory(id: string, options?: { userId?: string; teamId?: string }): Promise<void> {
+     if (!options?.teamId) {
+       throw new Error('teamId is required for deleteMemory');
+     }
+     if (!options?.userId) {
+       throw new Error('userId is required for deleteMemory');
+     }
+
+     return await this.withTeamContext<void>(
+       options.teamId,
+       options.userId,
+       'memory',
+       'delete',
+       async (client) => {
+         await client.query(`DELETE FROM memories WHERE id = $1 AND team_id = $2`, [id, options.teamId]);
+       },
+     );
     }
-  }
 
-  async getMemory(id: string) {
-    const result = await this.pool.query(
-      `SELECT * FROM memories WHERE id = $1`,
-      [id]
-    );
-    if (!result.rows[0]) return null;
+    // Old duplicate removed — use the version with options above
 
-    await this.pool.query(
-      `UPDATE memories SET access_count = access_count + 1, last_accessed_at = NOW() WHERE id = $1`,
-      [id]
-    );
+   async listMemories(teamId: string, filters?: { projectId?: string; memoryType?: string; limit?: number; userId?: string }) {
+     if (!filters?.userId) {
+       throw new Error('userId is required for listMemories');
+     }
 
-    return this.rowToMemory(result.rows[0]);
-  }
+     return await this.withTeamContext<Memory[]>(
+       teamId,
+       filters.userId,
+       'memory',
+       'read',
+       async (client) => {
+         let sql = `SELECT * FROM memories WHERE team_id = $1`;
+         const params: any[] = [teamId];
+         let idx = 2;
 
-  async queryMemories(query: MemoryQuery): Promise<MemoryQueryResult[]> {
-    const span = createSpan(SPAN_NAMES.QUERY_MEMORY, {
-      'query.text': query.query,
-    });
+         if (filters?.projectId) { sql += ` AND project_id = $${idx++}`; params.push(filters.projectId); }
+         if (filters?.memoryType) { sql += ` AND memory_type = $${idx++}`; params.push(filters.memoryType); }
 
-    try {
-      let sql = `SELECT * FROM memories WHERE 1=1`;
-      const params: any[] = [];
-      let idx = 1;
+         sql += ` ORDER BY importance DESC, created_at DESC LIMIT $${idx++}`;
+         params.push(filters?.limit || 50);
 
-      if (query.projectId) { sql += ` AND project_id = $${idx++}`; params.push(query.projectId); }
-      if (query.memoryType) { sql += ` AND memory_type = $${idx++}`; params.push(query.memoryType); }
-      if (query.minImportance !== undefined) { sql += ` AND importance >= $${idx++}`; params.push(query.minImportance); }
-      if (query.dateFrom) { sql += ` AND created_at >= $${idx++}`; params.push(query.dateFrom); }
-      if (query.dateTo) { sql += ` AND created_at <= $${idx++}`; params.push(query.dateTo); }
+         const result = await client.query(sql, params);
+         return result.rows.map(this.rowToMemory);
+       },
+     );
+   }
 
-      sql += ` ORDER BY importance DESC, created_at DESC LIMIT $${idx++}`;
-      params.push(query.limit || 20);
+   async findSimilarMemories(embedding: number[], teamId: string, limit = 10, minScore = 0.7, options?: { userId?: string }) {
+     if (!options?.userId) {
+       throw new Error('userId is required for findSimilarMemories');
+     }
 
-      const result = await this.pool.query(sql, params);
-      const results = result.rows.map(row => ({
-        memory: this.rowToMemory(row),
-        score: 1.0,
-        matchedTopics: [],
-        matchedFiles: [],
-      }));
+     return await this.withTeamContext<MemoryQueryResult[]>(
+       teamId,
+       options.userId,
+       'memory',
+       'read',
+       async (client) => {
+         const result = await client.query(
+           `SELECT m.*, 1 - (me.embedding <=> $1::vector) AS similarity
+            FROM memory_embeddings me
+            JOIN memories m ON m.id = me.memory_id
+            WHERE m.team_id = $2 AND m.is_stale = false
+            AND 1 - (me.embedding <=> $1::vector) >= $3
+            ORDER BY me.embedding <=> $1::vector
+            LIMIT $4`,
+           [`[${embedding.join(',')}]`, teamId, minScore, limit]
+         );
 
-      span.end();
-      return results;
-    } catch (error) {
-      span.end(error as Error);
-      throw error;
-    }
-  }
-
-  async updateMemory(id: string, updates: Partial<Memory>) {
-    // TODO: Implement partial update
-  }
-
-  async deleteMemory(id: string) {
-    await this.pool.query(`DELETE FROM memory_embeddings WHERE memory_id = $1`, [id]);
-    await this.pool.query(`DELETE FROM memories WHERE id = $1`, [id]);
-  }
-
-  async listMemories(teamId: string, filters?: { projectId?: string; memoryType?: string; limit?: number }) {
-    let sql = `SELECT * FROM memories WHERE team_id = $1`;
-    const params: any[] = [teamId];
-    let idx = 2;
-
-    if (filters?.projectId) { sql += ` AND project_id = $${idx++}`; params.push(filters.projectId); }
-    if (filters?.memoryType) { sql += ` AND memory_type = $${idx++}`; params.push(filters.memoryType); }
-
-    sql += ` ORDER BY importance DESC, created_at DESC LIMIT $${idx++}`;
-    params.push(filters?.limit || 50);
-
-    const result = await this.pool.query(sql, params);
-    return result.rows.map(this.rowToMemory);
-  }
-
-  async findSimilarMemories(embedding: number[], teamId: string, limit = 10, minScore = 0.7) {
-    const result = await this.pool.query(
-      `SELECT m.*, 1 - (me.embedding <=> $1::vector) AS similarity
-       FROM memory_embeddings me
-       JOIN memories m ON m.id = me.memory_id
-       WHERE m.team_id = $2 AND m.is_stale = false
-       AND 1 - (me.embedding <=> $1::vector) >= $3
-       ORDER BY me.embedding <=> $1::vector
-       LIMIT $4`,
-      [`[${embedding.join(',')}]`, teamId, minScore, limit]
-    );
-
-    return result.rows.map(row => ({
-      memory: this.rowToMemory(row),
-      score: row.similarity,
-      matchedTopics: [],
-      matchedFiles: [],
-    }));
-  }
+         return result.rows.map((row: any) => ({
+           memory: this.rowToMemory(row),
+           score: row.similarity,
+           matchedTopics: [],
+           matchedFiles: [],
+         }));
+       },
+     );
+   }
 
   async insertEmbedding(memoryId: string, embedding: number[]) {
     await this.pool.query(
@@ -504,15 +887,214 @@ export class PostgresStore implements Store {
     );
   }
 
-  // Knowledge Base (delegated)
-  async createKnowledgeBase(entry: any) { return this.kbEngine.create(entry); }
-  async getKnowledgeBase(id: string) { return this.kbEngine.get(id); }
-  async queryKnowledgeBase(query: any) { return this.kbEngine.query(query); }
-  async updateKnowledgeBase(id: string, updates: any) { return this.kbEngine.update(id, updates); }
-  async deleteKnowledgeBase(id: string) { return this.kbEngine.delete(id); }
-  async searchKnowledgeBase(teamId: string, query: string, embedding?: number[], options?: any) {
-    return this.kbEngine.search(teamId, query, embedding, options);
-  }
+   // Knowledge Base (with permission enforcement)
+   async createKnowledgeBase(entry: any, options?: { userId?: string }): Promise<string> {
+     const userId = options?.userId || entry.createdById;
+     if (!userId) throw new Error('userId is required for createKnowledgeBase');
+     if (!entry.teamId) throw new Error('teamId is required for createKnowledgeBase');
+
+     return await this.withTeamContext<string>(
+       entry.teamId,
+       userId,
+       'knowledge_base',
+       'write',
+       async (client) => {
+         const id = entry.id || uuidv4();
+         await client.query(
+           `INSERT INTO knowledge_base (id, team_id, project_id, created_by, title, content, content_type, category, tags, topics, visibility, source, source_agent_id, confidence)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+           [
+             id,
+             entry.teamId,
+             entry.projectId || null,
+             userId,
+             entry.title,
+             entry.content,
+             entry.contentType || 'markdown',
+             entry.category || null,
+             entry.tags || [],
+             entry.topics || [],
+             entry.visibility || 'team',
+             entry.source || 'manual',
+             entry.sourceAgentId || null,
+             entry.confidence ?? 1.0,
+           ],
+         );
+
+         if (entry.embedding) {
+           await client.query(
+             `INSERT INTO knowledge_base_embeddings (kb_id, embedding) VALUES ($1, $2::vector)`,
+             [id, `[${entry.embedding.join(',')}]`],
+           );
+         }
+
+         recordMetric(METRIC_NAMES.KNOWLEDGE_BASE_CREATED, 1);
+         return id;
+       },
+     );
+   }
+
+   async getKnowledgeBase(id: string, options?: { userId?: string }): Promise<any> {
+     if (!options?.userId) throw new Error('userId is required for getKnowledgeBase');
+
+     // First get the entry to determine teamId
+     const result = await this.pool.query(
+       `SELECT * FROM knowledge_base WHERE id = $1 AND is_archived = false`,
+       [id]
+     );
+     const entry = result.rows[0];
+     if (!entry) return null;
+
+     if (!entry.teamId) throw new Error('teamId missing from knowledge base entry');
+
+     return await this.withTeamContext<any>(
+       entry.teamId,
+       options.userId,
+       'knowledge_base',
+       'read',
+       async (client) => {
+         // Re-fetch within context to respect RLS
+         const withinContext = await client.query(
+           `SELECT * FROM knowledge_base WHERE id = $1 AND is_archived = false`,
+           [id]
+         );
+         return withinContext.rows[0] || null;
+       },
+     );
+   }
+
+   async queryKnowledgeBase(query: any & { userId?: string; teamId?: string }): Promise<any[]> {
+     if (!query.teamId) throw new Error('teamId is required for queryKnowledgeBase');
+     if (!query.userId) throw new Error('userId is required for queryKnowledgeBase');
+
+     return await this.withTeamContext<any[]>(
+       query.teamId,
+       query.userId,
+       'knowledge_base',
+       'read',
+       async (client) => {
+         let sql = `SELECT * FROM knowledge_base WHERE team_id = $1`;
+         const params: any[] = [query.teamId];
+         let idx = 2;
+
+         if (!query.includeArchived) {
+           sql += ` AND is_archived = false`;
+         }
+
+         if (query.category) { sql += ` AND category = $${idx++}`; params.push(query.category); }
+         if (query.visibility) { sql += ` AND visibility = $${idx++}`; params.push(query.visibility); }
+         if (query.projectId) { sql += ` AND project_id = $${idx++}`; params.push(query.projectId); }
+         if (query.tags && query.tags.length > 0) {
+           sql += ` && $${idx++}`; params.push(query.tags);
+         }
+
+         sql += ` ORDER BY updated_at DESC LIMIT $${idx++}`;
+         params.push(query.limit || 50);
+
+         const result = await client.query(sql, params);
+         return result.rows;
+       },
+     );
+    }
+
+    async updateKnowledgeBase(id: string, updates: any, options?: { userId?: string }): Promise<void> {
+     if (!options?.userId) throw new Error('userId is required for updateKnowledgeBase');
+
+     // Get entry to determine teamId
+     const result = await this.pool.query(`SELECT team_id FROM knowledge_base WHERE id = $1`, [id]);
+     if (!result.rows[0]) throw new Error('Knowledge base entry not found');
+     const teamId = result.rows[0].team_id;
+
+     return await this.withTeamContext<void>(
+       teamId,
+       options.userId,
+       'knowledge_base',
+       'write',
+       async (client) => {
+         const fields = Object.keys(updates).filter((k) => k !== 'id' && k !== 'embedding');
+         if (fields.length === 0) return;
+
+         const setClauses = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
+         const values = [
+           id,
+           ...fields.map((f) => {
+             const value = updates[f as keyof any];
+             return Array.isArray(value) ? value : value;
+           }),
+         ];
+
+         await client.query(
+           `UPDATE knowledge_base SET ${setClauses}, version = version + 1, updated_at = NOW() WHERE id = $1`,
+           values,
+         );
+       },
+     );
+   }
+
+   async deleteKnowledgeBase(id: string, options?: { userId?: string }): Promise<void> {
+     if (!options?.userId) throw new Error('userId is required for deleteKnowledgeBase');
+
+     // Get entry to determine teamId
+     const result = await this.pool.query(`SELECT team_id FROM knowledge_base WHERE id = $1`, [id]);
+     if (!result.rows[0]) throw new Error('Knowledge base entry not found');
+     const teamId = result.rows[0].team_id;
+
+     return await this.withTeamContext<void>(
+       teamId,
+       options.userId,
+       'knowledge_base',
+       'write',
+       async (client) => {
+         await client.query(`DELETE FROM knowledge_base_embeddings WHERE kb_id = $1`, [id]);
+         await client.query(`DELETE FROM knowledge_base WHERE id = $1`, [id]);
+       },
+     );
+   }
+
+   async searchKnowledgeBase(teamId: string, query: string, embedding?: number[], options?: { category?: string; limit?: number; userId?: string }): Promise<any[]> {
+     if (!options?.userId) throw new Error('userId is required for searchKnowledgeBase');
+
+     return await this.withTeamContext<any[]>(
+       teamId,
+       options.userId,
+       'knowledge_base',
+       'read',
+       async (client) => {
+         // Perform search within permission context
+         if (embedding) {
+           const result = await client.query(
+             `SELECT kb.*, 1 - (kbe.embedding <=> $1::vector) AS similarity
+              FROM knowledge_base_embeddings kbe
+              JOIN knowledge_base kb ON kb.id = kbe.kb_id
+              WHERE kb.team_id = $2 AND kb.is_published = true AND kb.is_archived = false
+              ${options?.category ? 'AND kb.category = $3' : ''}
+              ORDER BY kbe.embedding <=> $1::vector
+              LIMIT $${options?.category ? 4 : 3}`,
+             embedding
+               ? [
+                   `[${embedding.join(',')}]`,
+                   teamId,
+                   ...(options?.category ? [options.category] : []),
+                   options?.limit || 10,
+                 ]
+               : [teamId, options?.limit || 10],
+           );
+           return result.rows;
+         } else {
+           const result = await client.query(
+             `SELECT *, ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', $1)) AS rank
+              FROM knowledge_base
+              WHERE team_id = $2 AND is_published = true AND is_archived = false
+              AND to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', $1)
+              ORDER BY rank DESC
+              LIMIT $3`,
+             [query, teamId, options?.limit || 10],
+           );
+           return result.rows;
+         }
+       },
+     );
+   }
 
   // Telemetry
   async insertTelemetry(entry: { teamId: string; signalType: string; name: string; attributes?: Record<string, unknown>; value?: number; message?: string; traceId?: string; spanId?: string; startTime: Date; endTime?: Date }) {

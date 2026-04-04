@@ -1,6 +1,23 @@
 # Nautalis — Universal AI Agent Memory & Orchestration Platform
 
-## Project Summary
+## Current Status
+
+- **Version:** 0.1.0 (Early Alpha)
+- **Production Readiness:** 35%
+- **Implementation Completeness:** ~60%
+- **MVP Timeline:** 8-12 weeks
+- **Test Coverage:** 0%
+- **Design vs Implementation Gap:** Significant (95% designed, 30% implemented)
+
+### Top Priorities (Next 90 Days)
+
+1. **Define MVP scope** — Reduce from 70+ requirements to essential 30%
+2. **Validate connectors** — Test Claude Code hooks on real installations
+3. **Complete RAG pipeline** — Bridge LlamaIndex to PostgreSQL for search
+4. **Implement test suite** — 80%+ coverage for confident development
+5. **Add SQLite option** — Lower barrier to entry for solo developers
+6. **Implement error resilience** — Retry, circuit breakers, graceful degradation
+7. **Benchmark performance** — Meet latency targets (embedding <200ms, search <500ms)
 
 ### What is Nautalis?
 
@@ -31,18 +48,18 @@ Nautalis acts as a **universal memory layer** that sits between all AI agents an
 
 ### Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| **Runtime** | Bun (fast, native TypeScript) |
-| **Language** | TypeScript (strict mode) |
-| **RAG / Embeddings** | LlamaIndex.TS |
-| **Observability** | OpenTelemetry (traces, logs, metrics) |
-| **Storage** | SQLite (personal) / PostgreSQL (team/enterprise) |
-| **Embeddings** | Ollama (local, zero-cost) / OpenAI / cloud providers |
-| **CLI** | commander.js |
-| **TUI** | ink (React-based terminal UI) |
-| **API** | Hono (lightweight, fast HTTP framework) |
-| **MCP** | Model Context Protocol server |
+| Layer                | Technology                                           |
+| -------------------- | ---------------------------------------------------- |
+| **Runtime**          | Bun (fast, native TypeScript)                        |
+| **Language**         | TypeScript (strict mode)                             |
+| **RAG / Embeddings** | LlamaIndex.TS                                        |
+| **Observability**    | OpenTelemetry (traces, logs, metrics)                |
+| **Storage**          | SQLite (personal) / PostgreSQL (team/enterprise)     |
+| **Embeddings**       | Ollama (local, zero-cost) / OpenAI / cloud providers |
+| **CLI**              | commander.js                                         |
+| **TUI**              | ink (React-based terminal UI)                        |
+| **API**              | Hono (lightweight, fast HTTP framework)              |
+| **MCP**              | Model Context Protocol server                        |
 
 ### Zero-Cost Design
 
@@ -58,22 +75,24 @@ Teams and enterprises can scale up with PostgreSQL, cloud embeddings, and manage
 
 ### Target Users
 
-| User | Use Case |
-|------|----------|
-| **Solo Developers** | Personal memory across multiple AI coding tools, never lose context |
-| **Small Teams** | Shared memory pool, cross-agent knowledge transfer, team visibility |
-| **Enterprises** | Full observability pipeline, audit trails, compliance, multi-team orchestration |
-| **AI Agent Developers** | SDK for building agents with persistent, shared memory |
+| User                    | Use Case                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| **Solo Developers**     | Personal memory across multiple AI coding tools, never lose context             |
+| **Small Teams**         | Shared memory pool, cross-agent knowledge transfer, team visibility             |
+| **Enterprises**         | Full observability pipeline, audit trails, compliance, multi-team orchestration |
+| **AI Agent Developers** | SDK for building agents with persistent, shared memory                          |
 
 ### Key Features
 
 #### Connector System
+
 - Pluggable architecture for AI tool integrations
 - Auto-registration via registry pattern
 - Support for Claude Code, Kilo Code, Cursor, Windsurf, Copilot, and custom agents
 - Event capture: commands, file edits, decisions, errors, context
 
 #### Memory Enrichment
+
 - Automatic classification and tagging of memories
 - Semantic embeddings via LlamaIndex.TS
 - Relationship extraction between memories
@@ -81,18 +100,21 @@ Teams and enterprises can scale up with PostgreSQL, cloud embeddings, and manage
 - Confidence scoring and relevance ranking
 
 #### Context Injection
+
 - Real-time context retrieval for any agent
 - Cross-agent synthesis (what did other agents learn about this codebase?)
 - Configurable context windows and relevance thresholds
 - Temporal context (what happened recently vs. historically)
 
 #### Team Sync
+
 - Shared memory pools with role-based access
 - Cross-agent knowledge transfer between team members
 - Agent identity management and attribution
 - Conflict resolution for overlapping memories
 
 #### Observability Pipeline
+
 - Full OpenTelemetry instrumentation
 - Distributed traces across agent interactions
 - Structured logs with memory context
@@ -182,6 +204,7 @@ nautalis/
 
 - [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) — This file: high-level overview
 - [CONTEXT.md](./CONTEXT.md) — Background, problem space, design philosophy
+- [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) — Feature completeness and implementation gaps
 - [AGENTS.md](./AGENTS.md) — AI agent instructions for working on this project
 - [RULES.md](./RULES.md) — Project rules, conventions, and standards
 - [SRS.md](./SRS.md) — Software Requirements Specification

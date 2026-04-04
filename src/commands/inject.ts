@@ -28,9 +28,12 @@ export function registerInjectCommand(program: Command): void {
         const store = await getStore(config);
         await store.init();
 
-        // Build context: recent important memories from the team
-        const limit = parseInt(opts.limit);
-        const memories = await store.listMemories(config.general.teamId, { limit });
+         // Build context: recent important memories from the team
+         const limit = parseInt(opts.limit);
+         const memories = await store.listMemories(config.general.teamId, {
+           limit,
+           userId: config.general.userId,
+         });
 
         spinner.stop();
 

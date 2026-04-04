@@ -27,10 +27,11 @@ export function registerTimelineCommand(program: Command): void {
           throw new Error('Team ID required. Use --team flag or set teamId in config.');
         }
 
-        const memories = await store.listMemories(config.general.teamId, {
-          projectId: opts.project,
-          limit: parseInt(opts.limit),
-        });
+         const memories = await store.listMemories(config.general.teamId, {
+           projectId: opts.project,
+           limit: parseInt(opts.limit),
+           userId: config.general.userId,
+         });
 
         spinner.stop();
 

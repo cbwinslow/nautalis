@@ -33,6 +33,7 @@ export const SPAN_NAMES = {
   INGEST_EVENT: 'nautalis.ingest.event',
   ENRICH_MEMORY: 'nautalis.memory.enrich',
   STORE_MEMORY: 'nautalis.memory.store',
+  STORE_PERMISSION: 'nautalis.permission.check',
   QUERY_MEMORY: 'nautalis.memory.query',
   EMBED_TEXT: 'nautalis.embed.text',
   CONNECTOR_SETUP: 'nautalis.connector.setup',
@@ -54,4 +55,6 @@ export const METRIC_NAMES = {
   QUERY_LATENCY: 'nautalis.query.latency_ms',
   MEMORY_COUNT: 'nautalis.memory.total_count',
   ACTIVE_SESSIONS: 'nautalis.sessions.active',
+  KNOWLEDGE_BASE_CREATED: 'nautalis.knowledge_base.created',
+  KNOWLEDGE_BASE_SEARCHED: 'nautalis.knowledge_base.searched',
 } as const;

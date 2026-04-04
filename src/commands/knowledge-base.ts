@@ -51,21 +51,22 @@ export function registerKnowledgeBaseCommand(program: Command): void {
 
           const tags = options.tags ? options.tags.split(',').map((t) => t.trim()) : [];
 
-          const entry: KBEntry = {
-            teamId,
-            projectId: options.project,
-            title,
-            content,
-            contentType: options.contentType || 'markdown',
-            category: options.category,
-            tags,
-            topics: [], // Will be auto-generated
-            visibility: options.visibility || 'team',
-            source: 'manual',
-            confidence: 1.0,
-          };
+           const entry: KBEntry = {
+             teamId,
+             projectId: options.project,
+             title,
+             content,
+             contentType: options.contentType || 'markdown',
+             category: options.category,
+             tags,
+             topics: [], // Will be auto-generated
+             visibility: options.visibility || 'team',
+             source: 'manual',
+             confidence: 1.0,
+             createdById: config.general.userId,
+           };
 
-          const id = await store.createKnowledgeBase(entry as KnowledgeBaseEntry);
+           const id = await store.createKnowledgeBase(entry as KnowledgeBaseEntry, { userId: config.general.userId });
 
           spinner.succeed(chalk.green(`Knowledge base entry created successfully!`));
           console.log(chalk.gray(`  ID: ${id}`));
@@ -104,10 +105,11 @@ export function registerKnowledgeBaseCommand(program: Command): void {
             throw new Error('No team specified. Use --team or set current team in config.');
           }
 
-          const results = await store.searchKnowledgeBase(teamId, query, undefined, {
-            category: options.category,
-            limit: parseInt(options.limit || '20'),
-          });
+           const results = await store.searchKnowledgeBase(teamId, query, undefined, {
+             category: options.category,
+             limit: parseInt(options.limit || '20'),
+             userId: config.general.userId,
+           });
 
           spinner.stop();
 
@@ -167,14 +169,15 @@ export function registerKnowledgeBaseCommand(program: Command): void {
             throw new Error('No team specified. Use --team or set current team in config.');
           }
 
-          const query = {
-            query: '',
-            teamId,
-            category: options.category,
-            visibility: options.visibility as KbVisibility,
-            limit: parseInt(options.limit || '50'),
-            includeArchived: false,
-          };
+           const query = {
+             query: '',
+             teamId,
+             category: options.category,
+             visibility: options.visibility as KbVisibility,
+             limit: parseInt(options.limit || '50'),
+             includeArchived: false,
+             userId: config.general.userId,
+           };
 
           const results = await store.queryKnowledgeBase(query);
 
@@ -216,33 +219,33 @@ export function registerKnowledgeBaseCommand(program: Command): void {
       },
     );
 
-  kbCmd
-    .command('get <id>')
-    .description('Get a specific knowledge base entry')
-    .option('--json', 'Output as JSON')
-    .action(async (id: string, options: { json?: boolean }) => {
-      const spinner = ora('Loading knowledge base entry...').start();
+   kbCmd
+     .command('get <id>')
+     .description('Get a specific knowledge base entry')
+     .option('--json', 'Output as JSON')
+     .action(async (id: string, options: { json?: boolean }) => {
+       const spinner = ora('Loading knowledge base entry...').start();
 
-      try {
-        const config = await loadConfig();
-        const store = await getStore(config);
-        await store.init();
+       try {
+         const config = await loadConfig();
+         const store = await getStore(config);
+         await store.init();
 
-        const entry = await store.getKnowledgeBase(id);
+         const entry = await store.getKnowledgeBase(id, { userId: config.general.userId });
 
-        if (!entry) {
-          spinner.fail(chalk.red(`Knowledge base entry with ID "${id}" not found`));
-          process.exit(1);
-        }
+         if (!entry) {
+           spinner.fail(chalk.red(`Knowledge base entry with ID "${id}" not found`));
+           process.exit(1);
+         }
 
-        spinner.stop();
+         spinner.stop();
 
-        if (options.json) {
-          console.log(JSON.stringify(entry, null, 2));
-          return;
-        }
+         if (options.json) {
+           console.log(JSON.stringify(entry, null, 2));
+           return;
+         }
 
-        console.log(chalk.cyan(`\n  Knowledge Base Entry\n`));
+         console.log(chalk.cyan(`\n  Knowledge Base Entry\n`));
         console.log(chalk.bold(`  Title: ${entry.title}`));
         console.log(chalk.gray(`  ID: ${entry.id}`));
         console.log(chalk.gray(`  Team: ${entry.teamId}`));
@@ -288,34 +291,34 @@ export function registerKnowledgeBaseCommand(program: Command): void {
         const store = await getStore(config);
         await store.init();
 
-        // Get the entry first to show what we're deleting
-        const entry = await store.getKnowledgeBase(id);
-        if (!entry) {
-          spinner.fail(chalk.red(`Knowledge base entry with ID "${id}" not found`));
-          process.exit(1);
-        }
+         // Get the entry first to show what we're deleting
+         const entry = await store.getKnowledgeBase(id, { userId: config.general.userId });
+         if (!entry) {
+           spinner.fail(chalk.red(`Knowledge base entry with ID "${id}" not found`));
+           process.exit(1);
+         }
 
-        if (!options.force) {
-          spinner.stop();
-          console.log(chalk.yellow(`Are you sure you want to delete "${entry.title}"? (y/N)`));
-          process.stdin.setRawMode(true);
-          process.stdin.resume();
-          const key = await new Promise<string>((resolve) => {
-            process.stdin.once('data', (data) => {
-              resolve(data.toString());
-            });
-          });
-          process.stdin.setRawMode(false);
-          process.stdin.pause();
+         if (!options.force) {
+           spinner.stop();
+           console.log(chalk.yellow(`Are you sure you want to delete "${entry.title}"? (y/N)`));
+           process.stdin.setRawMode(true);
+           process.stdin.resume();
+           const key = await new Promise<string>((resolve) => {
+             process.stdin.once('data', (data) => {
+               resolve(data.toString());
+             });
+           });
+           process.stdin.setRawMode(false);
+           process.stdin.pause();
 
-          if (key.toLowerCase() !== 'y' && key !== '\r') {
-            console.log(chalk.gray('Operation cancelled'));
-            return;
-          }
-          spinner.start();
-        }
+           if (key.toLowerCase() !== 'y' && key !== '\r') {
+             console.log(chalk.gray('Operation cancelled'));
+             return;
+           }
+           spinner.start();
+         }
 
-        await store.deleteKnowledgeBase(id);
+         await store.deleteKnowledgeBase(id, { userId: config.general.userId });
 
         spinner.succeed(chalk.green(`Knowledge base entry "${entry.title}" deleted successfully`));
       } catch (error) {

@@ -85,61 +85,61 @@ export function registerTeamCommand(program: Command): void {
       }
     });
 
-  teamCmd
-    .command('info <team>')
-    .description('Show team information and members')
-    .action(async (teamIdentifier: string) => {
-      const spinner = ora('Loading team info...').start();
+   teamCmd
+     .command('info <team>')
+     .description('Show team information and members')
+     .action(async (teamIdentifier: string) => {
+       const spinner = ora('Loading team info...').start();
 
-      try {
-        const config = await loadConfig();
-        const store = await getStore(config);
-        await store.init();
+       try {
+         const config = await loadConfig();
+         const store = await getStore(config);
+         await store.init();
 
-        // Try to get team by ID first, then by slug
-        let team = await store.getTeam(teamIdentifier);
-        if (!team) {
-          team = await store.getTeamBySlug(teamIdentifier);
-        }
+         // Try to get team by ID first, then by slug
+         let team = await store.getTeam(teamIdentifier, { userId: config.general.userId });
+         if (!team) {
+           team = await store.getTeamBySlug(teamIdentifier);
+         }
 
-        if (!team) {
-          throw new Error(`Team "${teamIdentifier}" not found`);
-        }
+         if (!team) {
+           throw new Error(`Team "${teamIdentifier}" not found`);
+         }
 
-        const members = await store.getTeamMembers(team.id);
+         const members = await store.getTeamMembers(team.id, { userId: config.general.userId });
 
-        spinner.stop();
+         spinner.stop();
 
-        console.log(chalk.cyan(`\n  Team: ${team.name}`));
-        console.log(chalk.gray(`  Slug: ${team.slug}`));
-        console.log(chalk.gray(`  ID: ${team.id}`));
-        console.log(chalk.gray(`  Created: ${team.createdAt.toISOString()}`));
-        console.log(chalk.gray(`  Members: ${members.length}`));
-        console.log('');
+         console.log(chalk.cyan(`\n  Team: ${team.name}`));
+         console.log(chalk.gray(`  Slug: ${team.slug}`));
+         console.log(chalk.gray(`  ID: ${team.id}`));
+         console.log(chalk.gray(`  Created: ${team.createdAt.toISOString()}`));
+         console.log(chalk.gray(`  Members: ${members.length}`));
+         console.log('');
 
-        if (members.length > 0) {
-          console.log(chalk.bold('  Members:'));
-          for (const member of members) {
-            const roleColor =
-              member.role === 'owner'
-                ? chalk.magenta
-                : member.role === 'admin'
-                  ? chalk.red
-                  : member.role === 'manager'
-                    ? chalk.yellow
-                    : member.role === 'member'
-                      ? chalk.blue
-                      : chalk.gray;
-            console.log(
-              `    ${roleColor(member.role)} ${member.name || member.email} (${member.userId})`,
-            );
-          }
-        }
-      } catch (error) {
-        spinner.fail(chalk.red(`Failed to get team info: ${error}`));
-        process.exit(1);
-      }
-    });
+         if (members.length > 0) {
+           console.log(chalk.bold('  Members:'));
+           for (const member of members) {
+             const roleColor =
+               member.role === 'owner'
+                 ? chalk.magenta
+                 : member.role === 'admin'
+                   ? chalk.red
+                   : member.role === 'manager'
+                     ? chalk.yellow
+                     : member.role === 'member'
+                       ? chalk.blue
+                       : chalk.gray;
+             console.log(
+               `    ${roleColor(member.role)} ${member.name || member.email} (${member.userId})`,
+             );
+           }
+         }
+       } catch (error) {
+         spinner.fail(chalk.red(`Failed to get team info: ${error}`));
+         process.exit(1);
+       }
+     });
 
   teamCmd
     .command('invite <email>')
@@ -165,14 +165,14 @@ export function registerTeamCommand(program: Command): void {
           user = await store.createUser({ email, name: email.split('@')[0] });
         }
 
-        // Check if already a member
-        const members = await store.getTeamMembers(teamId);
-        const existingMember = members.find((m) => m.userId === user.id);
-        if (existingMember) {
-          throw new Error(`User ${email} is already a member of this team`);
-        }
+         // Check if already a member
+         const members = await store.getTeamMembers(teamId, { userId: config.general.userId });
+         const existingMember = members.find((m) => m.userId === user.id);
+         if (existingMember) {
+           throw new Error(`User ${email} is already a member of this team`);
+         }
 
-        await store.addTeamMember(teamId, user.id, options.role);
+         await store.addTeamMember(teamId, user.id, options.role, { actingUserId: config.general.userId });
 
         spinner.succeed(chalk.green(`User ${email} invited to team as ${options.role}`));
       } catch (error) {
@@ -198,7 +198,7 @@ export function registerTeamCommand(program: Command): void {
           throw new Error('No team specified. Use --team or set current team in config.');
         }
 
-        await store.updateMemberRole(teamId, userId, role);
+         await store.updateMemberRole(teamId, userId, role, { actingUserId: config.general.userId });
 
         spinner.succeed(chalk.green(`Member role updated to ${role}`));
       } catch (error) {
@@ -224,7 +224,7 @@ export function registerTeamCommand(program: Command): void {
           throw new Error('No team specified. Use --team or set current team in config.');
         }
 
-        await store.removeTeamMember(teamId, userId);
+         await store.removeTeamMember(teamId, userId, { actingUserId: config.general.userId });
 
         spinner.succeed(chalk.green('Member removed from team'));
       } catch (error) {
@@ -244,17 +244,17 @@ export function registerTeamCommand(program: Command): void {
         const store = await getStore(config);
         await store.init();
 
-        // Try to get team by ID first, then by slug
-        let team = await store.getTeam(teamIdentifier);
-        if (!team) {
-          team = await store.getTeamBySlug(teamIdentifier);
-        }
+         // Try to get team by ID first, then by slug
+         let team = await store.getTeam(teamIdentifier, { userId: config.general.userId });
+         if (!team) {
+           team = await store.getTeamBySlug(teamIdentifier);
+         }
 
-        if (!team) {
-          throw new Error(`Team "${teamIdentifier}" not found`);
-        }
+         if (!team) {
+           throw new Error(`Team "${teamIdentifier}" not found`);
+         }
 
-        const members = await store.getTeamMembers(team.id);
+         const members = await store.getTeamMembers(team.id, { userId: config.general.userId });
 
         spinner.stop();
 

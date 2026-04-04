@@ -41,6 +41,14 @@ Universal AI Agent Memory & Orchestration Platform
 - [004 — SQLite as Default Storage](decisions/004-sqlite-default-storage.md)
 - [005 — Ollama for Local Embeddings](decisions/005-ollama-local-embeddings.md)
 
+## Project Analysis
+
+- [Comprehensive Review & Strategic Analysis (2026-04-03)](decisions/COMPREHENSIVE_REVIEW_2026-04-03.md) — Detailed evaluation of architecture, implementation gaps, tech stack, and 90-day action plan
+
+## Project Tracking
+
+- [Implementation Status](../IMPLEMENTATION_STATUS.md) — Feature completeness and implementation gaps
+
 ## API Specifications
 
 - [OpenAPI Specification](api/openapi.yaml)

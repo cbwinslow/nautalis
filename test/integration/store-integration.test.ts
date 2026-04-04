@@ -77,11 +77,11 @@ describe('PostgresStore Integration', () => {
         name: 'Team Alpha',
         slug: 'team-alpha',
         ownerId: user1.id,
-      });
-      await store.addTeamMember(team.id, user2.id, 'member');
+       });
+       await store.addTeamMember(team.id, user2.id, 'member', { actingUserId: user1.id });
 
-      const members = await store.getTeamMembers(team.id);
-      expect(members.length).toBe(2); // owner + member
+       const members = await store.getTeamMembers(team.id, { userId: user1.id });
+       expect(members.length).toBe(2); // owner + member
 
       const teamsForUser2 = await store.getTeamsForUser(user2.id);
       expect(teamsForUser2.length).toBe(1);
@@ -125,11 +125,11 @@ describe('PostgresStore Integration', () => {
         },
       });
 
-      const memoryId = await store.insertMemory(memory);
-      expect(memoryId).toBe(memory.id);
+       const memoryId = await store.insertMemory(memory);
+       expect(memoryId).toBe(memory.id);
 
-      const retrieved = await store.getMemory(memoryId);
-      expect(retrieved).toBeDefined();
+       const retrieved = await store.getMemory(memoryId, { userId, teamId });
+       expect(retrieved).toBeDefined();
       expect(retrieved?.id).toBe(memory.id);
       expect(retrieved?.content.summary).toBe(memory.content.summary);
       expect(retrieved?.embedding).toBeDefined();
@@ -165,12 +165,13 @@ describe('PostgresStore Integration', () => {
         await store.insertMemory(memory);
       }
 
-      const results = await store.queryMemories({
-        query: '*',
-        teamId,
-        memoryType: 'episodic',
-        limit: 10,
-      });
+       const results = await store.queryMemories({
+         query: '*',
+         teamId,
+         userId,
+         memoryType: 'episodic',
+         limit: 10,
+       });
 
       expect(results.length).toBeGreaterOrEqual(3); // At least 3 episodic
     });
@@ -219,8 +220,8 @@ describe('PostgresStore Integration', () => {
       await store.insertMemory(mem1);
       await store.insertMemory(mem2);
 
-      const queryEmbedding = Array(384).fill(0.15);
-      const results = await store.findSimilarMemories(queryEmbedding, teamId, 5);
+       const queryEmbedding = Array(384).fill(0.15);
+       const results = await store.findSimilarMemories(queryEmbedding, teamId, 5, 0.7, { userId });
 
       expect(results.length).toBe(2);
       // Should return sorted by similarity
@@ -280,9 +281,9 @@ describe('PostgresStore Integration', () => {
       const hasPerm = await store.checkPermission(user2.id, team.id, 'memory', 'read');
       expect(hasPerm).toBe(false);
 
-      // Add user2 as member
-      await store.addTeamMember(team.id, user2.id, 'member');
-      const hasPermAfter = await store.checkPermission(user2.id, team.id, 'memory', 'read');
+       // Add user2 as member
+       await store.addTeamMember(team.id, user2.id, 'member', { actingUserId: user1.id });
+       const hasPermAfter = await store.checkPermission(user2.id, team.id, 'memory', 'read');
       expect(hasPermAfter).toBe(true);
     });
   });
