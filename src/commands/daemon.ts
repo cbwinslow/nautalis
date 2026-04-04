@@ -1,38 +1,125 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
+import http from 'node:http';
+import { loadConfig } from '../config/loader.js';
+import { getStore } from '../store/factory.js';
+import { MemoryEngine } from '../memory/engine.js';
+import { initTelemetry } from '../telemetry/provider.js';
+
+let server: http.Server | null = null;
 
 export function registerDaemonCommand(program: Command): void {
   const daemonCmd = program
     .command('daemon')
     .description('Manage the nautalis background daemon');
-  
+
   daemonCmd
     .command('start')
-    .description('Start the background daemon')
-    .action(async () => {
+    .description('Start the background HTTP daemon')
+    .option('--port <port>', 'Port to listen on', '3001')
+    .action(async (opts) => {
       const spinner = ora('Starting daemon...').start();
-      
+
       try {
-        // TODO: Implement daemon
-        spinner.succeed(chalk.green('Daemon started (not fully implemented yet)'));
+        initTelemetry();
+        const config = await loadConfig();
+
+        const store = await getStore(config);
+        await store.init();
+
+        const memoryEngine = new MemoryEngine(store, config);
+
+        const port = parseInt(opts.port);
+
+        server = http.createServer(async (req, res) => {
+          try {
+            const url = new URL(req.url || '/', `http://${req.headers.host}`);
+            // POST /api/events
+            if (url.pathname === '/api/events' && req.method === 'POST') {
+              let body = '';
+              for await (const chunk of req) {
+                body += chunk;
+              }
+              const events = JSON.parse(body);
+              const arr = Array.isArray(events) ? events : [events];
+              const count = await memoryEngine.ingestEvents(arr);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ ingested: count }));
+              return;
+            }
+
+            // GET /api/health
+            if (url.pathname === '/api/health' && req.method === 'GET') {
+              const health = {
+                status: 'healthy',
+                timestamp: new Date().toISOString(),
+                uptime: process.uptime(),
+              };
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(health));
+              return;
+            }
+
+            res.writeHead(404);
+            res.end('Not Found');
+          } catch (error) {
+            res.writeHead(500);
+            res.end(`Error: ${error}`);
+          }
+        });
+
+        server.listen(port, '0.0.0.0', () => {
+          spinner.succeed(
+            chalk.green(`Daemon started on http://0.0.0.0:${port}/`),
+          );
+          console.log(chalk.cyan('  Endpoints:'));
+          console.log('    POST /api/events — ingest events');
+          console.log('    GET  /api/health — health check');
+        });
+
+        // Graceful shutdown
+        process.on('SIGINT', async () => {
+          await stopDaemon();
+          process.exit(0);
+        });
+        process.on('SIGTERM', async () => {
+          await stopDaemon();
+          process.exit(0);
+        });
       } catch (error) {
         spinner.fail(chalk.red(`Daemon start failed: ${error}`));
         process.exit(1);
       }
     });
-  
+
   daemonCmd
     .command('stop')
     .description('Stop the background daemon')
     .action(async () => {
-      console.log(chalk.yellow('Daemon stop not implemented yet'));
+      await stopDaemon();
     });
-  
+
   daemonCmd
     .command('status')
     .description('Check daemon status')
     .action(async () => {
-      console.log(chalk.yellow('Daemon status: not running'));
+      if (server) {
+        console.log(chalk.green('Daemon is running'));
+      } else {
+        console.log(chalk.yellow('Daemon is not running'));
+      }
     });
+}
+
+async function stopDaemon(): Promise<void> {
+  if (server) {
+    await new Promise((resolve, reject) => {
+      server!.close((err) => (err ? reject(err) : resolve(undefined)));
+    });
+    server = null;
+    console.log(chalk.green('Daemon stopped'));
+  } else {
+    console.log(chalk.yellow('Daemon was not running'));
+  }
 }
