@@ -640,4 +640,12 @@ Before merging, ensure:
 - **CI failures** — Block merge until resolved
 - **Convention violations** — Request changes in review
 - **Security violations** — Block merge, require security review
-- **Repeated violations** — Discussion with maintainers
+ - **Repeated violations** — Discussion with maintainers
+
+## Additional Resources
+
+- **[FEATURES.md](./FEATURES.md)** — Product goals, MVP definition, feature priorities, and architectural principles. **Read this to understand what we're building and why.**
+- [AGENTS.md](./AGENTS.md) — Instructions for AI agents working on this project
+- [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) — High-level project overview
+- [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) — Detailed component-wise implementation tracking
+- [docs/decisions/COMPREHENSIVE_REVIEW_2026-04-03.md](./docs/decisions/COMPREHENSIVE_REVIEW_2026-04-03.md) — Strategic analysis and gaps

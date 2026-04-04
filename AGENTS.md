@@ -28,7 +28,7 @@ Nautalis solves a critical problem: **AI coding agents are siloed**. Developers 
 **Last Updated:** 2026-04-04  
 **Status:** Early Alpha (v0.1.0) — Design Complete, Implementation In Progress
 
-**Read First:** [Comprehensive Review Analysis](./docs/decisions/COMPREHENSIVE_REVIEW_2026-04-03.md)
+**Read First:** [Comprehensive Review Analysis](./docs/decisions/COMPREHENSIVE_REVIEW_2026-04-03.md) and [FEATURES.md](./FEATURES.md) for product goals and MVP definition
 
 The project has exceptional architectural foundations but significant implementation gaps remain (~60% complete vs 95% designed). Key insights:
 
