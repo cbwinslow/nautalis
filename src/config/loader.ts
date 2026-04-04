@@ -4,6 +4,7 @@ import { defaultConfig } from './defaults.js';
 import { merge } from '../utils/merge.js';
 import { NautalisConfigSchema } from '../validation/schemas.js';
 import { ZodError } from 'zod';
+import toml from '@iarna/toml';
 
 let cachedConfig: NautalisConfig | null = null;
 
@@ -12,7 +13,7 @@ export async function loadConfig(overrides?: Partial<NautalisConfig>): Promise<N
     return cachedConfig;
   }
 
-  // Load from config file using cosmiconfig
+  // Load from config file using cosmiconfig with TOML support
   const explorer = cosmiconfig('nautalis', {
     searchPlaces: [
       'package.json',
@@ -25,6 +26,9 @@ export async function loadConfig(overrides?: Partial<NautalisConfig>): Promise<N
       'nautalis.config.mjs',
       'nautalis.config.ts',
     ],
+    loaders: {
+      '.toml': (path, content) => toml.parse(content),
+    },
   });
 
   let fileConfig: Partial<NautalisConfig> = {};

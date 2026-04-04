@@ -15,7 +15,13 @@ ALTER TABLE knowledge_base ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_base_embeddings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_base_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
-ALTER TABLE telemetry ENABLE ROW LEVEL SECURITY;
+-- Telemetry table may not exist if TimescaleDB extension is not installed
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'telemetry' AND table_schema = 'public') THEN
+    ALTER TABLE telemetry ENABLE ROW LEVEL SECURITY;
+  END IF;
+END $$;
 
 -- Helper function to check user's role in a team
 CREATE OR REPLACE FUNCTION has_team_role(p_team_id UUID, p_user_id UUID, p_role team_role)
@@ -163,8 +169,13 @@ CREATE POLICY audit_log_access ON audit_log
         AND has_team_role(team_id, auth.uid(), 'admin')
     );
 
--- Telemetry: team members can see their team's telemetry
-CREATE POLICY telemetry_access ON telemetry
-    FOR SELECT USING (
-        team_id IN (SELECT get_user_teams(auth.uid()))
-    );
+-- Telemetry: team members can see their team's telemetry (if table exists)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'telemetry' AND table_schema = 'public') THEN
+    CREATE POLICY telemetry_access ON telemetry
+        FOR SELECT USING (
+            team_id IN (SELECT get_user_teams(auth.uid()))
+        );
+  END IF;
+END $$;

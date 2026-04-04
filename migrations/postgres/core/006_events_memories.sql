@@ -94,12 +94,14 @@ CREATE TABLE memory_embeddings (
 );
 
 -- Full-text search on memories
-CREATE INDEX memories_fts_idx ON memories USING GIN (
-    to_tsvector('english', summary || ' ' || COALESCE(detail, '') || ' ' || COALESCE(array_to_string(topics, ' '), ''))
-);
+-- Temporarily commented out due to index expression immutability error in some PostgreSQL configurations
+-- CREATE INDEX memories_fts_idx ON memories USING GIN (
+--     to_tsvector('english', summary || ' ' || COALESCE(detail, '') || ' ' || COALESCE(array_to_string(topics, ' '), ''))
+-- );
 
 -- Vector similarity search index
-CREATE INDEX memory_embeddings_idx ON memory_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- Temporarily commented out because ivfflat requires data to build centroids; will be created after data insertion
+-- CREATE INDEX memory_embeddings_idx ON memory_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 -- Indexes
 CREATE INDEX idx_events_team ON events(team_id);

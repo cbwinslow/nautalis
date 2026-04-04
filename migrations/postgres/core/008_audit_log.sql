@@ -8,7 +8,7 @@ CREATE TABLE audit_log (
     -- Action
     action audit_action NOT NULL,
     resource_type VARCHAR(100) NOT NULL,
-    resource_id UUID,
+    resource_id TEXT,  -- Can be a UUID or composite key like "teamId:userId"
     
     -- Details
     old_values JSONB,

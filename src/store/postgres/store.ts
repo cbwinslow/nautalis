@@ -217,46 +217,46 @@ export class PostgresStore implements Store {
   }
 
   // Teams
-   async createTeam(team: { name: string; slug: string; ownerId: string }) {
-     const client = await this.pool.connect();
-     try {
-       await client.query('BEGIN');
+    async createTeam(team: { name: string; slug: string; ownerId: string }) {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
 
-       const teamResult = await client.query(
-         `INSERT INTO teams (name, slug) VALUES ($1, $2) RETURNING *`,
-         [team.name, team.slug]
-       );
-       const newTeam = teamResult.rows[0];
+        const teamResult = await client.query(
+          `INSERT INTO teams (name, slug) VALUES ($1, $2) RETURNING *`,
+          [team.name, team.slug]
+        );
+        const newTeam = this.rowToTeam(teamResult.rows[0]);
 
-       // Audit log for team creation
-       await client.query(
-         `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, new_values, timestamp)
-          VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-         [newTeam.id, team.ownerId, 'create', 'team', newTeam.id, JSON.stringify(newTeam)]
-       );
+        // Audit log for team creation
+        await client.query(
+          `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, new_values, timestamp)
+           VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+          [newTeam.id, team.ownerId, 'create', 'team', newTeam.id, JSON.stringify(newTeam)]
+        );
 
-       const memberResult = await client.query(
-         `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'owner') RETURNING *`,
-         [newTeam.id, team.ownerId]
-       );
-       const newMember = memberResult.rows[0];
+        const memberResult = await client.query(
+          `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'owner') RETURNING *`,
+          [newTeam.id, team.ownerId]
+        );
+        const newMember = this.rowToTeamMember(memberResult.rows[0]);
 
-       // Audit log for adding owner as team member
-       await client.query(
-         `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, new_values, timestamp)
-          VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-         [newTeam.id, team.ownerId, 'add', 'team_member', `${newTeam.id}:${team.ownerId}`, JSON.stringify(newMember)]
-       );
+        // Audit log for adding owner as team member
+        await client.query(
+          `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, new_values, timestamp)
+           VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+          [newTeam.id, team.ownerId, 'add', 'team_member', `${newTeam.id}:${team.ownerId}`, JSON.stringify(newMember)]
+        );
 
-       await client.query('COMMIT');
-       return newTeam;
-     } catch (error) {
-       await client.query('ROLLBACK');
-       throw error;
-     } finally {
-       client.release();
-     }
-   }
+        await client.query('COMMIT');
+        return newTeam;
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
 
    async getTeam(id: string, options?: { userId?: string }) {
      if (!options?.userId) {
@@ -351,13 +351,13 @@ export class PostgresStore implements Store {
           );
           const oldMember = oldResult.rows[0] || null;
 
-          const result = await client.query(
-            `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)
-             ON CONFLICT (team_id, user_id) DO UPDATE SET role = $3, is_active = true, updated_at = NOW()
-             RETURNING *`,
-            [teamId, userId, role]
-          );
-          const newMember = result.rows[0];
+           const result = await client.query(
+             `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)
+              ON CONFLICT (team_id, user_id) DO UPDATE SET role = $3, is_active = true, updated_at = NOW()
+              RETURNING *`,
+             [teamId, userId, role]
+           );
+           const newMember = this.rowToTeamMember(result.rows[0]);
 
           // Audit log
           const action = oldMember ? 'update' : 'add';
@@ -1499,9 +1499,42 @@ export class PostgresStore implements Store {
        totalMemories: memories.rows[0].count,
        totalEvents: events.rows[0].count,
      };
-   }
+    }
 
-  private rowToEvent(row: any): NautalisEvent {
+    // Conversion helpers
+    private rowToTeam(row: any): Team {
+      return {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        description: row.description,
+        avatarUrl: row.avatar_url,
+        settings: row.settings || {},
+        maxMembers: row.max_members,
+        maxProjects: row.max_projects,
+        maxStorageGb: row.max_storage_gb,
+        isActive: row.is_active,
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at),
+      };
+    }
+
+    private rowToTeamMember(row: any): TeamMember {
+      return {
+        id: row.id,
+        teamId: row.team_id,
+        userId: row.user_id,
+        role: row.role,
+        invitedBy: row.invited_by,
+        invitedAt: new Date(row.invited_at),
+        joinedAt: new Date(row.joined_at),
+        isActive: row.is_active,
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at),
+      };
+    }
+
+    private rowToEvent(row: any): NautalisEvent {
     // Parse tool output and incorporate exit_code
     let toolOutput: any = row.tool_output ? JSON.parse(row.tool_output) : {};
     if (row.exit_code !== null && row.exit_code !== undefined) {

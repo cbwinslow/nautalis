@@ -63,12 +63,14 @@ CREATE TABLE knowledge_base_history (
 );
 
 -- Vector similarity search index
-CREATE INDEX kb_embeddings_idx ON knowledge_base_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- Temporarily commented out due to index creation issues in some PostgreSQL configurations
+-- CREATE INDEX kb_embeddings_idx ON knowledge_base_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 -- Full-text search
-CREATE INDEX kb_fts_idx ON knowledge_base USING GIN (
-    to_tsvector('english', title || ' ' || content || ' ' || COALESCE(array_to_string(tags, ' '), ''))
-);
+-- Temporarily commented out due to immutable function errors
+-- CREATE INDEX kb_fts_idx ON knowledge_base USING GIN (
+--     to_tsvector('english', title || ' ' || content || ' ' || COALESCE(array_to_string(tags, ' '), ''))
+-- );
 
 -- Indexes
 CREATE INDEX idx_kb_team ON knowledge_base(team_id);
