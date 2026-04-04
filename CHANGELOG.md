@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PII Redaction** — Fixed bug where `redactSensitiveData` converted Date objects to empty objects, breaking timestamp validation during ingestion.
 - **Database Indexes** — Re-enabled full-text search using trigger-maintained `search_vector` columns (solves immutability error) and switched vector indexes to HNSW (no training data required), enabling efficient search operations.
 - **Daemon Event Conversion** — Improved conversion of Claude Code hook payloads to NautalisEvent with proper teamId resolution and enhanced error logging.
+- **Embedding Dimension** — Updated `memory_embeddings` and `knowledge_base_embeddings` to `vector(768)` to match nomic-embed-text model; migration 012 included.
 
 ### Changed
 
