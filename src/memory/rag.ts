@@ -17,77 +17,126 @@ export class RAGEngine {
   private embeddingService: EmbeddingService;
   private index: VectorStoreIndex | null = null;
 
-  constructor(config: NautalisConfig, store: Store, embeddingService: EmbeddingService) {
-    this.config = config;
-    this.store = store;
-    this.embeddingService = embeddingService;
+   constructor(config: NautalisConfig, store: Store, embeddingService: EmbeddingService) {
+     this.config = config;
+     this.store = store;
+     this.embeddingService = embeddingService;
 
-    // Configure LlamaIndex settings
-    const llm = this.configureLLM();
-    if (llm) {
-      Settings.llm = llm;
-    }
-  }
+     // Configure LlamaIndex settings
+     const llm = this.configureLLM();
+     if (llm) {
+       Settings.llm = llm;
+     }
+     const embedModel = this.configureEmbeddingModel();
+     if (embedModel) {
+       Settings.embedModel = embedModel;
+     }
+   }
 
-  private configureLLM(): LlamaLLM | null {
-    const { provider, model } = this.config.llm;
-    const Ollama = (require('llamaindex') as any).Ollama;
-    const OpenAI = (require('llamaindex') as any).OpenAI;
-    const Anthropic = (require('llamaindex') as any).Anthropic;
+   private configureLLM(): LlamaLLM | null {
+     const { provider, model } = this.config.llm;
+     const Ollama = (require('llamaindex') as any).Ollama;
+     const OpenAI = (require('llamaindex') as any).OpenAI;
+     const Anthropic = (require('llamaindex') as any).Anthropic;
 
-    try {
-      switch (provider) {
-        case 'ollama':
-          return new Ollama({
-            baseUrl: this.config.llm.ollama?.url || 'http://localhost:11434',
-            model,
-          });
+     try {
+       switch (provider) {
+         case 'ollama':
+           return new Ollama({
+             baseUrl: this.config.llm.ollama?.url || 'http://localhost:11434',
+             model,
+           });
 
-        case 'openai':
-          const openaiKey = process.env[this.config.llm.openai?.apiKeyEnv || 'OPENAI_API_KEY'];
-          if (!openaiKey) {
-            throw new Error(`OpenAI API key not found in env var: ${this.config.llm.openai?.apiKeyEnv || 'OPENAI_API_KEY'}`);
-          }
-          return new OpenAI({
-            apiKey: openaiKey,
-            model: this.config.llm.openai?.model || model,
-          });
+         case 'openai':
+           const openaiKey = process.env[this.config.llm.openai?.apiKeyEnv || 'OPENAI_API_KEY'];
+           if (!openaiKey) {
+             throw new Error(`OpenAI API key not found in env var: ${this.config.llm.openai?.apiKeyEnv || 'OPENAI_API_KEY'}`);
+           }
+           return new OpenAI({
+             apiKey: openaiKey,
+             model: this.config.llm.openai?.model || model,
+           });
 
-        case 'anthropic':
-          const anthropicKey = process.env[this.config.llm.anthropic?.apiKeyEnv || 'ANTHROPIC_API_KEY'];
-          if (!anthropicKey) {
-            throw new Error(`Anthropic API key not found in env var: ${this.config.llm.anthropic?.apiKeyEnv || 'ANTHROPIC_API_KEY'}`);
-          }
-          return new Anthropic({
-            apiKey: anthropicKey,
-            model: this.config.llm.anthropic?.model || model,
-          });
+         case 'anthropic':
+           const anthropicKey = process.env[this.config.llm.anthropic?.apiKeyEnv || 'ANTHROPIC_API_KEY'];
+           if (!anthropicKey) {
+             throw new Error(`Anthropic API key not found in env var: ${this.config.llm.anthropic?.apiKeyEnv || 'ANTHROPIC_API_KEY'}`);
+           }
+           return new Anthropic({
+             apiKey: anthropicKey,
+             model: this.config.llm.anthropic?.model || model,
+           });
 
-        case 'custom':
-          if (!this.config.llm.custom?.baseUrl) {
-            throw new Error('Custom LLM provider requires baseUrl in config.llm.custom.baseUrl');
-          }
-          // For custom, we'll use a generic HTTP LLM if available, or fallback to OpenAI-compatible
-          // LlamaIndex.TS likely has an OpenACompatible class; we can use OpenAI with custom baseUrl
-          const customKey = this.config.llm.custom.apiKeyEnv
-            ? process.env[this.config.llm.custom.apiKeyEnv]
-            : undefined;
-          return new OpenAI({
-            baseUrl: this.config.llm.custom.baseUrl,
-            apiKey: customKey || 'dummy',
-            model: this.config.llm.custom.model || model,
-          });
+         case 'custom':
+           if (!this.config.llm.custom?.baseUrl) {
+             throw new Error('Custom LLM provider requires baseUrl in config.llm.custom.baseUrl');
+           }
+           // For custom, we'll use a generic HTTP LLM if available, or fallback to OpenAI-compatible
+           // LlamaIndex.TS likely has an OpenACompatible class; we can use OpenAI with custom baseUrl
+           const customKey = this.config.llm.custom.apiKeyEnv
+             ? process.env[this.config.llm.custom.apiKeyEnv]
+             : undefined;
+           return new OpenAI({
+             baseUrl: this.config.llm.custom.baseUrl,
+             apiKey: customKey || 'dummy',
+             model: this.config.llm.custom.model || model,
+           });
 
-        default:
-          const _exhaustive: never = provider;
-          logMessage('warn', `Unsupported LLM provider: ${provider}. Synthesis will not work.`);
-          return null;
-      }
-    } catch (error) {
-      logMessage('error', `Failed to configure LLM: ${error}`);
-      return null;
-    }
-  }
+         default:
+           const _exhaustive: never = provider;
+           logMessage('warn', `Unsupported LLM provider: ${provider}. Synthesis will not work.`);
+           return null;
+       }
+     } catch (error) {
+       logMessage('error', `Failed to configure LLM: ${error}`);
+       return null;
+     }
+   }
+
+   private configureEmbeddingModel(): any {
+     const { provider, model, ollama, openai, cohere, custom } = this.config.embeddings;
+     const LlamaIndex = require('llamaindex');
+     try {
+       switch (provider) {
+         case 'ollama':
+           return new LlamaIndex.OllamaEmbedding({
+             baseUrl: ollama?.url || 'http://localhost:11434',
+             model,
+           });
+         case 'openai':
+           const openaiKey = process.env[openai?.apiKeyEnv || 'OPENAI_API_KEY'];
+           if (!openaiKey) {
+             throw new Error(`OpenAI API key not found for embedding provider (env: ${openai?.apiKeyEnv || 'OPENAI_API_KEY'})`);
+           }
+           return new LlamaIndex.OpenAIEmbedding({
+             apiKey: openaiKey,
+             model: openai?.model || model,
+           });
+         case 'cohere':
+           const cohereKey = process.env[cohere?.apiKeyEnv || 'COHERE_API_KEY'];
+           if (!cohereKey) {
+             throw new Error(`Cohere API key not found for embedding provider (env: ${cohere?.apiKeyEnv || 'COHERE_API_KEY'})`);
+           }
+           return new LlamaIndex.CohereEmbedding({
+             apiKey: cohereKey,
+             model: cohere?.model || model,
+           });
+         case 'custom':
+           const customKey = custom?.apiKeyEnv ? process.env[custom.apiKeyEnv] : undefined;
+           return new LlamaIndex.OpenAIEmbedding({
+             baseURL: custom?.baseUrl,
+             apiKey: customKey || 'dummy',
+             model: custom?.model || model,
+           });
+         default:
+           logMessage('warn', `Unsupported embedding provider: ${provider}.`);
+           return null;
+       }
+     } catch (error) {
+       logMessage('error', `Failed to configure embedding model: ${error}`);
+       return null;
+     }
+   }
 
   async buildIndex(teamId?: string): Promise<VectorStoreIndex> {
     const span = createSpan(SPAN_NAMES.RAG_RETRIEVE + '.build_index');
@@ -99,37 +148,44 @@ export class RAGEngine {
         throw new Error('teamId is required to build index. Set in config or pass to buildIndex().');
       }
 
-      // Fetch all memories with embeddings from the store
+      // Determine correct embedding dimension by requesting a sample embedding
+      const sampleEmbedding = await this.embeddingService.embed('dimension test');
+      const embeddingDim = sampleEmbedding.embedding.length;
+      const dummyVector = Array(embeddingDim).fill(0);
+
+      // Fetch all memories with embeddings from the store using dummy vector of correct dimension
       const memories = await this.store.findSimilarMemories(
-        Array(384).fill(0), // dummy vector to get all
+        dummyVector,
         targetTeamId,
         10000, // high limit
         0, // minScore 0 to get all
         { userId: this.config.general.userId }
       );
 
-      // Convert memories to LlamaIndex Documents
-      const documents: Document[] = memories.map((result) => {
-        const memory = result.memory;
-        const text = memory.content.summary + (memory.content.detail ? '\n' + memory.content.detail : '');
-        
-        return new Document({
-          text,
-          metadata: {
-            memory_id: memory.id,
-            team_id: memory.context.teamId,
-            project_id: memory.context.projectId,
-            agent_name: memory.agentIdentity.agentName || memory.agentIdentity.toolName,
-            agent_type: memory.agentIdentity.toolName, // using toolName as agent_type
-            memory_type: memory.classification.memoryType,
-            topics: memory.classification.topics,
-            importance: memory.classification.importance,
-            sensitivity: memory.classification.sensitivity,
-            created_at: memory.createdAt.toISOString(),
-            embedding: memory.embedding,
-          },
+      // Convert memories to LlamaIndex Documents, filtering out those without embeddings
+      const documents: Document[] = memories
+        .filter((result) => result.memory.embedding && result.memory.embedding.length > 0)
+        .map((result) => {
+          const memory = result.memory;
+          const text = memory.content.summary + (memory.content.detail ? '\n' + memory.content.detail : '');
+          
+          return new Document({
+            text,
+            metadata: {
+              memory_id: memory.id,
+              team_id: memory.context.teamId,
+              project_id: memory.context.projectId,
+              agent_name: memory.agentIdentity.agentName || memory.agentIdentity.toolName,
+              agent_type: memory.agentIdentity.toolName, // using toolName as agent_type
+              memory_type: memory.classification.memoryType,
+              topics: memory.classification.topics,
+              importance: memory.classification.importance,
+              sensitivity: memory.classification.sensitivity,
+              created_at: memory.createdAt.toISOString(),
+              embedding: memory.embedding,
+            },
+          });
         });
-      });
 
       logMessage('info', `Building RAG index with ${documents.length} memories for team ${targetTeamId}`);
 
