@@ -4,6 +4,7 @@ import type { Store } from '../store/interface.js';
 import type { NautalisConfig } from '../types/config.js';
 import { MemoryClassifier } from './classify.js';
 import { DecisionExtractor } from './extract.js';
+import { OllamaLLM } from './ollama-llm.js';
 import { EmbeddingService } from './embed.js';
 import { RAGEngine } from './rag.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,34 +17,44 @@ export class MemoryEngine {
   private embeddingService: EmbeddingService;
   private ragEngine: RAGEngine;
   private store: Store;
-  
+
   constructor(store: Store, config: NautalisConfig) {
     this.store = store;
     this.classifier = new MemoryClassifier();
-    this.decisionExtractor = new DecisionExtractor();
+
+    // Initialize LLM for decision extraction if configured
+    const llm =
+      config.llm.provider === 'ollama'
+        ? new OllamaLLM({
+            baseUrl: config.llm.ollama?.url || 'http://localhost:11434',
+            model: config.llm.model,
+          })
+        : undefined;
+
+    this.decisionExtractor = new DecisionExtractor(llm);
     this.embeddingService = new EmbeddingService({
       baseUrl: config.embeddings.ollama?.url || 'http://localhost:11434',
       model: config.embeddings.model,
     });
     this.ragEngine = new RAGEngine(config);
   }
-  
+
   async processEvent(event: NautalisEvent): Promise<Memory[]> {
     const span = createSpan(SPAN_NAMES.ENRICH_MEMORY, {
       'event.type': event.type,
       'event.tool': event.toolName || 'unknown',
     });
-    
+
     try {
       const memories: Memory[] = [];
-      
+
       // Classify the event
       const classification = this.classifier.classify(event);
-      
+
       // Generate embedding for the event summary
       const summary = this.generateSummary(event);
       const embeddingResult = await this.embeddingService.embed(summary);
-      
+
       // Create memory
       const memory: Memory = {
         id: uuidv4(),
@@ -76,9 +87,9 @@ export class MemoryEngine {
         },
         embedding: embeddingResult.embedding,
       };
-      
+
       // Extract decisions
-      const decisions = this.decisionExtractor.extract(event);
+      const decisions = await this.decisionExtractor.extract(event);
       for (const decision of decisions) {
         const decisionMemory: Memory = {
           ...memory,
@@ -96,40 +107,40 @@ export class MemoryEngine {
         };
         memories.push(decisionMemory);
       }
-      
+
       // Always add the main memory
       memories.push(memory);
-      
+
       // Store all memories
       for (const mem of memories) {
         await this.store.insertMemory(mem);
       }
-      
+
       span.end();
       recordMetric(METRIC_NAMES.MEMORIES_STORED, memories.length);
-      
+
       return memories;
     } catch (error) {
       span.end(error as Error);
       throw error;
     }
   }
-  
+
   async ingestEvents(events: NautalisEvent[]): Promise<number> {
     const allMemories: Memory[] = [];
-    
+
     for (const event of events) {
       const memories = await this.processEvent(event);
       allMemories.push(...memories);
     }
-    
+
     return allMemories.length;
   }
-  
+
   async query(query: string, options?: { projectId?: string; limit?: number }) {
     return this.ragEngine.query(query, options);
   }
-  
+
   private generateSummary(event: NautalisEvent): string {
     if (event.toolName && event.toolInput) {
       if (event.toolName === 'Bash' && event.toolInput.command) {
@@ -145,37 +156,37 @@ export class MemoryEngine {
         return `Read file: ${event.toolInput.file_path}`;
       }
     }
-    
+
     if (event.type === 'error') {
       return `Error: ${event.extracted.errors.join(', ') || 'Unknown error'}`;
     }
-    
+
     if (event.type === 'conversation') {
       return `Conversation with ${event.source.agentName || event.source.toolName}`;
     }
-    
+
     return `${event.type} event from ${event.source.toolName}`;
   }
-  
+
   private generateDetail(event: NautalisEvent): string {
     const parts: string[] = [];
-    
+
     parts.push(`Tool: ${event.toolName || 'N/A'}`);
     parts.push(`Type: ${event.type}`);
     parts.push(`Files: ${event.filesInvolved.join(', ') || 'N/A'}`);
-    
+
     if (event.toolInput?.command) {
       parts.push(`Command: ${event.toolInput.command}`);
     }
-    
+
     if (event.toolOutput?.exitCode !== undefined) {
       parts.push(`Exit code: ${event.toolOutput.exitCode}`);
     }
-    
+
     if (event.extracted.errors.length > 0) {
       parts.push(`Errors: ${event.extracted.errors.join('; ')}`);
     }
-    
+
     return parts.join('\n');
   }
 }

@@ -10,7 +10,7 @@ describe('DecisionExtractor', () => {
   });
 
   describe('extract', () => {
-    it('should extract decisions from tool output', () => {
+    it('should extract decisions from tool output', async () => {
       const event: NautalisEvent = {
         eventId: 'evt_1',
         timestamp: new Date(),
@@ -42,7 +42,7 @@ describe('DecisionExtractor', () => {
         filesInvolved: ['src/db/schema.ts'],
       };
 
-      const decisions = extractor.extract(event);
+      const decisions = await extractor.extract(event);
 
       expect(decisions.length).toBeGreaterThan(0);
       expect(decisions[0].decision).toContain('PostgreSQL');
@@ -51,7 +51,7 @@ describe('DecisionExtractor', () => {
       expect(decisions[0].filesInvolved).toContain('src/db/schema.ts');
     });
 
-    it('should extract decisions from conversation messages', () => {
+    it('should extract decisions from conversation messages', async () => {
       const event: NautalisEvent = {
         eventId: 'evt_2',
         timestamp: new Date(),
@@ -84,13 +84,13 @@ describe('DecisionExtractor', () => {
         filesInvolved: [],
       };
 
-      const decisions = extractor.extract(event);
+      const decisions = await extractor.extract(event);
 
       expect(decisions.length).toBeGreaterThan(0);
       expect(decisions[0].decision).toContain('React');
     });
 
-    it('should return empty array if no decision patterns found', () => {
+    it('should return empty array if no decision patterns found', async () => {
       const event: NautalisEvent = {
         eventId: 'evt_3',
         timestamp: new Date(),
@@ -122,12 +122,12 @@ describe('DecisionExtractor', () => {
         filesInvolved: [],
       };
 
-      const decisions = extractor.extract(event);
+      const decisions = await extractor.extract(event);
 
       expect(decisions).toHaveLength(0);
     });
 
-    it('should infer topic from file path when available', () => {
+    it('should infer topic from file path when available', async () => {
       const event: NautalisEvent = {
         eventId: 'evt_4',
         timestamp: new Date(),
@@ -159,14 +159,14 @@ describe('DecisionExtractor', () => {
         filesInvolved: ['src/auth/middleware.ts'],
       };
 
-      const decisions = extractor.extract(event);
+      const decisions = await extractor.extract(event);
 
       expect(decisions.length).toBeGreaterThan(0);
       // Topic inferred from file path directory: 'auth'
       expect(decisions[0].topic).toBe('auth');
     });
 
-    it('should fallback to toolName for topic if no files', () => {
+    it('should fallback to toolName for topic if no files', async () => {
       const event: NautalisEvent = {
         eventId: 'evt_5',
         timestamp: new Date(),
@@ -198,7 +198,7 @@ describe('DecisionExtractor', () => {
         filesInvolved: [],
       };
 
-      const decisions = extractor.extract(event);
+      const decisions = await extractor.extract(event);
 
       expect(decisions.length).toBeGreaterThan(0);
       expect(decisions[0].topic).toBe('kilocode');
