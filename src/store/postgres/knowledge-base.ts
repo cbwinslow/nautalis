@@ -34,13 +34,28 @@ export class KnowledgeBaseEngine {
     await this.pool.query(
       `INSERT INTO knowledge_base (id, team_id, project_id, created_by, title, content, content_type, category, tags, topics, visibility, source, source_agent_id, confidence)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-      [id, entry.teamId, entry.projectId || null, entry.createdById || null, entry.title, entry.content, entry.contentType || 'markdown', entry.category || null, entry.tags || [], entry.topics || [], entry.visibility || 'team', entry.source || 'manual', entry.sourceAgentId || null, entry.confidence ?? 1.0]
+      [
+        id,
+        entry.teamId,
+        entry.projectId || null,
+        entry.createdById || null,
+        entry.title,
+        entry.content,
+        entry.contentType || 'markdown',
+        entry.category || null,
+        entry.tags || [],
+        entry.topics || [],
+        entry.visibility || 'team',
+        entry.source || 'manual',
+        entry.sourceAgentId || null,
+        entry.confidence ?? 1.0,
+      ],
     );
 
     if (entry.embedding) {
       await this.pool.query(
         `INSERT INTO knowledge_base_embeddings (kb_id, embedding) VALUES ($1, $2::vector)`,
-        [id, `[${entry.embedding.join(',')}]`]
+        [id, `[${entry.embedding.join(',')}]`],
       );
     }
 
@@ -57,15 +72,21 @@ export class KnowledgeBaseEngine {
   }
 
   async update(id: string, updates: Partial<KBEntry>) {
-    const fields = Object.keys(updates).filter(k => k !== 'id' && k !== 'embedding');
+    const fields = Object.keys(updates).filter((k) => k !== 'id' && k !== 'embedding');
     if (fields.length === 0) return;
 
     const setClauses = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
-    const values = [id, ...fields.map(f => (Array.isArray(updates[f]) ? updates[f] : updates[f]))];
+    const values = [
+      id,
+      ...fields.map((f) => {
+        const value = updates[f as keyof KBEntry];
+        return Array.isArray(value) ? value : value;
+      }),
+    ];
 
     await this.pool.query(
       `UPDATE knowledge_base SET ${setClauses}, version = version + 1, updated_at = NOW() WHERE id = $1`,
-      values
+      values,
     );
   }
 
@@ -74,7 +95,12 @@ export class KnowledgeBaseEngine {
     await this.pool.query(`DELETE FROM knowledge_base WHERE id = $1`, [id]);
   }
 
-  async search(teamId: string, query: string, embedding?: number[], options?: { category?: string; limit?: number }) {
+  async search(
+    teamId: string,
+    query: string,
+    embedding?: number[],
+    options?: { category?: string; limit?: number },
+  ) {
     const span = createSpan(SPAN_NAMES.RAG_RETRIEVE + '.kb_search', {
       'kb.query': query,
       'kb.team': teamId,
@@ -90,7 +116,14 @@ export class KnowledgeBaseEngine {
            ${options?.category ? 'AND kb.category = $3' : ''}
            ORDER BY kbe.embedding <=> $1::vector
            LIMIT $${options?.category ? 4 : 3}`,
-          embedding ? [`[${embedding.join(',')}]`, teamId, ...(options?.category ? [options.category] : []), options?.limit || 10] : [teamId, options?.limit || 10]
+          embedding
+            ? [
+                `[${embedding.join(',')}]`,
+                teamId,
+                ...(options?.category ? [options.category] : []),
+                options?.limit || 10,
+              ]
+            : [teamId, options?.limit || 10],
         );
 
         span.end();
@@ -103,7 +136,7 @@ export class KnowledgeBaseEngine {
            AND to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', $1)
            ORDER BY rank DESC
            LIMIT $3`,
-          [query, teamId, options?.limit || 10]
+          [query, teamId, options?.limit || 10],
         );
 
         span.end();

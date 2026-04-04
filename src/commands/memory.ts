@@ -6,10 +6,8 @@ import chalk from 'chalk';
 import ora from 'ora';
 
 export function registerMemoryCommand(program: Command): void {
-  const memoryCmd = program
-    .command('memory')
-    .description('Manage memories');
-  
+  const memoryCmd = program.command('memory').description('Manage memories');
+
   memoryCmd
     .command('list')
     .description('List all memories')
@@ -18,25 +16,34 @@ export function registerMemoryCommand(program: Command): void {
     .option('--limit <n>', 'Maximum results', '20')
     .action(async (opts) => {
       const spinner = ora('Loading memories...').start();
-      
+
       try {
         initTelemetry();
         const config = await loadConfig();
         const store = await getStore(config);
         await store.init();
-        
-        const memories = await store.listMemories({
+
+        if (!config.general.teamId) {
+          throw new Error('Team ID required. Use --team flag or set teamId in config.');
+        }
+
+        const memories = await store.listMemories(config.general.teamId, {
           projectId: opts.project,
           memoryType: opts.type,
           limit: parseInt(opts.limit),
         });
-        
+
         spinner.stop();
         console.log(chalk.cyan(`\n  Memories (${memories.length}):\n`));
-        
+
         for (const memory of memories) {
+          const importancePercent = Math.round(memory.classification.importance * 100);
           console.log(chalk.bold(`  • ${memory.content.summary}`));
-          console.log(chalk.gray(`    Type: ${memory.classification.memoryType} | Importance: ${(memory.classification.importance * 100).toFixed(0)}%`));
+          console.log(
+            chalk.gray(
+              `    Type: ${memory.classification.memoryType} | Importance: ${importancePercent}%`,
+            ),
+          );
           console.log('');
         }
       } catch (error) {
@@ -44,20 +51,20 @@ export function registerMemoryCommand(program: Command): void {
         process.exit(1);
       }
     });
-  
+
   memoryCmd
     .command('delete')
     .description('Delete a memory')
     .argument('<id>', 'Memory ID')
     .action(async (id) => {
       const spinner = ora(`Deleting memory ${id}...`).start();
-      
+
       try {
         initTelemetry();
         const config = await loadConfig();
         const store = await getStore(config);
         await store.init();
-        
+
         await store.deleteMemory(id);
         spinner.succeed(chalk.green('Memory deleted'));
       } catch (error) {

@@ -16,35 +16,48 @@ export function registerTimelineCommand(program: Command): void {
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
       const spinner = ora('Loading timeline...').start();
-      
+
       try {
         initTelemetry();
         const config = await loadConfig();
         const store = await getStore(config);
         await store.init();
-        
-        const memories = await store.listMemories({
+
+        if (!config.general.teamId) {
+          throw new Error('Team ID required. Use --team flag or set teamId in config.');
+        }
+
+        const memories = await store.listMemories(config.general.teamId, {
           projectId: opts.project,
           limit: parseInt(opts.limit),
         });
-        
+
         spinner.stop();
-        
+
         if (memories.length === 0) {
           console.log(chalk.yellow('No memories found'));
           return;
         }
-        
+
         console.log(chalk.cyan(`\n  Timeline (${memories.length} entries):\n`));
-        
+
         for (const memory of memories) {
-          const icon = memory.classification.memoryType === 'decision' ? '💡' :
-                       memory.classification.memoryType === 'error' ? '❌' :
-                       memory.classification.memoryType === 'lesson' ? '📚' : '📝';
-          
+          const icon =
+            memory.classification.memoryType === 'decision'
+              ? '💡'
+              : memory.classification.memoryType === 'lesson'
+                ? '📚'
+                : memory.classification.memoryType === 'episodic'
+                  ? '📝'
+                  : '•';
+
           console.log(chalk.gray(`  ${formatDistanceToNow(memory.createdAt)} ago`));
           console.log(`  ${icon} ${memory.content.summary}`);
-          console.log(chalk.gray(`     ${memory.agentIdentity.toolName} · ${memory.classification.topics.join(', ') || 'general'}`));
+          console.log(
+            chalk.gray(
+              `     ${memory.agentIdentity.agentName} · ${memory.classification.topics.join(', ') || 'general'}`,
+            ),
+          );
           console.log('');
         }
       } catch (error) {

@@ -39,7 +39,6 @@
     "@opentelemetry/instrumentation-http": "^0.214.0",
     "@opentelemetry/resources": "^1.30.0",
     "@opentelemetry/semantic-conventions": "^1.34.0",
-    "better-sqlite3": "^11.7.0",
     "drizzle-orm": "^0.38.0",
     "pg": "^8.13.0",
     "chalk": "^5.3.0",
@@ -53,10 +52,9 @@
     "chokidar": "^4.0.0",
     "pino": "^9.5.0",
     "hono": "^4.6.0",
-    "sahilm/fuzzy": "^0.1.1"
+    "fuzzy": "^0.1.1"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
     "@types/react": "^18.3.12",
     "@types/uuid": "^10.0.0",
     "@types/fs-extra": "^11.0.4",
