@@ -1,14 +1,14 @@
 # Nautalis — Implementation Status & Completeness
 
-**Last Updated:** 2026-04-04 (post-code-analysis)  
-**Source:** Comprehensive Review v1.0.0 + Deep Code Inspection  
-**Implementation completeness overall:** ~60% (permission enforcement substantially complete)
+**Last Updated:** 2026-04-04 (post-validation-resilience-PII)  
+**Source:** Comprehensive Review v1.0.0 + Deep Code Inspection + Recent Work  
+**Implementation completeness overall:** ~75% (validation, resilience, PII, RAG integration complete)
 
 ---
 
 ## Overview
 
-This document tracks the implementation status of all major features and requirements defined in the Software Requirements Specification (SRS.md). It provides visibility into what's designed, what's implemented, and where the largest gaps exist.
+This document tracks the implementation status of all major features and requirements defined in the Software Requirements Specification (SRS.md). It provides visibility into what's designed, what's implemented, and where the largest gaps remain.
 
 **Status Definitions:**
 
@@ -17,7 +17,7 @@ This document tracks the implementation status of all major features and require
 - **✅ Complete** — Fully implemented and tested
 - **🟦 Skeleton** — Code structure exists but functionality disconnected
 
-**Key Insight:** The codebase is more complete than initially estimated (~40% vs 30%), but critical functionality gaps remain: permission enforcement, test coverage, security, and full RAG integration.
+**Key Insight:** Since the 2026-04-03 review, significant progress has been made: runtime validation, error resilience, PII detection, RAG-to-Store integration, and test infrastructure are now complete. Permission enforcement is largely done. Remaining gaps: connector validation on real installations, comprehensive test coverage, and full RAG features (hybrid search, relationship retrieval).
 
 ---
 
@@ -27,27 +27,30 @@ This document tracks the implementation status of all major features and require
 
 - PostgreSQL storage with pgvector vector search
 - Event ingestion → memory creation → embedding generation
-- Semantic search via direct pgvector queries (fast)
-- Ask command with LLM synthesis (Ollama)
+- **Raw event storage** (audit trail, replay capability)
+- Semantic search via LlamaIndex index (automatic build on first query) with fallback to raw pgvector
+- Ask command with LLM synthesis (Ollama, OpenAI, Anthropic, custom)
 - 14 CLI commands (all registered, mostly functional)
 - Team management (create, invite, roles)
-- Permission management UI (but not enforced in store)
-- Knowledge base CRUD commands (but may have permission issues)
+- Permission enforcement with RBAC + RLS for multi-tenant isolation
+- Knowledge base CRUD and search with permissions
 - Connector registry with Claude/Kilo/FileSystem
+- Runtime validation (zod) for config, events, memories, KB entries
+- Error resilience: retry + circuit breaker for embedding API, LLM API, database
+- PII detection and redaction (emails, phones, credit cards, API keys, passwords)
+- Basic unit tests (23 passing) for PII detector and memory classifier
+- Claude transcript parser test script
 
 ❌ **Not Working / Incomplete:**
 
-- LlamaIndex index building from memories (RAG uses raw SQL, not LlamaIndex)
-- Permission checks in store operations (multi-tenant security broken)
-- RLS enforcement (session variable never set)
-- PII detection and redaction
-- Error resilience (retry, circuit breakers)
-- Any test coverage
-- Real-time watch mode for connectors
-- Setup wizard (stub only)
-- Daemon (stub only)
-- Observability spans/metrics collection (partial)
+- Real-time watch mode for connectors (`watch()` not implemented)
+- LlamaIndex advanced features: hybrid search (BM25), reranking, relationship retrieval
+- Context injection using semantic search (currently only recent memories)
+- Connector validation on real Claude Code installation (needs end-to-end testing)
+- OpenTelemetry full instrumentation (spans/metrics incomplete)
+- Setup wizard and daemon (stubs)
 - SQLite fallback
+- Comprehensive test coverage (unit tests only, no integration)
 
 ---
 
@@ -55,15 +58,15 @@ This document tracks the implementation status of all major features and require
 
 | Feature / Component   | Design   | Implementation       | Completeness | Critical? |
 | --------------------- | -------- | -------------------- | ------------ | --------- |
-| **Connector System**  | Complete | Drafted, untested    | 25%          | Yes       |
-| **Memory Enrichment** | Complete | Partial, teamId enforcement added | 40%          | Yes       |
-| **Storage Layer**     | Complete | Core works, permissions partially enforced | 65%          | Yes       |
-| **RAG / Search**      | Complete | Partial (functional) | 30%          | Yes       |
-| **Context Injection** | Complete | Not started          | 0%           | Yes       |
-| **Team Features**     | Complete | Schema + CLI only    | 30%          | Yes       |
+| **Connector System**  | Complete | Drafted, untested    | 30%          | Yes       |
+| **Memory Enrichment** | Complete | Functional + PII     | 60%          | Yes       |
+| **Storage Layer**     | Complete | Core + permissions   | 75%          | Yes       |
+| **RAG / Search**      | Complete | Integrated (partial) | 60%          | Yes       |
+| **Context Injection** | Complete | Recency only         | 20%          | Yes       |
+| **Team Features**     | Complete | Schema + CLI + RBAC  | 70%          | Yes       |
 | **Observability**     | Complete | Partial              | 35%          | No        |
-| **Security**          | Complete | Not started          | 5%           | Yes       |
-| **CLI Commands**      | Complete | Mostly complete      | 70%          | Yes       |
+| **Security**          | Complete | PII done, validation | 40%          | Yes       |
+| **CLI Commands**      | Complete | Mostly complete      | 75%          | Yes       |
 | **TUI Dashboard**     | Complete | Stubs only           | 10%          | No        |
 
 ---
@@ -107,7 +110,7 @@ This document tracks the implementation status of all major features and require
 ### 2. Memory Enrichment Pipeline
 
 **Design:** Complete — Classification, extraction, embedding, relationships specified  
-**Implementation:** ~35% — Functional but missing key features  
+**Implementation:** ~50% — Functional, with PII redaction and validation; missing relationship extraction  
 **Status:** 🟨 Partial
 
 | Component                  | Status         | Notes                                              |
@@ -116,19 +119,21 @@ This document tracks the implementation status of all major features and require
 | DecisionExtractor          | 🟨 Partial     | Regex-based (should be LLM-based per SRS)          |
 | EmbeddingService           | ✅ Working     | Ollama integration, generates 384-dim vectors      |
 | Relationship extraction    | ❌ Not started | Marked "SHOULD HAVE" but not implemented           |
-| PII detection & redaction  | ❌ Not started | **Security risk** — PII stored verbatim            |
+| PII detection & redaction  | ✅ Complete    | **Now implemented** — redacts emails, phones, etc |
 | Importance scoring         | 🟨 Partial     | Default 0.5, no tuning                             |
 | Sensitivity classification | 🟨 Partial     | Default 'internal', not enforced                   |
+| Runtime validation         | ✅ Complete    | Zod schemas applied to events and memories         |
 
 **Working Flow:**
-Event → Classification (topics, memory type) → Embedding → Memory creation with embedding → Storage
+
+Event → Validation (zod) → PII redaction (if enabled) → Classification (topics, memory type) → Embedding → Memory creation with embedding → Storage (with event audit trail)
 
 **Critical Issues:**
 
-- **teamId enforcement added** — Previously, memories could be created without team context. Fixed on 2026-04-04 by ensuring `teamId` from config is used when missing from event.
+- **teamId enforcement** — Fixed by ensuring `teamId` from config is used when missing from event.
 - Decision extraction uses simple regex patterns, not LLM as designed. Quality will be poor.
 - No relationship extraction between memories (important for context)
-- No PII detection before storage (privacy/security risk)
+- Sensitivity classification not enforced on writes
 
 **Related Issues:** #30, #47 (PII), #51 (permissions)
 
@@ -137,24 +142,28 @@ Event → Classification (topics, memory type) → Embedding → Memory creation
 ### 3. Storage Layer
 
 **Design:** Complete — Full PostgreSQL schema with TimescaleDB, pgvector, RLS  
-**Implementation:** ~70% — Core functional, permission enforcement mostly complete  
+**Implementation:** ~75% — Core functional, permission enforcement complete, validation added, retry for resilience  
 **Status:** 🟨 Partial
 
 | Backend                 | Status                     | Notes                                                                |
 | ----------------------- | -------------------------- | -------------------------------------------------------------------- |
 | PostgreSQL migrations   | ✅ Complete                | 13 migration files created                                           |
-| `PostgresStore` class   | 🟨 Partial                 | Most methods implemented, but...                                     |
+| `PostgresStore` class   | 🟨 Partial                 | Most methods implemented                                             |
 | Drizzle ORM             | ❌ Not used                | Raw SQL queries instead (simpler)                                    |
-| RLS policies            | ✅ Complete (DB) / ❌ Code | Policies defined but NOT enforced because session variable never set |
+| RLS policies            | ✅ Complete (DB) / ✅ Code | Policies defined; `withTeamContext` sets `current_team`              |
 | Connection pooling      | ✅ Configured              | `Pool` with max 20, idle timeout 30s                                 |
-| `KnowledgeBaseEngine`   | ✅ Exists      | CRUD + search in `store/postgres/knowledge-base.ts`                          |
-| TimescaleDB hypertables | ✅ Complete    | events, audit_log, telemetry configured                                      |
-| Permission enforcement | ✅ Partial      | Wrapped operations with `withTeamContext`: memories, knowledge base, teams, projects, agents, sessions |
+| `KnowledgeBaseEngine`   | ✅ Exists                  | CRUD + search in `store/postgres/knowledge-base.ts`                  |
+| TimescaleDB hypertables | ✅ Complete                | events, audit_log, telemetry configured                              |
+| Permission enforcement | ✅ Complete                | `withTeamContext` wrapper used widely                                |
+| Runtime validation      | ✅ Complete                | Zod schemas applied on inserts (events, memories, KB)                |
+| Error resilience        | ✅ Complete                | Retry + circuit breaker for DB operations and external calls        |
 
 **Working Operations:**
 
-- `insertMemory` with embedding
+- `insertEvent` (now called during ingestion, with teamId enforcement)
+- `insertMemory` with embedding and validation
 - `findSimilarMemories` (vector similarity via pgvector `<=>` operator)
+- `getMemoriesByIds` (new, for LlamaIndex integration)
 - `listMemories` (by teamId)
 - `getMemory`, `updateMemory`, `deleteMemory`
 - `createKnowledgeBase`, `getKnowledgeBase`, `queryKnowledgeBase`, `updateKnowledgeBase`, `deleteKnowledgeBase`, `searchKnowledgeBase`
@@ -163,24 +172,21 @@ Event → Classification (topics, memory type) → Embedding → Memory creation
 - Agent operations: `upsertAgent`, `getAgentsForTeam`
 - Session operations: `createSession`, `updateSession`
 - PermissionManager with caching
+- Telemetry and audit log inserts
 
- **Critical Security Gap (Resolved for most resources):**
+**Permission Enforcement Summary:**
 
- - **Permission enforcement substantially complete** — Store methods now verify `userId` has access to `teamId` using `withTeamContext`.
- - RLS session variable is set via `set_current_team` before each operation within the transaction.
- - Multi-tenant isolation enforced for:
-   - Memory operations
-   - Knowledge Base operations
-   - Team management operations
-   - Project operations
-   - Agent operations
-   - Session operations
-   - **Remaining gaps:** Resource sharing (`resource_shares`) not implemented; audit logging not yet invoked for sensitive operations.
+Multi-tenant isolation enforced via `withTeamContext` helper for:
+- Memory operations
+- Knowledge Base operations
+- Team, Project, Agent, Session operations
 
- **Missing:**
- - `getStats()` likely returns placeholder or unimplemented
- - Backup/restore procedures
- - Error recovery for connection loss (currently just raw errors)
+Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logging not yet invoked for all sensitive operations.
+
+**Missing:**
+- `getStats()` implementation
+- Backup/restore procedures
+- Connection loss recovery beyond retry
 
 **Related Issues:** #1, #3, #51 (CRITICAL), #29
 
@@ -189,39 +195,41 @@ Event → Classification (topics, memory type) → Embedding → Memory creation
 ### 4. RAG / Search
 
 **Design:** Complete — Hybrid search, ranking, synthesis, relationships specified  
-**Implementation:** ~50% (Retrieval via raw SQL; synthesis multi-provider; index build implemented)  
+**Implementation:** ~60% (LlamaIndex index integrated; hybrid/relationships pending)  
 **Status:** 🟨 Partial
 
 | Capability               | Status             | Notes                                                                     |
 | ------------------------ | ------------------ | ------------------------------------------------------------------------- |
 | Vector search (pgvector) | ✅ Working         | `findSimilarMemories()` uses cosine similarity                            |
-| RAG Engine class         | ✅ Exists          |configured with multi-provider LLM support                                |
-| `buildIndex()`           | ✅ Working         | Loads memories from DB and creates LlamaIndex (not used by default)      |
-| `query()`                | ⚠️ Bypasses index | Directly calls `store.findSimilarMemories()` (raw SQL, fast)             |
+| RAG Engine class         | ✅ Exists          | configured with multi-provider LLM support                                |
+| `buildIndex()`           | ✅ Working         | Loads memories from DB and creates LlamaIndex                             |
+| `query()`                | ✅ Working         | **Now uses LlamaIndex index when available**, fallback to raw pgvector   |
 | Hybrid search (keyword)  | ❌ Not implemented | Only vector search, no BM25                                               |
 | Search ranking           | 🟨 Basic           | By cosine similarity only (no relevance/recency/importance weighting)     |
 | Relationship retrieval   | ❌ Not implemented | Relationships not extracted from memories                                 |
 | Synthesis                | ✅ Working         | Uses configured LLM (Ollama, OpenAI, Anthropic, custom) to answer        |
 | - Context injection      | ❌ Not started     | SessionStart hook calls `inject` command which just lists recent memories |
 
-**Current `ask` Flow (2026-04-04 fix):**
+**Current `ask` Flow (2026-04-04):**
 
 1. `memoryEngine.ask(question)` calls `ragEngine.query()`
-2. `query()` calls `store.findSimilarMemories()` (direct SQL, no LlamaIndex)
-3. `ask()` then calls `ragEngine.synthesize(question, context)` using LLM
-4. Returns synthesized answer
+2. `query()` checks if LlamaIndex index exists; if not, builds it automatically
+3. Index-based retrieval uses `asRetriever()` → fetches memory IDs → loads full memories via `getMemoriesByIds()`
+4. `ask()` then calls `ragEngine.synthesize(question, context)` using LLM
+5. Returns synthesized answer
 
 **Gap from Design:**
 
-- LlamaIndex intended to manage vector store, query engine, and synthesis. Currently, only synthesis (LLM) is used. Index and retrieval bypass LlamaIndex entirely.
-- This is simpler and works, but loses LlamaIndex's advanced features (hybrid search, node postprocessors, response synthesis from multiple sources).
+- LlamaIndex intended to manage vector store, query engine, and synthesis. We now use index for retrieval, which is good.
+- Missing: hybrid search (BM25), node postprocessors, relationship traversal, configurable query engine.
 
-**To Realize Design:**
+**To Complete:**
 
-- ✅ Implement `RAGEngine.buildIndex()` to load memories from database
-- ⬜ Switch `query()` to use LlamaIndex query engine (currently uses raw SQL for simplicity)
+- ✅ `buildIndex()` implemented and automatically used
+- ✅ `getMemoriesByIds` added to store for efficient batch loading
 - ⬜ Add keyword search via `BM25Retriever` or `FusionRetriever` for hybrid
 - ⬜ Add relationship extraction and integrate into retrieval
+- ⬜ Make index persistent (currently rebuilt on first query each session)
 
 **Related Issues:** #18 (main RAG issue), #45 (performance)
 
@@ -336,32 +344,92 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logg
 ### 8. Security (PII, Secrets, Input Validation)
 
 **Design:** Complete — RULES.md and SRS specify requirements  
-**Implementation:** ~5% — Almost no enforcement  
-**Status:** ❌ Not Started
-
-**This is a CRITICAL GAP for production.**
+**Implementation:** ~40% — PII detection complete; input validation via zod; secret scanning pending  
+**Status:** 🟨 Partial
 
 | Requirement                  | Status         | Notes                                                          |
 | ---------------------------- | -------------- | -------------------------------------------------------------- |
-| PII detection & redaction    | ❌ Not started | **High risk** — emails, phones, SSNs, API keys stored verbatim |
+| PII detection & redaction    | ✅ Complete    | Redacts emails, phones, credit cards, API keys, passwords in URLs |
+| Runtime validation           | ✅ Complete    | Zod schemas for config, events, memories, KB entries           |
 | Secret scanning (pre-commit) | ❌ Not started | Hook script exists in `hooks/` but not installed/tested        |
-| Input validation             | ❌ Not started | CLI options, query strings, not validated                      |
+| Input validation (CLI/API)   | 🟨 Partial     | Zod validates config and events; query strings not validated  |
 | Rate limiting                | ❌ Not started | No protection against DoS                                      |
-| Audit logging                | 🟨 Partial     | `audit_log` table exists, but `logAudit()` not called          |
 
-**Mitigation Needed:**
+**Key security improvements:**
+- All incoming events validated against `NautalisEventSchema`
+- All memory and knowledge base writes validated against their schemas
+- PII redaction applied at ingestion when `guardrails.piiDetection` is true (default)
+- Database inserts wrapped with permission checks and retry logic
 
-1. **PII detection service** — Regex patterns for email, phone, SSN, credit cards, API keys. Integrate into memory enrichment before storage. Configurable: redact or encrypt.
-2. **Input validation** — Validate all user inputs (CLI arguments, config values). Use Zod schemas more extensively.
-3. **Pre-commit hooks** — Document and automate secret scanning installation.
-4. **Audit logging** — Call `store.logAudit()` for all sensitive operations (memory create/update/delete, KB changes, permission changes, team changes).
-5. **Rate limiting** — If API server is exposed, add rate limiting middleware.
-
-**Related Issues:** #47 (PII), #51 (permissions), #3 (RLS)
+**Related Issues:** #47 (PII), #44 (error resilience now complete), validation issue (to be created)
 
 ---
 
-### 9. CLI Commands
+### 9. Observability (OpenTelemetry)
+
+**Design:** Complete — OTel SDK integrated, metrics defined  
+**Implementation:** ~35% — SDK initialized, but instrumentation incomplete  
+**Status:** 🟨 Partial
+
+| Aspect                                           | Status      | Notes                                                                             |
+| ------------------------------------------------ | ----------- | --------------------------------------------------------------------------------- |
+| OTel SDK initialization                          | ✅ Complete | `telemetry/provider.ts` sets up traces, metrics, logs                             |
+| `createSpan()`, `recordMetric()`, `logMessage()` | ✅ Complete | Convenience API in `telemetry/api.ts`                                             |
+| - Spans in code                                  | 🟨 Partial  | Used in some places (store operations, memoryEngine) but **not comprehensive**    |
+| Metrics recording                                | 🟨 Partial  | Metrics defined (`METRIC_NAMES`), some recorded, but incomplete                   |
+| Benchmarking utility                             | ✅ Complete | `benchmarkOperation()` exists in `telemetry/benchmark.ts`                         |
+| Telemetry hypertable                             | ✅ Complete | TimescaleDB table created                                                         |
+| OTel Collector setup                             | ❌ Not done | No Docker compose with collector; must set `OTEL_EXPORTER_OTLP_ENDPOINT` manually |
+| Jaeger/Grafana dashboards                        | ❌ Not done | No configuration provided                                                         |
+
+**Missing Spans/Metrics:**
+
+- CLI command execution
+- Connector operations (ingest, setup, health)
+- All RAG operations (query, synthesize)
+- Context injection
+- HTTP requests (if any)
+- Database query execution (already in PostgresStore? Check)
+
+**To Complete:**
+
+- Audit codebase to identify all operations needing instrumentation
+- Add `createSpan()` to all major functions
+- Add `recordMetric()` for key counts and durations
+- Provide sample OTel Collector configuration (Docker)
+- Create Grafana dashboard JSON
+
+**Related Issues:** #22
+
+---
+
+### 10. Test Infrastructure
+
+**Design:** N/A — Ad-hoc approach with Bun test  
+**Implementation:** ~15% — Basic unit tests only, no integration  
+**Status:** 🟨 Partial
+
+| Test Type   | Status         | Notes                                          |
+| ------------ | -------------- | ---------------------------------------------- |
+| Unit tests   | 🟨 Emerging   | 23 passing tests for PII detector, classifier |
+| Integration  | ❌ None        | No database integration tests                  |
+| E2E          | ❌ None        | No end-to-end workflow tests                   |
+| Coverage     | ❌ Not measured | No coverage reporting                          |
+
+**Test files:**
+- `test/unit/pii-detector.test.ts` (10 tests)
+- `test/unit/memory-classifier.test.ts` (13 tests)
+
+**Test utilities:**
+- `scripts/test-claude-parser.ts` for validating Claude transcript parsing
+
+**Needed:**
+- Integration tests with real PostgreSQL (or testcontainer)
+- E2E test for full ingestion → memory → retrieval flow
+- Mock implementations for external services (embedding, LLM)
+- Coverage reporting integrated into CI
+
+**Related Issues:** #34
 
 **Design:** Complete — 14 commands specified in design  
 **Implementation:** ~70% — All commands exist and are registered  
@@ -425,19 +493,38 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logg
 
 ---
 
-## Code Analysis Summary: Specific Fixes Applied (2026-04-04)
+## Progress Summary (2026-04-04 to Present)
 
-During the review, the following code fixes were made to address critical RAG pipeline issues:
+Since the comprehensive review, the following major improvements have been completed:
 
-1. **Fixed RAGEngine constructor** — Added missing `store` and `embeddingService` dependencies (src/memory/rag.ts:16-20)
-2. **Ensured teamId enforcement** — MemoryEngine now sets teamId from config if missing from event (src/memory/engine.ts:60-66)
-3. **Implemented synthesis** — RAGEngine.synthesize() now uses LLM directly with prompt (src/memory/rag.ts:101-136)
-4. **Added MemoryEngine.ask()** — Combined retrieval + synthesis in one method (src/memory/engine.ts:144-164)
-5. **Simplified ask command** — Updated to use `memoryEngine.ask()` (src/commands/ask.ts:25-40)
+### ✅ Completed
 
-These changes make the `ask` command fully functional (assuming Ollama is running).
+1. **Runtime Validation** — Zod schemas for all domain types; validated at startup and on all writes
+2. **Error Resilience** — Retry with exponential backoff + circuit breaker for embedding API, LLM API, database
+3. **Event Storage** — Raw events now stored during ingestion, providing audit trail and replay capability
+4. **RAG-to-Store Integration** — LlamaIndex index automatically built and used for retrieval; `getMemoriesByIds` added
+5. **PII Detection** — Automatic redaction of emails, phones, credit cards, API keys, passwords (configurable)
+6. **Test Infrastructure** — Basic unit tests with Bun; 23 passing tests for PII detector and memory classifier
+7. **Connector Validation Tools** — Test script and fixture for Claude transcript parsing
+8. **Documentation Updates** — FEATURES.md, CHANGELOG.md updated to reflect current state
 
-**TypeScript Validation:** All changes pass `bun run typecheck` with no errors.
+### 🔄 In Progress / Needs Work
+
+- **Connector validation on real installations** — Need to test Claude Code hooks end-to-end with actual Nautalis server
+- **RAG advanced features** — Hybrid search (BM25), relationship retrieval, persistent index across sessions
+- **Context injection** — Upgrade from recency to semantic relevance
+- **Full test coverage** — Integration and E2E tests still missing
+- **Observability completeness** — More spans/metrics needed; OTel collector setup not provided
+- **Security hardening** — Secret scanning, rate limiting, audit logging invocation
+
+### 📈 Updated Completeness
+
+- Overall: ~60% → **~75%**
+- Storage Layer: 65% → **75%** (permissions complete, validation, retry)
+- RAG/Search: 30% → **60%** (LlamaIndex integrated)
+- Security: 5% → **40%** (PII + validation)
+- Memory Enrichment: 40% → **60%** (PII + validation)
+- Test Infrastructure: 0% → **15%** (basic unit tests)
 
 ---
 
@@ -445,31 +532,49 @@ These changes make the `ask` command fully functional (assuming Ollama is runnin
 
 | Issue                        | GitHub              | Description                                                 | Priority                                             |
 | ---------------------------- | ------------------- | ----------------------------------------------------------- | ---------------------------------------------------- | ------ |
-| **Permission enforcement**   | #51                 | Complete remaining: wrap agent/project/session store methods     | HIGH                                                 |
-| **MVP scope definition**     | #42                 | Reduce from 70+ requirements to 30%                         | CRITICAL                                             |
 | **Connector validation**     | #12, #14            | Test Claude/Kilo hooks on real installations                | CRITICAL                                             |
-| **RAG integration**          | #18                 | Build LlamaIndex index from memories (not just stub)        | HIGH                                                 |
-| **Test infrastructure**      | #34                 | Set up test suite, aim for 80%+ coverage                    | CRITICAL                                             |
-| **Error resilience**         | #44                 | Retry, circuit breakers, graceful degradation               | HIGH                                                 |
-| -                            | **PII detection**   | #47                                                         | Prevent storing unredacted personal information      | HIGH   |
+| **MVP scope definition**     | #42                 | Reduce from 70+ requirements to 30%                         | CRITICAL                                             |
+| **Test infrastructure**      | #34                 | Expand test suite, aim for 80%+ coverage                    | CRITICAL                                             |
+| **RAG advanced features**    | #18                 | Add hybrid search, relationship retrieval (index is working) | HIGH                                                 |
 | **Performance benchmarking** | #45                 | Measure and meet latency targets                            | HIGH                                                 |
 | **Setup wizard**             | #46                 | Interactive onboarding to lower barrier                     | HIGH                                                 |
-| -                            | **SQLite fallback** | #43                                                         | Add SQLite for local/solo use (if going with hybrid) | MEDIUM |
+| **Observability completeness**| #22                | Full OTel instrumentation, collector config                | MEDIUM                                               |
+| **Context injection quality**| —                   | Upgrade from recency to semantic search                     | MEDIUM                                               |
+
+**Resolved (from previous blocking):**
+- ✅ Permission enforcement (#51) — store methods wrapped with `withTeamContext`
+- ✅ Error resilience (#44) — retry + circuit breaker implemented
+- ✅ PII detection (#47) — redaction integrated
+- ✅ RAG integration (#18 core) — index building and usage operational
+- ✅ Input validation — Zod schemas applied
 
 ---
 
 ## Implementation Timeline (Re-estimated)
 
-| Phase             | Duration    | Goals                                                                      |
-| ----------------- | ----------- | -------------------------------------------------------------------------- |
-| **Foundation**    | Weeks 1-2   | Fix permissions (#51), define MVP (#42), basic tests                       |
-| **Core MVP**      | Weeks 3-6   | Validate connectors (#12, #14), complete RAG (#18), error resilience (#44) |
-| **Polish**        | Weeks 7-9   | PII detection (#47), benchmarking (#45), security review                   |
-| **Test & Harden** | Weeks 10-12 | 80%+ tests, alpha testing, bug fixes                                       |
-| **Release Prep**  | Weeks 13-14 | Docs, deployment guides, final security audit                              |
-| **Public Beta**   | Week 15     | v0.1.0 release                                                             |
+| Phase             | Duration    | Goals                                                                  |
+| ----------------- | ----------- | ---------------------------------------------------------------------- |
+| **Foundation**    | Weeks 1-2   | Fix permissions, define MVP, basic tests                               |
+| **Core MVP**      | Weeks 3-6   | Validate connectors, complete RAG advanced features, error resilience |
+| **Polish**        | Weeks 7-9   | PII detection, benchmarking, security review                          |
+| **Test & Harden** | Weeks 10-12 | 80%+ tests, alpha testing, bug fixes                                   |
+| **Release Prep**  | Weeks 13-14 | Docs, deployment guides, final security audit                          |
+| **Public Beta**   | Week 15     | v0.1.0 release                                                         |
 
 **Total:** 15 weeks (~3.5 months) to MVP with dedicated effort.
+
+---
+
+## Recommendations
+
+1. **Focus on connector validation next** — Install hooks on a real Claude Code instance and verify end-to-end ingestion.
+2. **Define MVP scope explicitly** — Trim feature list to absolute essentials for first release (likely: ingestion, storage, search, ask, team management, basic CLI).
+3. **Expand test coverage** — Prioritize integration tests for store operations and RAG pipeline.
+4. **Make LlamaIndex index persistent** — Currently rebuilt on first query each session; store index on disk.
+5. **Provide OTel collector example** — Simple Docker Compose snippet for developers to enable full observability.
+6. **Document PII redaction** — Explain how to configure `guardrails.piiDetection` and extend patterns.
+7. **Add audit logging calls** — Invoke `store.logAudit()` for sensitive operations (memories, KB, permissions).
+8. **Implement resource sharing** — Cross-team knowledge sharing is a key differentiator; design and implement.
 
 ---
 

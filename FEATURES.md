@@ -67,13 +67,13 @@ The MVP must deliver a **working system** that can be deployed by a small team a
   - Vector retrieval via `findSimilarMemories`
   - Multi-provider LLM synthesis (Ollama, OpenAI, Anthropic, custom)
   - `buildIndex()` to load memories into LlamaIndex (foundation for advanced search)
-- CLI commands (all working):
-  - `nautalis init`, `ingest`, `search`, `ask`
-  - `memory` (list, get, delete)
-  - `knowledge-base` (create, get, list, search, delete)
-  - `team` (create, use, list, info, invite, role, remove)
-  - `permissions` (check, grant, revoke, matrix)
-  - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`
+ - CLI commands (all working):
+   - `nautalis init`, `ingest`, `search`, `ask`
+   - `memory` (list, get, delete)
+   - `knowledge-base` (create, get, list, search, delete)
+   - `team` (create, use, list, info, invite, role, remove)
+   - `permissions` (check, grant, revoke, matrix)
+   - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`
  - Team management with permission enforcement
  - Configurable Claude Code hooks via `NAUTALIS_SERVER_URL`
  - Remote endpoint support for all services (Tailscale-ready)
@@ -81,6 +81,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
  - **Error resilience**: Retry with exponential backoff + circuit breaker for embedding API, LLM API, and database operations
  - **RAG-to-Store integration**: LlamaIndex index used automatically for semantic search (falls back to pgvector if not built)
  - **PII detection**: Automatic redaction of emails, phones, credit cards, API keys, and passwords from events
+ - **Event audit trail**: Raw events stored during ingestion for replay and compliance
 
 ### ⬜ Needs Completion for MVP
 
@@ -89,6 +90,12 @@ The MVP must deliver a **working system** that can be deployed by a small team a
   - Test real-time ingestion and session lifecycle
   - Test script available: `scripts/test-claude-parser.ts` to validate transcript parsing
   - Issue: #12, #14
+- **RAG advanced features** (index is working, need these to match design):
+  - Hybrid search (vector + BM25/Full-text)
+  - Relationship retrieval (parent/child/supersedes/contradicts/supports)
+  - Persistent index across restarts (currently rebuilt each session)
+- **Context injection improvement**: Use semantic search instead of just recent memories
+  - `inject` command should query relevant memories based on session context
 - **Basic telemetry**: Switch from in-memory metrics to real OTel exporter or at least persistent logs
   - Current `provider.ts` uses pino but needs OTLP integration
   - Ensure all spans and metrics are actually recorded and exportable
@@ -96,6 +103,11 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 - **Performance tuning**: Benchmark embedding latency, search latency, synthesis latency; optimize queries and add missing indexes
   - Ensure search <500ms p95, embedding <200ms p95
   - Issue: #45
+- **Test infrastructure expansion**: Add integration and E2E tests; aim for 80%+ coverage
+  - Issue: #34
+- **Setup wizard**: Interactive onboarding to lower barrier
+  - Issue: #46
+- **Audit logging**: Call `logAudit()` for all sensitive operations (memory changes, KB edits, permission changes, team changes)
 
 ---
 
@@ -103,29 +115,31 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 
 ### Security & Compliance
 
-- **PII Detection & Redaction** — Auto-detect emails, phones, API keys, passwords in raw events; redact or hash before storage (#47)
-- **Input Validation** — Schema validation for all incoming data (config, events, API requests)
-- **Audit Logging** — Call `logAudit()` for sensitive operations (memory changes, KB edits, permission changes)
-- **Resource Sharing** — Cross-team and cross-user resource sharing (design exists, implementation pending)
+- **Input Validation** — More extensive validation for CLI options, query strings, API requests (beyond zod core)
+- **Secret scanning** — Pre-commit hooks and repository scanning for leaked credentials
+- **Rate limiting** — Protect API endpoints from abuse
+- **Audit logging** — Comprehensive audit trail for all sensitive operations (complements event storage)
+- **Encryption at rest** — Optional encryption for highly sensitive data (TDE)
+- **Compliance reports** — Generate reports for GDPR, HIPAA, etc.
 
 ### Advanced RAG
 
-- **Hybrid Search** — Combine vector + BM25 (keyword) for better recall
-- **Reranking** — Use cross-encoder to rerank top-k results
-- **LlamaIndex Query Engine** — Switch from raw SQL to LlamaIndex's query engine with configurable retrievers and synthesizers
-- **Relationship Retrieval** — Traverse memory parent/child/supersedes/contradicts/supports links
-- **Multi-modal** — Support images, audio transcripts (future)
+- **Hybrid search** — Combine vector similarity with BM25/keyword search for better recall
+- **Reranking** — Use cross-encoder models to rerank top-k results
+- **Relationship retrieval** — Traverse memory parent/child/supersedes/contradicts/supports links
+- **Index persistence** — Save/load LlamaIndex to disk for faster startup
+- **Multi-modal** — Support images, audio transcripts
 
 ### Quality & Reliability
 
-- **Comprehensive Test Suite** — Unit tests for all services, integration tests for store, E2E tests for ingestion → retrieval
-- **Error Resilience** — Retries, circuit breakers, fallback behavior, graceful degradation
-- **Backfill & Replay** — Ability to re-process events from a date range with new enrichment logic
-- **Schema Migration** — Safe migration system for evolving data model without downtime
+- **Comprehensive Test Suite** — Unit, integration, and E2E tests; 80%+ coverage
+- **Backfill & Replay** — Re-process events from a date range with new enrichment logic
+- **Schema Migration** — Safe migration system for evolving data model
+- **Canary deployments** — Gradual rollout of changes with feature flags
 
 ### Developer Experience
 
-- **Context Injection** — Semantic context injection into AI agent sessions via SessionStart hooks
+- **Context Injection** — Semantic injection using RAG search into AI agent sessions via SessionStart hooks
 - **TUI Dashboard** — Interactive terminal UI (ink/React) for monitoring system health, recent memories, team activity
 - **Setup Wizard** — Interactive initialization for new deployments (issue #46)
 - **MCP Server** — Model Context Protocol server for AI agent integration
@@ -136,12 +150,14 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 - **Full OTel Integration** — Export traces to Jaeger, metrics to Prometheus, logs to Loki/ELK
 - **Continuous Aggregates** — TimescaleDB materialized views for dashboards (daily stats, hourly latency)
 - **Alerting** — Define SLOs and alert on breaches (latency, error rate, ingestion lag)
+- **Grafana dashboards** — Pre-built dashboards for system health and usage
 
 ### Ecosystem & Connectors
 
 - **Additional Connectors** — Cursor, Windsurf, VS Code, Aider, Cline, GitHub Copilot, Codex, Gemini CLI, Devin
 - **Connector SDK** — Documentation and example templates for building custom connectors
 - **Webhook Support** — Generic webhook connector for any tool that can POST JSON
+- **Connector validation** — End-to-end testing on real installations (issue #12, #14)
 
 ---
 
