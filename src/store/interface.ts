@@ -56,8 +56,9 @@ export interface Store {
    queryMemories(query: MemoryQuery & { userId?: string; teamId?: string }): Promise<MemoryQueryResult[]>;
    updateMemory(id: string, updates: Partial<Memory>, options?: { userId?: string; teamId?: string }): Promise<void>;
    deleteMemory(id: string, options?: { userId?: string; teamId?: string }): Promise<void>;
-   listMemories(teamId: string, filters?: { projectId?: string; memoryType?: string; limit?: number; userId?: string }): Promise<Memory[]>;
-   findSimilarMemories(embedding: number[], teamId: string, limit?: number, minScore?: number, options?: { userId?: string }): Promise<MemoryQueryResult[]>;
+    listMemories(teamId: string, filters?: { projectId?: string; memoryType?: string; limit?: number; userId?: string }): Promise<Memory[]>;
+    findSimilarMemories(embedding: number[], teamId: string, limit?: number, minScore?: number, options?: { userId?: string }): Promise<MemoryQueryResult[]>;
+    getMemoriesByIds(ids: string[], options: { teamId: string; userId?: string }): Promise<Memory[]>;
 
   // Vector operations
   insertEmbedding(memoryId: string, embedding: number[], options?: { userId?: string }): Promise<void>;

@@ -5,7 +5,7 @@ import {
   type LLM as LlamaLLM,
 } from 'llamaindex';
 import type { NautalisConfig } from '../types/config.js';
-import type { MemoryQueryResult } from '../types/memory.js';
+import type { Memory, MemoryQueryResult } from '../types/memory.js';
 import { createSpan, recordMetric, logMessage } from '../telemetry/api.js';
 import { SPAN_NAMES, METRIC_NAMES } from '../types/telemetry.js';
 import type { Store } from '../store/interface.js';
@@ -155,50 +155,101 @@ export class RAGEngine {
     await this.index.insert(doc);
   }
 
-  async query(
-    queryText: string,
-    options?: { teamId?: string; projectId?: string; limit?: number; userId?: string },
-  ): Promise<MemoryQueryResult[]> {
-    const span = createSpan(SPAN_NAMES.RAG_RETRIEVE, {
-      'query.text': queryText,
-      'query.project': options?.projectId || 'all',
-    });
+   async query(
+     queryText: string,
+     options?: { teamId?: string; projectId?: string; limit?: number; userId?: string },
+   ): Promise<MemoryQueryResult[]> {
+     const span = createSpan(SPAN_NAMES.RAG_RETRIEVE, {
+       'query.text': queryText,
+       'query.project': options?.projectId || 'all',
+     });
 
-    try {
-      // Generate embedding for the query text
-      const embeddingResult = await this.embeddingService.embed(queryText);
-      const embedding = embeddingResult.embedding;
-
-      // Use teamId from config or options
+     try {
       const teamId = options?.teamId || this.config.general.teamId;
       if (!teamId) {
         throw new Error('teamId is required for query. Set in config or pass to query().');
       }
 
-      // Use userId from options or config
       const userId = options?.userId || this.config.general.userId;
       if (!userId) {
         throw new Error('userId is required for query. Set userId in config or pass as option.');
       }
 
-      // Perform vector similarity search via store
-      // Note: store.findSimilarMemories returns MemoryQueryResult[] directly
+      // If index is not built, build it now
+      if (!this.index) {
+        logMessage('info', 'RAG index not built, building now...');
+        await this.buildIndex(teamId);
+      }
+
+      // Use LlamaIndex index for retrieval if available
+      if (this.index) {
+        const retriever = this.index.asRetriever({
+          similarityTopK: options?.limit || 10,
+        });
+        const nodes = await retriever.retrieve(queryText);
+
+        // Extract memory IDs from node metadata
+        const memoryIds = nodes
+          .map((node: any) => node.node?.metadata?.memory_id)
+          .filter((id: string | undefined) => id) as string[];
+
+        if (memoryIds.length === 0) {
+          span.end();
+          return [];
+        }
+
+        // Fetch full memories by IDs
+        const memories = await this.store.getMemoriesByIds(memoryIds, {
+          teamId,
+          userId,
+        });
+
+        // Create a map for quick lookup and preserve order from retriever
+        const memoryMap = new Map(memories.map(m => [m.id, m]));
+        const orderedMemories = memoryIds
+          .map(id => memoryMap.get(id))
+          .filter((m): m is Memory => !!m);
+
+        // Map to MemoryQueryResult with scores, preserving order
+        const results: MemoryQueryResult[] = orderedMemories.map((memory, idx) => {
+          const node = nodes[idx];
+          const score = node?.score ?? 0;
+          return {
+            memory,
+            score,
+            matchedTopics: [],
+            matchedFiles: [],
+          };
+        });
+
+        // Filter by projectId if provided
+        if (options?.projectId) {
+          return results.filter((r) => r.memory.context.projectId === options.projectId);
+        }
+
+        span.end();
+        recordMetric(METRIC_NAMES.MEMORIES_QUERIED, results.length, { query_type: 'rag_index' });
+        return results;
+      }
+
+      // Fallback to raw vector search if index not available
+      const embeddingResult = await this.embeddingService.embed(queryText);
+      const embedding = embeddingResult.embedding;
+
       const results = await this.store.findSimilarMemories(embedding, teamId, options?.limit || 10, undefined, { userId });
 
-      // Filter by projectId if provided
       if (options?.projectId) {
         return results.filter((r: MemoryQueryResult) => r.memory.context.projectId === options.projectId);
       }
 
       span.end();
-      recordMetric(METRIC_NAMES.MEMORIES_QUERIED, results.length, { query_type: 'rag' });
-
-       return results;
-     } catch (error) {
-       span.end(error as Error);
-       throw error;
-     }
-   }
+      recordMetric(METRIC_NAMES.MEMORIES_QUERIED, results.length, { query_type: 'raw_pgvector' });
+      return results;
+    } catch (error) {
+      span.end(error as Error);
+      throw error;
+    }
+  }
 
   async synthesize(query: string, context: string[]): Promise<string> {
     const span = createSpan(SPAN_NAMES.RAG_SYNTHESIZE);

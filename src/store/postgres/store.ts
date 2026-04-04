@@ -939,37 +939,57 @@ export class PostgresStore implements Store {
      );
    }
 
-   async findSimilarMemories(embedding: number[], teamId: string, limit = 10, minScore = 0.7, options?: { userId?: string }) {
-     if (!options?.userId) {
-       throw new Error('userId is required for findSimilarMemories');
-     }
+    async findSimilarMemories(embedding: number[], teamId: string, limit = 10, minScore = 0.7, options?: { userId?: string }) {
+      if (!options?.userId) {
+        throw new Error('userId is required for findSimilarMemories');
+      }
 
-     return await this.withTeamContext<MemoryQueryResult[]>(
-       teamId,
-       options.userId,
-       'memory',
-       'read',
-       async (client) => {
-         const result = await client.query(
-           `SELECT m.*, 1 - (me.embedding <=> $1::vector) AS similarity
-            FROM memory_embeddings me
-            JOIN memories m ON m.id = me.memory_id
-            WHERE m.team_id = $2 AND m.is_stale = false
-            AND 1 - (me.embedding <=> $1::vector) >= $3
-            ORDER BY me.embedding <=> $1::vector
-            LIMIT $4`,
-           [`[${embedding.join(',')}]`, teamId, minScore, limit]
-         );
+      return await this.withTeamContext<MemoryQueryResult[]>(
+        teamId,
+        options.userId,
+        'memory',
+        'read',
+        async (client) => {
+          const result = await client.query(
+            `SELECT m.*, 1 - (me.embedding <=> $1::vector) AS similarity
+             FROM memory_embeddings me
+             JOIN memories m ON m.id = me.memory_id
+             WHERE m.team_id = $2 AND m.is_stale = false
+             AND 1 - (me.embedding <=> $1::vector) >= $3
+             ORDER BY me.embedding <=> $1::vector
+             LIMIT $4`,
+            [`[${embedding.join(',')}]`, teamId, minScore, limit]
+          );
 
-         return result.rows.map((row: any) => ({
-           memory: this.rowToMemory(row),
-           score: row.similarity,
-           matchedTopics: [],
-           matchedFiles: [],
-         }));
-       },
-     );
-   }
+          return result.rows.map((row: any) => ({
+            memory: this.rowToMemory(row),
+            score: row.similarity,
+            matchedTopics: [],
+            matchedFiles: [],
+          }));
+        },
+      );
+    }
+
+    async getMemoriesByIds(ids: string[], options: { teamId: string; userId?: string }) {
+      if (!options.userId) {
+        throw new Error('userId is required for getMemoriesByIds');
+      }
+
+      return await this.withTeamContext<Memory[]>(
+        options.teamId,
+        options.userId,
+        'memory',
+        'read',
+        async (client) => {
+          const result = await client.query(
+            `SELECT * FROM memories WHERE id = ANY($1) AND team_id = $2`,
+            [ids, options.teamId]
+          );
+          return result.rows.map((row: any) => this.rowToMemory(row));
+        },
+      );
+    }
 
   async insertEmbedding(memoryId: string, embedding: number[]) {
     await this.pool.query(
