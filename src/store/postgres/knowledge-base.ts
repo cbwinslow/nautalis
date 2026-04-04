@@ -165,10 +165,10 @@ export class KnowledgeBaseEngine {
         return result.rows;
       } else {
         const result = await this.pool.query(
-          `SELECT *, ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', $1)) AS rank
+          `SELECT *, ts_rank(search_vector, plainto_tsquery('english', $1)) AS rank
            FROM knowledge_base
            WHERE team_id = $2 AND is_published = true AND is_archived = false
-           AND to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', $1)
+           AND search_vector @@ plainto_tsquery('english', $1)
            ORDER BY rank DESC
            LIMIT $3`,
           [query, teamId, options?.limit || 10],

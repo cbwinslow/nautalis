@@ -1205,15 +1205,15 @@ export class PostgresStore implements Store {
         'memory',
         'read',
         async (client) => {
-          const result = await client.query(
-            `SELECT m.*, ts_rank(to_tsvector('english', m.summary || ' ' || m.detail), plainto_tsquery('english', $1)) AS rank
-             FROM memories m
-             WHERE m.team_id = $2 AND m.is_stale = false
-               AND to_tsvector('english', m.summary || ' ' || m.detail) @@ plainto_tsquery('english', $1)
-             ORDER BY rank DESC
-             LIMIT $3`,
-            [query, teamId, limit]
-          );
+        const result = await client.query(
+          `SELECT m.*, ts_rank(m.search_vector, plainto_tsquery('english', $1)) AS rank
+           FROM memories m
+           WHERE m.team_id = $2 AND m.is_stale = false
+             AND m.search_vector @@ plainto_tsquery('english', $1)
+           ORDER BY rank DESC
+           LIMIT $3`,
+          [query, teamId, limit]
+        );
           return result.rows.map((row: any) => ({
             memory: this.rowToMemory(row),
             score: row.rank,
@@ -1443,15 +1443,15 @@ export class PostgresStore implements Store {
            );
            return result.rows;
          } else {
-           const result = await client.query(
-             `SELECT *, ts_rank(to_tsvector('english', title || ' ' || content), plainto_tsquery('english', $1)) AS rank
-              FROM knowledge_base
-              WHERE team_id = $2 AND is_published = true AND is_archived = false
-              AND to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', $1)
-              ORDER BY rank DESC
-              LIMIT $3`,
-             [query, teamId, options?.limit || 10],
-           );
+            const result = await client.query(
+              `SELECT *, ts_rank(search_vector, plainto_tsquery('english', $1)) AS rank
+               FROM knowledge_base
+               WHERE team_id = $2 AND is_published = true AND is_archived = false
+               AND search_vector @@ plainto_tsquery('english', $1)
+               ORDER BY rank DESC
+               LIMIT $3`,
+              [query, teamId, options?.limit || 10],
+            );
            return result.rows;
          }
        },
