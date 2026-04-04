@@ -1,3 +1,5 @@
+import { withRetry, CircuitBreaker, DEFAULT_CIRCUIT_BREAKER_CONFIG, RetryConfig, CircuitBreakerConfig } from '../utils/resilience.js';
+
 /**
  * Ollama LLM client for decision extraction.
  * Uses the chat API to analyze text and extract structured decisions.
@@ -14,13 +16,31 @@ export interface LLMDecision {
 export class OllamaLLM {
   baseUrl: string;
   model: string;
+  private circuitBreaker: CircuitBreaker;
+  private retryConfig: RetryConfig;
 
-  constructor(options: { baseUrl?: string; model?: string }) {
+  constructor(options: { baseUrl?: string; model?: string; retryConfig?: RetryConfig; circuitBreakerConfig?: CircuitBreakerConfig }) {
     this.baseUrl = options.baseUrl || 'http://localhost:11434';
     this.model = options.model || 'qwen2.5:3b';
+    this.circuitBreaker = new CircuitBreaker(
+      options.circuitBreakerConfig || DEFAULT_CIRCUIT_BREAKER_CONFIG,
+      'ollama_llm',
+    );
+    this.retryConfig = options.retryConfig || {
+      maxAttempts: 3,
+      initialDelayMs: 100,
+      maxDelayMs: 10000,
+      backoffFactor: 2,
+    };
   }
 
   async extractDecisions(text: string): Promise<LLMDecision[]> {
+    return this.circuitBreaker.execute(() =>
+      withRetry(() => this.doExtractDecisions(text), this.retryConfig)
+    );
+  }
+
+  private async doExtractDecisions(text: string): Promise<LLMDecision[]> {
     const prompt = `Analyze the following conversation or output from an AI agent and extract any decisions that were made.
 
 Input:
@@ -58,7 +78,11 @@ Respond ONLY with valid JSON, no additional text.`;
       });
 
       if (!response.ok) {
-        throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
+        if (response.status >= 500 || response.status === 429) {
+          throw new Error(`Ollama API error (retryable): ${response.status} ${response.statusText}`);
+        } else {
+          throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
+        }
       }
 
       const data = await response.json();
@@ -71,7 +95,7 @@ Respond ONLY with valid JSON, no additional text.`;
       const decisions = JSON.parse(jsonStr) as LLMDecision[];
       return Array.isArray(decisions) ? decisions : [];
     } catch (error) {
-      // Log but don't throw - allow fallback to regex
+      // Log but don't throw - LLM failures are non-critical
       console.warn(`LLM decision extraction failed: ${error}`);
       return [];
     }

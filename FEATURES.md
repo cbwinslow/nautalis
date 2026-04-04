@@ -74,10 +74,11 @@ The MVP must deliver a **working system** that can be deployed by a small team a
   - `team` (create, use, list, info, invite, role, remove)
   - `permissions` (check, grant, revoke, matrix)
   - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`
-- Team management with permission enforcement
-- Configurable Claude Code hooks via `NAUTALIS_SERVER_URL`
+ - Team management with permission enforcement
+ - Configurable Claude Code hooks via `NAUTALIS_SERVER_URL`
  - Remote endpoint support for all services (Tailscale-ready)
  - **Configuration validation**: Zod schemas for config and events, validated at startup and ingest points
+ - **Error resilience**: Retry with exponential backoff + circuit breaker for embedding API, LLM API, and database operations
 
 ### ⬜ Needs Completion for MVP
 
@@ -89,9 +90,6 @@ The MVP must deliver a **working system** that can be deployed by a small team a
   - Current `provider.ts` uses pino but needs OTLP integration
   - Ensure all spans and metrics are actually recorded and exportable
   - Issue: #22
-- **Error handling**: Implement retry logic with exponential backoff for external calls (embedding API, LLM API, database)
-  - Add circuit breaker for failing services
-  - Issue: #44
 - **Performance tuning**: Benchmark embedding latency, search latency, synthesis latency; optimize queries and add missing indexes
   - Ensure search <500ms p95, embedding <200ms p95
   - Issue: #45

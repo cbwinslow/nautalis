@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Configuration System** — Cosmiconfig with TOML support, environment overrides
 - **Permission System** — RBAC with role caching, team membership management; **partial enforcement now in place for memory operations** (insertMemory, getMemory, listMemories, queryMemories, findSimilarMemories, updateMemory, deleteMemory)
 - **Knowledge Base** — Database schema with versioning, visibility controls, and search (CRUD partially implemented, permissions pending)
+- **Runtime Validation** — Zod schemas for all domain types (config, events, memories, knowledge base); validated at startup and ingest points to ensure data integrity
+- **Error Resilience** — Retry with exponential backoff + circuit breaker for external services: embedding API, LLM API, and database operations (transient error handling)
 
 ### Changed
 
@@ -34,9 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MVP Definition** — Reducing scope from 70+ requirements to 30% for first functional release (issue #42)
 - **Connector Validation** — Testing Claude Code hooks on real installations (critical path)
 - **RAG Integration** — Completing LlamaIndex index building from memories (search currently uses raw pgvector)
-- **Error Resilience** — Adding retry logic, circuit breakers, and graceful degradation (issue #44)
- - **Test Infrastructure** — Setting up test suite, aim for 80%+ coverage (issue #34)
- - **PII Detection** — Implementing redaction to protect sensitive data (issue #47)
+- **Test Infrastructure** — Setting up test suite, aim for 80%+ coverage (issue #34)
+- **PII Detection** — Implementing redaction to protect sensitive data (issue #47)
 - **Performance Benchmarking** — Measuring and optimizing embedding/search latency (issue #45)
 - **Setup Wizard** — Interactive onboarding to lower barrier (issue #46)
 - **SQLite Fallback** — Adding SQLite for local/solo use (issue #43)

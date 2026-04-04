@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { PermissionManager } from './permissions.js';
 import { KnowledgeBaseEngine } from './knowledge-base.js';
 import { NautalisEventSchema, MemorySchema } from '../../validation/schemas.js';
+import { withRetry, RetryConfig, DEFAULT_RETRY_CONFIG } from '../../utils/resilience.js';
 
 const { Pool } = pg;
 
@@ -16,8 +17,9 @@ export class PostgresStore implements Store {
   private pool: pg.Pool;
   private permissionManager: PermissionManager;
   private kbEngine: KnowledgeBaseEngine;
+  private retryConfig: RetryConfig;
 
-  constructor(connectionString: string) {
+  constructor(connectionString: string, retryConfig?: RetryConfig) {
     this.pool = new Pool({
       connectionString,
       max: 20,
@@ -27,16 +29,70 @@ export class PostgresStore implements Store {
 
     this.permissionManager = new PermissionManager(this.pool);
     this.kbEngine = new KnowledgeBaseEngine(this.pool);
+    this.retryConfig = retryConfig || DEFAULT_RETRY_CONFIG;
 
     this.pool.on('error', (err) => {
       logMessage('error', `Unexpected PostgreSQL error: ${err.message}`);
     });
   }
 
-  async init(): Promise<void> {
+  // Determine if an error is retryable
+  private isRetryableError(error: any): boolean {
+    if (!error || !error.code) return false;
+    
+    // PostgreSQL error codes that are safe to retry
+    const retryableCodes = [
+      '57P03', // admin_shutdown
+      '57P04', // cluster_configuration_error
+      '40001', // serialization_failure (deadlock)
+      '40P01', // deadlock_detected
+      '53300', // too_many_connections
+      '08000', // connection_exception
+      '08003', // connection_does_not_exist
+      '08006', // connection_failure
+      '08001', // sqlclient_unable_to_establish_sqlconnection
+      '08004', // sqlserver_rejected_establishment_of_sqlconnection
+      '08P01', // protocol_violation
+    ];
+    
+    return retryableCodes.includes(error.code);
+  }
+
+  // Execute a function with retry for transient errors
+  private async executeWithRetry<T>(operation: () => Promise<T>): Promise<T> {
+    let lastError: Error | undefined;
+    for (let attempt = 0; attempt < this.retryConfig.maxAttempts; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error as Error;
+        if (!this.isRetryableError(error) || attempt >= this.retryConfig.maxAttempts - 1) {
+          throw error;
+        }
+        const delay = Math.min(
+          this.retryConfig.initialDelayMs * Math.pow(this.retryConfig.backoffFactor, attempt) + Math.random() * 100,
+          this.retryConfig.maxDelayMs,
+        );
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    throw lastError || new Error('Operation failed after retries');
+  }
+
+  // Connect to pool with retry
+  private async connectWithRetry(): Promise<pg.PoolClient> {
+    return this.executeWithRetry(() => this.pool.connect());
+  }
+
+  // Execute query with retry (for standalone queries outside transactions)
+  private async queryWithRetry(query: string, params?: any[]): Promise<pg.QueryResult> {
+    return this.executeWithRetry(() => this.pool.query(query, params));
+  }
+
+   async init(): Promise<void> {
     const span = createSpan(SPAN_NAMES.STORE_MEMORY + '.init', { db_driver: 'postgres' });
     try {
-      const client = await this.pool.connect();
+      const client = await this.connectWithRetry();
       try {
         const extensions = await client.query(`
           SELECT extname FROM pg_extension
@@ -66,51 +122,80 @@ export class PostgresStore implements Store {
      await this.pool.end();
    }
 
-   // Helper: Execute operation with team context and permission check
-   private async withTeamContext<T>(
-     teamId: string,
-     userId: string,
-     scope: string,
-     action: string,
-     fn: (client: any) => Promise<T>,
-   ): Promise<T> {
-     const span = createSpan(SPAN_NAMES.STORE_PERMISSION, {
-       'permission.userId': userId,
-       'permission.teamId': teamId,
-       'permission.scope': scope,
-       'permission.action': action,
-     });
+    // Helper: Execute operation with team context and permission check, with retry for transient errors
+    private async withTeamContext<T>(
+      teamId: string,
+      userId: string,
+      scope: string,
+      action: string,
+      fn: (client: any) => Promise<T>,
+    ): Promise<T> {
+      const span = createSpan(SPAN_NAMES.STORE_PERMISSION, {
+        'permission.userId': userId,
+        'permission.teamId': teamId,
+        'permission.scope': scope,
+        'permission.action': action,
+      });
 
-     try {
-       const client = await this.pool.connect();
-       try {
-         await client.query('BEGIN');
-         
-         // Set team context for RLS
-         await client.query('SELECT set_current_team($1)', [teamId]);
-         
-         // Check permission
-         const hasPermission = await this.permissionManager.check(userId, teamId, scope, action);
-         if (!hasPermission) {
-           throw new Error(`Permission denied: user ${userId} cannot ${action} ${scope} in team ${teamId}`);
-         }
+      let lastError: Error | undefined;
+      let attempt = 0;
 
-         const result = await fn(client);
-         await client.query('COMMIT');
-         span.end();
-         return result;
-       } catch (error) {
-         await client.query('ROLLBACK');
-         span.end(error as Error);
-         throw error;
-       } finally {
-         client.release();
-       }
-     } catch (error) {
-       span.end(error as Error);
-       throw error;
-     }
-   }
+      while (attempt < this.retryConfig.maxAttempts) {
+        try {
+          const client = await this.pool.connect();
+          try {
+            await client.query('BEGIN');
+            
+            // Set team context for RLS
+            await client.query('SELECT set_current_team($1)', [teamId]);
+            
+            // Check permission
+            const hasPermission = await this.permissionManager.check(userId, teamId, scope, action);
+            if (!hasPermission) {
+              throw new Error(`Permission denied: user ${userId} cannot ${action} ${scope} in team ${teamId}`);
+            }
+
+            const result = await fn(client);
+            await client.query('COMMIT');
+            span.end();
+            return result;
+          } catch (error) {
+            await client.query('ROLLBACK');
+            // Only retry on transient errors
+            if (this.isRetryableError(error) && attempt < this.retryConfig.maxAttempts - 1) {
+              lastError = error as Error;
+              const delay = Math.min(
+                this.retryConfig.initialDelayMs * Math.pow(this.retryConfig.backoffFactor, attempt) + Math.random() * 100,
+                this.retryConfig.maxDelayMs,
+              );
+              await new Promise(resolve => setTimeout(resolve, delay));
+              attempt++;
+              continue;
+            }
+            throw error;
+          } finally {
+            client.release();
+          }
+        } catch (error) {
+          // Connection errors
+          if (this.isRetryableError(error) && attempt < this.retryConfig.maxAttempts - 1) {
+            lastError = error as Error;
+            const delay = Math.min(
+              this.retryConfig.initialDelayMs * Math.pow(this.retryConfig.backoffFactor, attempt) + Math.random() * 100,
+              this.retryConfig.maxDelayMs,
+            );
+            await new Promise(resolve => setTimeout(resolve, delay));
+            attempt++;
+            continue;
+          }
+          span.end(error as Error);
+          throw error;
+        }
+      }
+
+      // Should not reach here, but for completeness
+      throw lastError || new Error('Transaction failed after retries');
+    }
 
    // Users
   async createUser(user: { email: string; name?: string; authId?: string }) {
@@ -534,28 +619,28 @@ export class PostgresStore implements Store {
   }
 
   async getEventsBySession(sessionId: string, limit = 100) {
-    const result = await this.pool.query(
+    const result = await this.queryWithRetry(
       `SELECT * FROM events WHERE session_id = $1 ORDER BY timestamp DESC LIMIT $2`,
       [sessionId, limit]
     );
     return result.rows.map(this.rowToEvent);
   }
 
-  async getEventsByTeam(teamId: string, options?: { since?: Date; until?: Date; type?: string; limit?: number }) {
-    let sql = `SELECT * FROM events WHERE team_id = $1`;
-    const params: any[] = [teamId];
-    let idx = 2;
+   async getEventsByTeam(teamId: string, options?: { since?: Date; until?: Date; type?: string; limit?: number }) {
+     let sql = `SELECT * FROM events WHERE team_id = $1`;
+     const params: any[] = [teamId];
+     let idx = 2;
 
-    if (options?.since) { sql += ` AND timestamp >= $${idx++}`; params.push(options.since); }
-    if (options?.until) { sql += ` AND timestamp <= $${idx++}`; params.push(options.until); }
-    if (options?.type) { sql += ` AND event_type = $${idx++}`; params.push(options.type); }
+     if (options?.since) { sql += ` AND timestamp >= $${idx++}`; params.push(options.since); }
+     if (options?.until) { sql += ` AND timestamp <= $${idx++}`; params.push(options.until); }
+     if (options?.type) { sql += ` AND event_type = $${idx++}`; params.push(options.type); }
 
-    sql += ` ORDER BY timestamp DESC LIMIT $${idx++}`;
-    params.push(options?.limit || 100);
+     sql += ` ORDER BY timestamp DESC LIMIT $${idx++}`;
+     params.push(options?.limit || 100);
 
-    const result = await this.pool.query(sql, params);
-    return result.rows.map(this.rowToEvent);
-  }
+     const result = await this.queryWithRetry(sql, params);
+     return result.rows.map(this.rowToEvent);
+   }
 
    // Memories
    async insertMemory(memory: Memory, options?: { userId?: string; teamId?: string }): Promise<string> {
@@ -1121,29 +1206,29 @@ export class PostgresStore implements Store {
     );
   }
 
-  // Stats
-  async getTeamDashboard(teamId: string) {
-    const result = await this.pool.query(`SELECT get_team_dashboard($1) AS dashboard`, [teamId]);
-    return result.rows[0]?.dashboard || {};
-  }
+   // Stats
+   async getTeamDashboard(teamId: string) {
+     const result = await this.queryWithRetry(`SELECT get_team_dashboard($1) AS dashboard`, [teamId]);
+     return result.rows[0]?.dashboard || {};
+   }
 
-  async getStats() {
-    const users = await this.pool.query(`SELECT COUNT(*)::int FROM users`);
-    const teams = await this.pool.query(`SELECT COUNT(*)::int FROM teams`);
-    const projects = await this.pool.query(`SELECT COUNT(*)::int FROM projects`);
-    const agents = await this.pool.query(`SELECT COUNT(*)::int FROM agents`);
-    const memories = await this.pool.query(`SELECT COUNT(*)::int FROM memories`);
-    const events = await this.pool.query(`SELECT COUNT(*)::int FROM events`);
+   async getStats() {
+     const users = await this.queryWithRetry(`SELECT COUNT(*)::int FROM users`);
+     const teams = await this.queryWithRetry(`SELECT COUNT(*)::int FROM teams`);
+     const projects = await this.queryWithRetry(`SELECT COUNT(*)::int FROM projects`);
+     const agents = await this.queryWithRetry(`SELECT COUNT(*)::int FROM agents`);
+     const memories = await this.queryWithRetry(`SELECT COUNT(*)::int FROM memories`);
+     const events = await this.queryWithRetry(`SELECT COUNT(*)::int FROM events`);
 
-    return {
-      totalUsers: users.rows[0].count,
-      totalTeams: teams.rows[0].count,
-      totalProjects: projects.rows[0].count,
-      totalAgents: agents.rows[0].count,
-      totalMemories: memories.rows[0].count,
-      totalEvents: events.rows[0].count,
-    };
-  }
+     return {
+       totalUsers: users.rows[0].count,
+       totalTeams: teams.rows[0].count,
+       totalProjects: projects.rows[0].count,
+       totalAgents: agents.rows[0].count,
+       totalMemories: memories.rows[0].count,
+       totalEvents: events.rows[0].count,
+     };
+   }
 
   private rowToEvent(row: any): NautalisEvent {
     // Parse tool output and incorporate exit_code
