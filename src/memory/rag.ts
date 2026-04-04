@@ -155,101 +155,130 @@ export class RAGEngine {
     await this.index.insert(doc);
   }
 
-   async query(
-     queryText: string,
-     options?: { teamId?: string; projectId?: string; limit?: number; userId?: string },
-   ): Promise<MemoryQueryResult[]> {
-     const span = createSpan(SPAN_NAMES.RAG_RETRIEVE, {
-       'query.text': queryText,
-       'query.project': options?.projectId || 'all',
-     });
+    async query(
+      queryText: string,
+      options?: { teamId?: string; projectId?: string; limit?: number; userId?: string; useHybrid?: boolean },
+    ): Promise<MemoryQueryResult[]> {
+      const span = createSpan(SPAN_NAMES.RAG_RETRIEVE, {
+        'query.text': queryText,
+        'query.project': options?.projectId || 'all',
+      });
 
-     try {
-      const teamId = options?.teamId || this.config.general.teamId;
-      if (!teamId) {
-        throw new Error('teamId is required for query. Set in config or pass to query().');
-      }
+      try {
+       const teamId = options?.teamId || this.config.general.teamId;
+       if (!teamId) {
+         throw new Error('teamId is required for query. Set in config or pass to query().');
+       }
 
-      const userId = options?.userId || this.config.general.userId;
-      if (!userId) {
-        throw new Error('userId is required for query. Set userId in config or pass as option.');
-      }
+       const userId = options?.userId || this.config.general.userId;
+       if (!userId) {
+         throw new Error('userId is required for query. Set userId in config or pass as option.');
+       }
 
-      // If index is not built, build it now
-      if (!this.index) {
-        logMessage('info', 'RAG index not built, building now...');
-        await this.buildIndex(teamId);
-      }
+       const limit = options?.limit || 10;
 
-      // Use LlamaIndex index for retrieval if available
-      if (this.index) {
-        const retriever = this.index.asRetriever({
-          similarityTopK: options?.limit || 10,
-        });
-        const nodes = await retriever.retrieve(queryText);
+       // If index is not built, build it now
+       if (!this.index) {
+         logMessage('info', 'RAG index not built, building now...');
+         await this.buildIndex(teamId);
+       }
 
-        // Extract memory IDs from node metadata
-        const memoryIds = nodes
-          .map((node: any) => node.node?.metadata?.memory_id)
-          .filter((id: string | undefined) => id) as string[];
+       // Get vector search results
+       let vectorResults: MemoryQueryResult[];
+       if (this.index) {
+         const retriever = this.index.asRetriever({
+           similarityTopK: limit,
+         });
+         const nodes = await retriever.retrieve(queryText);
 
-        if (memoryIds.length === 0) {
-          span.end();
-          return [];
-        }
+         const memoryIds = nodes
+           .map((node: any) => node.node?.metadata?.memory_id)
+           .filter((id: string | undefined) => id) as string[];
 
-        // Fetch full memories by IDs
-        const memories = await this.store.getMemoriesByIds(memoryIds, {
-          teamId,
-          userId,
-        });
+         if (memoryIds.length === 0) {
+           vectorResults = [];
+         } else {
+           const memories = await this.store.getMemoriesByIds(memoryIds, { teamId, userId });
+           const memoryMap = new Map(memories.map(m => [m.id, m]));
+           const orderedMemories = memoryIds
+             .map(id => memoryMap.get(id))
+             .filter((m): m is Memory => !!m);
 
-        // Create a map for quick lookup and preserve order from retriever
-        const memoryMap = new Map(memories.map(m => [m.id, m]));
-        const orderedMemories = memoryIds
-          .map(id => memoryMap.get(id))
-          .filter((m): m is Memory => !!m);
+           vectorResults = orderedMemories.map((memory, idx) => {
+             const node = nodes[idx];
+             const score = node?.score ?? 0;
+             return { memory, score, matchedTopics: [], matchedFiles: [] };
+           });
+         }
+       } else {
+         // Fallback to raw vector search
+         const embeddingResult = await this.embeddingService.embed(queryText);
+         const embedding = embeddingResult.embedding;
+         vectorResults = await this.store.findSimilarMemories(embedding, teamId, limit, undefined, { userId });
+       }
 
-        // Map to MemoryQueryResult with scores, preserving order
-        const results: MemoryQueryResult[] = orderedMemories.map((memory, idx) => {
-          const node = nodes[idx];
-          const score = node?.score ?? 0;
-          return {
-            memory,
-            score,
-            matchedTopics: [],
-            matchedFiles: [],
-          };
-        });
+       // If hybrid search requested, also perform full-text search and combine
+       if (options?.useHybrid) {
+         const ftResults = await this.store.fullTextSearchMemories(teamId, queryText, limit * 2, { userId });
 
-        // Filter by projectId if provided
-        if (options?.projectId) {
-          return results.filter((r) => r.memory.context.projectId === options.projectId);
-        }
+         // Normalize scores from both sets to 0-1 range based on max in each set
+         const maxVecScore = vectorResults.length > 0 ? Math.max(...vectorResults.map(r => r.score)) : 0;
+         const maxFtScore = ftResults.length > 0 ? Math.max(...ftResults.map(r => r.score)) : 0;
 
-        span.end();
-        recordMetric(METRIC_NAMES.MEMORIES_QUERIED, results.length, { query_type: 'rag_index' });
-        return results;
-      }
+         const combinedMap = new Map<string, { memory: Memory; vecNorm: number; ftNorm: number }>();
 
-      // Fallback to raw vector search if index not available
-      const embeddingResult = await this.embeddingService.embed(queryText);
-      const embedding = embeddingResult.embedding;
+         for (const r of vectorResults) {
+           const vecNorm = maxVecScore > 0 ? r.score / maxVecScore : 0;
+           combinedMap.set(r.memory.id, { memory: r.memory, vecNorm, ftNorm: 0 });
+         }
+         for (const r of ftResults) {
+           const ftNorm = maxFtScore > 0 ? r.score / maxFtScore : 0;
+           const existing = combinedMap.get(r.memory.id);
+           if (existing) {
+             existing.ftNorm = ftNorm;
+           } else {
+             combinedMap.set(r.memory.id, { memory: r.memory, vecNorm: 0, ftNorm });
+           }
+         }
 
-      const results = await this.store.findSimilarMemories(embedding, teamId, options?.limit || 10, undefined, { userId });
+         // Compute weighted hybrid score (equal weight)
+         const alpha = 0.5;
+         const combined: MemoryQueryResult[] = Array.from(combinedMap.values()).map(entry => ({
+           memory: entry.memory,
+           score: alpha * entry.vecNorm + alpha * entry.ftNorm,
+           matchedTopics: [],
+           matchedFiles: [],
+         }));
 
-      if (options?.projectId) {
-        return results.filter((r: MemoryQueryResult) => r.memory.context.projectId === options.projectId);
-      }
+         // Sort by hybrid score descending
+         combined.sort((a, b) => b.score - a.score);
 
-      span.end();
-      recordMetric(METRIC_NAMES.MEMORIES_QUERIED, results.length, { query_type: 'raw_pgvector' });
-      return results;
-    } catch (error) {
-      span.end(error as Error);
-      throw error;
-    }
-  }
+         // Apply limit
+         const limited = combined.slice(0, limit);
+
+         // Filter by projectId if provided
+         const finalResults = options?.projectId
+           ? limited.filter(r => r.memory.context.projectId === options.projectId)
+           : limited;
+
+         span.end();
+         recordMetric(METRIC_NAMES.MEMORIES_QUERIED, finalResults.length, { query_type: 'hybrid' });
+         return finalResults;
+       }
+
+       // Otherwise, return pure vector results
+       if (options?.projectId) {
+         vectorResults = vectorResults.filter(r => r.memory.context.projectId === options.projectId);
+       }
+
+       span.end();
+       recordMetric(METRIC_NAMES.MEMORIES_QUERIED, vectorResults.length, { query_type: options?.useHybrid ? 'hybrid' : 'vector_only' });
+       return vectorResults;
+     } catch (error) {
+       span.end(error as Error);
+       throw error;
+     }
+   }
 
   async synthesize(query: string, context: string[]): Promise<string> {
     const span = createSpan(SPAN_NAMES.RAG_SYNTHESIZE);

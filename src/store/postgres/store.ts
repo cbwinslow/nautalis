@@ -1185,15 +1185,44 @@ export class PostgresStore implements Store {
       );
     }
 
-   async insertEmbedding(memoryId: string, embedding: number[]) {
-    await this.pool.query(
-      `INSERT INTO memory_embeddings (memory_id, embedding) VALUES ($1, $2::vector)
-       ON CONFLICT (memory_id) DO UPDATE SET embedding = $2::vector`,
-      [memoryId, `[${embedding.join(',')}]`]
-    );
-  }
+    async insertEmbedding(memoryId: string, embedding: number[]) {
+      await this.pool.query(
+        `INSERT INTO memory_embeddings (memory_id, embedding) VALUES ($1, $2::vector)
+         ON CONFLICT (memory_id) DO UPDATE SET embedding = $2::vector`,
+        [memoryId, `[${embedding.join(',')}]`]
+      );
+    }
 
-    // Knowledge Base (with permission enforcement)
+    // Full-text search for memories
+    async fullTextSearchMemories(teamId: string, query: string, limit = 10, options?: { userId?: string }) {
+      if (!options?.userId) {
+        throw new Error('userId is required for fullTextSearchMemories');
+      }
+
+      return await this.withTeamContext<{ memory: Memory; score: number }[]>(
+        teamId,
+        options.userId,
+        'memory',
+        'read',
+        async (client) => {
+          const result = await client.query(
+            `SELECT m.*, ts_rank(to_tsvector('english', m.summary || ' ' || m.detail), plainto_tsquery('english', $1)) AS rank
+             FROM memories m
+             WHERE m.team_id = $2 AND m.is_stale = false
+               AND to_tsvector('english', m.summary || ' ' || m.detail) @@ plainto_tsquery('english', $1)
+             ORDER BY rank DESC
+             LIMIT $3`,
+            [query, teamId, limit]
+          );
+          return result.rows.map((row: any) => ({
+            memory: this.rowToMemory(row),
+            score: row.rank,
+          }));
+        },
+      );
+    }
+
+  // Knowledge Base (with permission enforcement)
     async createKnowledgeBase(entry: any, options?: { userId?: string }): Promise<string> {
       const userId = options?.userId || entry.createdById;
       if (!userId) throw new Error('userId is required for createKnowledgeBase');
