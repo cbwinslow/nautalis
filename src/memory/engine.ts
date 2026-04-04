@@ -7,12 +7,13 @@ import { DecisionExtractor } from './extract.js';
 import { OllamaLLM } from './ollama-llm.js';
 import { EmbeddingService } from './embed.js';
 import { createEmbeddingService } from './embed-factory.js';
-import { RAGEngine } from './rag.js';
-import { v4 as uuidv4 } from 'uuid';
-import { createSpan, recordMetric, logMessage, benchmarkOperation } from '../telemetry/api.js';
-import { SPAN_NAMES, METRIC_NAMES } from '../types/telemetry.js';
-import { NautalisEventSchema } from '../validation/schemas.js';
-import { redactSensitiveData } from '../utils/pii-detector.js';
+ import { RAGEngine } from './rag.js';
+ import { v4 as uuidv4 } from 'uuid';
+ import { createSpan, recordMetric, logMessage, benchmarkOperation } from '../telemetry/api.js';
+ import { SPAN_NAMES, METRIC_NAMES } from '../types/telemetry.js';
+ import { NautalisEventSchema } from '../validation/schemas.js';
+ import { redactSensitiveData } from '../utils/pii-detector.js';
+ import { ProviderRegistry } from '../providers/registry.js';
 
 export class MemoryEngine {
   private classifier: MemoryClassifier;
@@ -27,7 +28,7 @@ export class MemoryEngine {
     this.config = config;
     this.classifier = new MemoryClassifier();
 
-    // Initialize LLM for decision extraction if configured
+    // Initialize LLM for decision extraction if configured (legacy Ollama only for now)
     const llm =
       config.llm.provider === 'ollama'
         ? new OllamaLLM({
@@ -37,8 +38,25 @@ export class MemoryEngine {
         : undefined;
 
     this.decisionExtractor = new DecisionExtractor(llm);
-    this.embeddingService = createEmbeddingService(config);
-    this.ragEngine = new RAGEngine(config, store, this.embeddingService);
+
+    // Use provider registry for embedding service if available, else fallback to factory
+    let registry: ProviderRegistry | undefined;
+    try {
+      registry = new ProviderRegistry(config.providers);
+      const embeddingProviderName = config.embeddings.provider;
+      if (registry.hasProvider(embeddingProviderName)) {
+        this.embeddingService = registry.getProvider(embeddingProviderName).createEmbeddingService();
+        logMessage('info', `Using provider "${embeddingProviderName}" for embeddings`);
+      } else {
+        // Fallback to legacy factory (handles direct provider types)
+        this.embeddingService = createEmbeddingService(config);
+      }
+    } catch (error) {
+      logMessage('warn', `Provider registry failed: ${error}. Falling back to legacy embedding service.`);
+      this.embeddingService = createEmbeddingService(config);
+    }
+
+    this.ragEngine = new RAGEngine(config, store, this.embeddingService, registry);
   }
 
   async processEvent(event: NautalisEvent): Promise<Memory[]> {

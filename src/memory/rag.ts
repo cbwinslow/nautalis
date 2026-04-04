@@ -10,31 +10,50 @@ import { createSpan, recordMetric, logMessage } from '../telemetry/api.js';
 import { SPAN_NAMES, METRIC_NAMES } from '../types/telemetry.js';
 import type { Store } from '../store/interface.js';
 import { EmbeddingService } from './embed.js';
+import type { ProviderRegistry } from '../providers/registry.js';
 
 export class RAGEngine {
   private config: NautalisConfig;
   private store: Store;
   private embeddingService: EmbeddingService;
   private index: VectorStoreIndex | null = null;
+  private providerRegistry?: ProviderRegistry;
 
-   constructor(config: NautalisConfig, store: Store, embeddingService: EmbeddingService) {
-     this.config = config;
-     this.store = store;
-     this.embeddingService = embeddingService;
+  constructor(config: NautalisConfig, store: Store, embeddingService: EmbeddingService, providerRegistry?: ProviderRegistry) {
+    this.config = config;
+    this.store = store;
+    this.embeddingService = embeddingService;
+    this.providerRegistry = providerRegistry;
 
-     // Configure LlamaIndex settings
-     const llm = this.configureLLM();
-     if (llm) {
-       Settings.llm = llm;
-     }
-     const embedModel = this.configureEmbeddingModel();
-     if (embedModel) {
-       Settings.embedModel = embedModel;
-     }
-   }
+    // Configure LlamaIndex settings
+    const llm = this.configureLLM();
+    if (llm) {
+      Settings.llm = llm;
+    }
+    const embedModel = this.configureEmbeddingModel();
+    if (embedModel) {
+      Settings.embedModel = embedModel;
+    }
+  }
 
    private configureLLM(): LlamaLLM | null {
      const { provider, model } = this.config.llm;
+
+     // Try provider registry first if available
+     if (this.providerRegistry && this.providerRegistry.hasProvider(provider)) {
+       try {
+         const p = this.providerRegistry.getProvider(provider);
+         if (p.supports('llm')) {
+           return p.createLLM();
+         } else {
+           logMessage('warn', `Provider "${provider}" does not support LLM`);
+         }
+       } catch (err) {
+         logMessage('warn', `Provider "${provider}" failed: ${err}. Falling back to direct config.`);
+       }
+     }
+
+     // Fallback to direct configuration (legacy)
      const Ollama = (require('llamaindex') as any).Ollama;
      const OpenAI = (require('llamaindex') as any).OpenAI;
      const Anthropic = (require('llamaindex') as any).Anthropic;
@@ -71,8 +90,6 @@ export class RAGEngine {
            if (!this.config.llm.custom?.baseUrl) {
              throw new Error('Custom LLM provider requires baseUrl in config.llm.custom.baseUrl');
            }
-           // For custom, we'll use a generic HTTP LLM if available, or fallback to OpenAI-compatible
-           // LlamaIndex.TS likely has an OpenACompatible class; we can use OpenAI with custom baseUrl
            const customKey = this.config.llm.custom.apiKeyEnv
              ? process.env[this.config.llm.custom.apiKeyEnv]
              : undefined;
