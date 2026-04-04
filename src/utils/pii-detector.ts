@@ -48,6 +48,11 @@ export function redactSensitiveData(data: any): any {
     return data;
   }
 
+  // Preserve Date objects (do not recurse into them)
+  if (data instanceof Date) {
+    return data;
+  }
+
   if (typeof data === 'string') {
     return redactString(data);
   }

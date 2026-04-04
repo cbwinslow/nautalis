@@ -7,6 +7,7 @@ import { getStore } from '../store/factory.js';
 import { MemoryEngine } from '../memory/engine.js';
 import { initTelemetry } from '../telemetry/provider.js';
 import { formatDistanceToNow } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 
 let server: http.Server | null = null;
 
@@ -42,9 +43,94 @@ export function registerDaemonCommand(program: Command): void {
               for await (const chunk of req) {
                 body += chunk;
               }
-              const events = JSON.parse(body);
-              const arr = Array.isArray(events) ? events : [events];
-              const count = await memoryEngine.ingestEvents(arr);
+              const rawEvents = JSON.parse(body);
+              const arr = Array.isArray(rawEvents) ? rawEvents : [rawEvents];
+
+              // Convert hook payload to NautalisEvent
+              const nautalisEvents = arr.map((h: any) => {
+                // Map hook event_type to Nautalis EventType
+                let type: string;
+                switch (h.event_type) {
+                  case 'PostToolUse':
+                    type = 'tool_use';
+                    break;
+                  case 'Stop':
+                    type = 'session_end';
+                    break;
+                  case 'SessionStart':
+                    type = 'session_start';
+                    break;
+                  case 'SessionEnd':
+                    type = 'session_end';
+                    break;
+                  default:
+                    type = 'conversation';
+                }
+
+                const userId = config.general.userId;
+                const teamId = config.general.teamId;
+
+                // Build context and project (same for now)
+                const context = {
+                  teamId,
+                  projectId: '',
+                  repoPath: h.cwd || process.cwd(),
+                  repoUrl: '',
+                  branch: '',
+                  cwd: h.cwd || process.cwd(),
+                  platform: process.platform,
+                };
+
+                const nautalisEvent: any = {
+                  eventId: uuidv4(),
+                  timestamp: h.timestamp ? new Date(h.timestamp) : new Date(),
+                  source: {
+                    toolName: 'claude_code',
+                    toolVersion: '',
+                    instanceId: '',
+                    sessionId: h.session_id || '',
+                    agentName: 'Claude Code',
+                    userId,
+                  },
+                  project: context,
+                  type,
+                  toolName: h.tool_name || undefined,
+                  toolInput: h.tool_input || undefined,
+                  toolOutput: h.tool_output || undefined,
+                  filesInvolved: h.files_involved || [],
+                  context,
+                  extracted: { decisions: [], errors: [], topics: [] },
+                  raw: h,
+                };
+
+                // Debug: log timestamp type
+                if (process.env.DEBUG_DAEMON) {
+                  console.log('Converted event timestamp:', typeof nautalisEvent.timestamp, nautalisEvent.timestamp);
+                }
+
+                return nautalisEvent;
+              });
+
+              // Debug: log first event
+              if (process.env.DEBUG_DAEMON && nautalisEvents.length > 0) {
+                console.log('Sample event:', JSON.stringify(nautalisEvents[0], (k, v) => k === 'timestamp' ? v.toString() : v, 2));
+              }
+
+              // Validate events before ingestion to catch errors early
+              try {
+                const { NautalisEventSchema } = await import('../validation/schemas.js');
+                for (const ev of nautalisEvents) {
+                  NautalisEventSchema.parse(ev);
+                }
+                if (process.env.DEBUG_DAEMON) {
+                  console.log('Pre-ingest validation passed');
+                }
+              } catch (validationError) {
+                console.error('Pre-ingest validation failed:', validationError);
+                throw validationError; // will be caught below and return 500
+              }
+
+              const count = await memoryEngine.ingestEvents(nautalisEvents);
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ ingested: count }));
               return;
@@ -146,10 +232,11 @@ export function registerDaemonCommand(program: Command): void {
 
             res.writeHead(404);
             res.end('Not Found');
-          } catch (error) {
-            res.writeHead(500);
-            res.end(`Error: ${error}`);
-          }
+            } catch (error) {
+              console.error('Request handler error:', error);
+              res.writeHead(500);
+              res.end(`Error: ${error}`);
+            }
         });
 
         server.listen(port, '0.0.0.0', () => {
