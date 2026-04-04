@@ -30,21 +30,21 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 
 | Category | Implementation | Core for MVP? |
 |----------|----------------|---------------|
-| **Storage Backend**   | ✅ 95% — PostgreSQL + pgvector (+ TimescaleDB optional)         | ✅ Essential |
+| **Storage Backend**   | ✅ 100% — PostgreSQL + pgvector with functional indexes (HNSW, FTS via triggers) | ✅ Essential |
 | **Multi-tenancy**     | ✅ 100% — RBAC with RLS enforcement                            | ✅ Essential |
-| **Event Ingestion**   | 🟨 70% — REST API works, connectors need validation            | ✅ Essential |
-| **Memory Enrichment** | 🟨 60% — Classification, extraction, embedding work            | ✅ Essential |
-| **RAG Retrieval**     | 🟨 80% — Vector + full-text hybrid, LlamaIndex, relationship traversal | ✅ Essential |
+| **Event Ingestion**   | 🟨 85% — REST API works, daemon conversion ready, connectors need real-world validation | ✅ Essential |
+| **Memory Enrichment** | 🟨 70% — Classification, extraction, embedding, PII redaction (Date bug fixed) | ✅ Essential |
+| **RAG Retrieval**     | 🟨 85% — Vector (HNSW) + full-text hybrid, LlamaIndex auto-build, relationship traversal | ✅ Essential |
 | **RAG Synthesis**     | ✅ 80% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom)| ✅ Essential |
 | **Knowledge Base**    | ✅ 100% — CRUD, search, versioning, visibility                 | ✅ Essential |
 | **CLI Commands**      | ✅ 90% — All 16 commands registered and functional             | ✅ Essential |
 | **Observability**     | 🟨 40% — Structured logging; OTel partial                      | ✅ Basic |
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
-| **PII Detection**     | ✅ 100% — Redaction of sensitive data                          | ✅ Essential |
+| **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
 | **Context Injection** | 🟨 40% — Semantic CLI works; hook endpoint uses recency        | ⬜ Post-MVP |
-| **Test Suite**        | 🟨 10% — Unit tests for core utilities (23 passing)            | ⬜ Post-MVP |
-| **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Post-MVP |
-| **Connector SDK**     | 🟨 25% — Framework exists, hooks configurable; untested        | ⬜ Defer |
+| **Test Suite**        | 🟨 20% — Unit tests + validation scripts                       | ⬜ Post-MVP |
+| **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Defer |
+| **Connector SDK**     | 🟨 30% — Framework exists, hooks configurable, parser validated| ⬜ Defer |
 
 ---
 
