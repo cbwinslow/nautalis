@@ -31,7 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - **Hybrid Search** — RAGEngine supports useHybrid option to combine vector similarity and PostgreSQL full-text search with score normalization (Reciprocal Rank Fusion style)
  - **Daemon Server** — HTTP daemon (`nautalis daemon start`) with endpoints to support Claude Code hooks: `/api/events` (ingest), `/api/context/inject` (context injection), `/api/sessions/summarize` and `/api/sessions/finalize`
  - **Semantic Injection** — `nautalis inject` now supports `--query` flag for RAG-based retrieval; falls back to recent memories when no query provided
- - **Audit Logging** — Comprehensive audit trail for sensitive operations: memory delete/update, permission grants/revokes, team management (createTeam, addTeamMember, removeTeamMember, updateMemberRole, updateTeam), and knowledge base create/update/delete
+  - **Audit Logging** — Comprehensive audit trail for sensitive operations: memory delete/update, permission grants/revokes, team management (createTeam, addTeamMember, removeTeamMember, updateMemberRole, updateTeam), and knowledge base create/update/delete
+  - **System User Setup** — `nautalis system create-user` command creates a dedicated non-root system user for secure daemon operation (Linux)
+  - **Deployment Templates** — Systemd service file (`deploy/nautalis.service`) and environment configuration example (`deploy/nautalis.env`) for production deployments
  - **Relationship Retrieval** — Store method `getRelatedMemories` to traverse memory relationships (parent, child, supersedes, supersededBy, contradicts, contradictedBy, supports, supportedBy, all)
 
 ### Changed
