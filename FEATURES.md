@@ -1,7 +1,7 @@
 # Nautalis — Feature Goals & MVP Definition
 
 **Last Updated:** 2026-04-04  
-**Implementation Status:** ~75% complete  
+**Implementation Status:** ~80% complete  
 **Target MVP:** Minimal viable system for single-team deployment
 
 ---
@@ -30,21 +30,21 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 
 | Category | Implementation | Core for MVP? |
 |----------|----------------|---------------|
-| **Storage Backend** | ✅ 100% — PostgreSQL + pgvector + TimescaleDB | ✅ Essential |
-| **Multi-tenancy** | ✅ 100% — RBAC with RLS enforcement | ✅ Essential |
-| **Event Ingestion** | 🟨 60% — REST API works, connectors need validation | ✅ Essential |
-| **Memory Enrichment** | 🟨 50% — Classification, extraction, embedding work | ✅ Essential |
-| **RAG Retrieval** | 🟨 60% — Vector search via pgvector (cosine similarity) | ✅ Essential |
-| **RAG Synthesis** | ✅ 80% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom) | ✅ Essential |
-| **Knowledge Base** | ✅ 100% — CRUD, search, versioning, visibility | ✅ Essential |
-| **CLI Commands** | ✅ 80% — All 14 commands registered and mostly functional | ✅ Essential |
-| **Observability** | 🟨 30% — Structured logging (pino) works; OTel stub | ✅ Basic |
-| **Error Resilience** | ❌ 0% — No retry, circuit breakers, or graceful degradation | ⬜ Defer |
-| **PII Detection** | ❌ 0% — No redaction or secret scanning | ⬜ Defer (security) |
-| **Context Injection** | 🟨 10% — Recency-based only, not semantic | ⬜ Post-MVP |
-| **Test Suite** | ❌ 0% — Zero coverage, no tests | ⬜ Post-MVP |
-| **TUI / Dashboard** | ❌ 0% — Components stubbed, not integrated | ⬜ Post-MVP |
-| **Connector SDK** | 🟨 25% — Framework exists, hooks configurable; untested | ⬜ Defer |
+| **Storage Backend**   | ✅ 100% — PostgreSQL + pgvector + TimescaleDB                  | ✅ Essential |
+| **Multi-tenancy**     | ✅ 100% — RBAC with RLS enforcement                            | ✅ Essential |
+| **Event Ingestion**   | 🟨 70% — REST API works, connectors need validation            | ✅ Essential |
+| **Memory Enrichment** | 🟨 60% — Classification, extraction, embedding work            | ✅ Essential |
+| **RAG Retrieval**     | 🟨 70% — Vector search, LlamaIndex, relationship traversal    | ✅ Essential |
+| **RAG Synthesis**     | ✅ 80% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom)| ✅ Essential |
+| **Knowledge Base**    | ✅ 100% — CRUD, search, versioning, visibility                 | ✅ Essential |
+| **CLI Commands**      | ✅ 85% — All 14 commands registered and functional             | ✅ Essential |
+| **Observability**     | 🟨 40% — Structured logging; OTel partial                      | ✅ Basic |
+| **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
+| **PII Detection**     | ✅ 100% — Redaction of sensitive data                          | ✅ Essential |
+| **Context Injection** | 🟨 40% — Semantic CLI works; hook endpoint uses recency        | ⬜ Post-MVP |
+| **Test Suite**        | 🟨 10% — Unit tests for core utilities (23 passing)            | ⬜ Post-MVP |
+| **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Post-MVP |
+| **Connector SDK**     | 🟨 25% — Framework exists, hooks configurable; untested        | ⬜ Defer |
 
 ---
 
@@ -79,9 +79,12 @@ The MVP must deliver a **working system** that can be deployed by a small team a
  - Remote endpoint support for all services (Tailscale-ready)
  - **Configuration validation**: Zod schemas for config and events, validated at startup and ingest points
  - **Error resilience**: Retry with exponential backoff + circuit breaker for embedding API, LLM API, and database operations
- - **RAG-to-Store integration**: LlamaIndex index used automatically for semantic search (falls back to pgvector if not built)
- - **PII detection**: Automatic redaction of emails, phones, credit cards, API keys, and passwords from events
- - **Event audit trail**: Raw events stored during ingestion for replay and compliance
+  - **RAG-to-Store integration**: LlamaIndex index used automatically for semantic search (falls back to pgvector if not built)
+  - **PII detection**: Automatic redaction of emails, phones, credit cards, API keys, and passwords from events
+  - **Event audit trail**: Raw events stored during ingestion for replay and compliance
+  - **Semantic injection**: `nautalis inject --query` performs RAG-based context retrieval
+  - **Comprehensive audit logging**: Captured for memory changes, permission updates, team management, and knowledge base edits
+  - **Relationship traversal**: `getRelatedMemories` method in Store for navigating memory relationships
 
 ### ⬜ Needs Completion for MVP
 
@@ -92,12 +95,14 @@ The MVP must deliver a **working system** that can be deployed by a small team a
   - Issue: #12, #14
 - **RAG advanced features** (index is working, need these to match design):
   - Hybrid search (vector + BM25/Full-text)
-  - Relationship retrieval (parent/child/supersedes/contradicts/supports)
+  - Relationship extraction & integration into retrieval (traversal implemented but not used)
   - Persistent index across restarts (currently rebuilt each session)
-- **Context injection improvement**: Use semantic search instead of just recent memories
-  - `inject` command should query relevant memories based on session context
+- **Context injection improvement**: Use semantic search in **SessionStart hook** (CLI already supports `--query`)
+  - Enhance daemon endpoint to accept conversation context and perform RAG query
 - **Basic telemetry**: Switch from in-memory metrics to real OTel exporter or at least persistent logs
   - Current `provider.ts` uses pino but needs OTLP integration
+- **Integration / E2E tests**: Need comprehensive tests covering store ops, RAG pipeline, permissions, connectors
+- **MVP scope definition**: Reduce from 70+ requirements to essential 30% to ship functional system (issue #42)
   - Ensure all spans and metrics are actually recorded and exportable
   - Issue: #22
 - **Performance tuning**: Benchmark embedding latency, search latency, synthesis latency; optimize queries and add missing indexes

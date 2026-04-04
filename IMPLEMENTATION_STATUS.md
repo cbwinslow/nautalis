@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-04-04 (post-validation-resilience-PII)  
 **Source:** Comprehensive Review v1.0.0 + Deep Code Inspection + Recent Work  
-**Implementation completeness overall:** ~75% (validation, resilience, PII, RAG integration complete)
+**Implementation completeness overall:** ~80% (validation, resilience, PII, RAG integration, audit logging complete)
 
 ---
 
@@ -40,15 +40,19 @@ This document tracks the implementation status of all major features and require
 - PII detection and redaction (emails, phones, credit cards, API keys, passwords)
 - Basic unit tests (23 passing) for PII detector and memory classifier
 - Claude transcript parser test script
+- **HTTP daemon** (`nautalis daemon start`) with endpoints for Claude hooks: `/api/events`, `/api/context/inject`, `/api/sessions/summarize`, `/api/sessions/finalize`
+- **Semantic injection** — `nautalis inject` supports `--query` for RAG-based retrieval (falls back to recent memories when no query)
+- **Comprehensive audit logging** — memory delete/update, permission grants/revokes, team management, knowledge base changes
+- **Relationship retrieval** — `getRelatedMemories` supports traversing parent/child/supersedes/contradicts/supports relationships
 
 ❌ **Not Working / Incomplete:**
 
 - Real-time watch mode for connectors (`watch()` not implemented)
-- LlamaIndex advanced features: hybrid search (BM25), reranking, relationship retrieval
-- Context injection using semantic search (currently only recent memories)
+- LlamaIndex advanced features: hybrid search (BM25), reranking
+- Context injection using semantic search in **SessionStart hook** (daemon endpoint still uses recency)
 - Connector validation on real Claude Code installation (needs end-to-end testing)
 - OpenTelemetry full instrumentation (spans/metrics incomplete)
-- Setup wizard and daemon (stubs)
+- Setup wizard (partial)
 - SQLite fallback
 - Comprehensive test coverage (unit tests only, no integration)
 
@@ -60,13 +64,13 @@ This document tracks the implementation status of all major features and require
 | --------------------- | -------- | -------------------- | ------------ | --------- |
 | **Connector System**  | Complete | Drafted, untested    | 30%          | Yes       |
 | **Memory Enrichment** | Complete | Functional + PII     | 60%          | Yes       |
-| **Storage Layer**     | Complete | Core + permissions   | 75%          | Yes       |
-| **RAG / Search**      | Complete | Integrated (partial) | 60%          | Yes       |
-| **Context Injection** | Complete | Recency only         | 20%          | Yes       |
+| **Storage Layer**     | Complete | Core + permissions + audit | 80%      | Yes       |
+| **RAG / Search**      | Complete | Integrated (partial) | 65%          | Yes       |
+| **Context Injection** | Complete | Recency + semantic CLI | 40%        | Yes       |
 | **Team Features**     | Complete | Schema + CLI + RBAC  | 70%          | Yes       |
 | **Observability**     | Complete | Partial              | 35%          | No        |
-| **Security**          | Complete | PII done, validation | 40%          | Yes       |
-| **CLI Commands**      | Complete | Mostly complete      | 75%          | Yes       |
+| **Security**          | Complete | PII + validation + audit | 60%      | Yes       |
+| **CLI Commands**      | Complete | Mostly complete      | 80%          | Yes       |
 | **TUI Dashboard**     | Complete | Stubs only           | 10%          | No        |
 
 ---
@@ -206,7 +210,7 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logg
 | `query()`                | ✅ Working         | **Now uses LlamaIndex index when available**, fallback to raw pgvector   |
 | Hybrid search (keyword)  | ❌ Not implemented | Only vector search, no BM25                                               |
 | Search ranking           | 🟨 Basic           | By cosine similarity only (no relevance/recency/importance weighting)     |
-| Relationship retrieval   | ❌ Not implemented | Relationships not extracted from memories                                 |
+| Relationship retrieval   | 🟨 Partial         | Traversal method `getRelatedMemories` implemented; extraction pending     |
 | Synthesis                | ✅ Working         | Uses configured LLM (Ollama, OpenAI, Anthropic, custom) to answer        |
 | - Context injection      | ❌ Not started     | SessionStart hook calls `inject` command which just lists recent memories |
 
@@ -238,28 +242,28 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logg
 ### 5. Context Injection
 
 **Design:** Complete — Architecture specified, hook integration designed  
-**Implementation:** ~10% — Basic list injection only  
+**Implementation:** ~40% — Semantic CLI injection works; hook endpoint still recency-only  
 **Status:** 🟨 Partial
 
 | Aspect               | Status        | Notes                                          |
 | -------------------- | ------------- | ---------------------------------------------- |
-| `inject` command     | ✅ Working    | Lists recent memories, formatted               |
-| SessionStart hook    | ✅ Configured | Claude hook calls `nautalis inject-context`    |
-| Context builder      | 🟨 Partial    | Just `listMemories()` — not semantic retrieval |
+| `inject` command     | ✅ Working    | Supports semantic search via `--query` flag; falls back to recent memories |
+| SessionStart hook    | ✅ Working    | Calls `/api/context/inject` daemon endpoint   |
+| Context builder      | 🟨 Partial    | Daemon endpoint uses recency; CLI semantic search available but not used by hook |
 | Context formatter    | ✅ Working    | Formats as human-readable text                 |
-| - Team context       | ✅ Working    | Uses `config.general.teamId`                   |
-| Integration with RAG | ❌ Not done   | Should use semantic search, not just recent    |
+| Team context         | ✅ Working    | Uses `config.general.teamId` (CLI) or daemon config |
+| Integration with RAG | 🟨 Partial    | CLI uses RAG when `--query` provided; daemon endpoint needs upgrade |
 
 **Current Behavior:**
 
-- Hook fires → `inject` command → `store.listMemories(teamId, {limit})` → formats → stdout
-- This provides **recency only**, not **relevance** to current session
+- CLI: `nautalis inject --query "text"` uses RAG; without query uses `listMemories` (recency)
+- Hook: `SessionStart` → daemon `/api/context/inject` → `store.listMemories(teamId, {limit})` → formats → JSON response
+- Hook provides **recency only**; CLI can provide **semantic relevance** when query given.
 
 **Required Enhancement:**
 
-- Inject command should accept query from hook (e.g., current conversation context)
-- Use RAG search to find relevant memories, not just recent ones
-- Consider memory importance, confidence, and relevance
+- Pass conversation context from hook to daemon endpoint and use RAG search for semantic injection
+- Consider memory importance, confidence, and relevance in ranking
 
 **Related Issues:** None explicit (missing issue needed)
 
@@ -290,14 +294,14 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logg
 - Agent operations (upsertAgent, getAgentsForTeam)
 - Session operations (createSession, updateSession)
 
-Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logging not yet invoked for sensitive operations.
+Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 
 **What's Needed:**
 1. ✅ Store methods that access team-scoped data now use `withTeamContext` helper.
 2. ✅ All callers (CLI, MemoryEngine, etc.) provide userId and teamId options.
 3. ✅ All remaining store methods (agent, project, session) wrapped with permission checks.
-4. ⬜ Call `logAudit()` for sensitive operations (memory changes, KB edits, permission changes, team changes).
-5. ⬜ Comprehensive testing of permission enforcement.
+4. ✅ **Audit logging implemented** for: memory delete/update, permission grants/revokes, team management (createTeam, addTeamMember, removeTeamMember, updateMemberRole, updateTeam), knowledge base create/update/delete.
+5. ⬜ Comprehensive testing of permission enforcement and audit coverage.
 
 **Related Issues:** #51 (CRITICAL), #52 (KB permissions), #53 (team/agent/project permissions)
 
@@ -341,10 +345,10 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logg
 
 ---
 
-### 8. Security (PII, Secrets, Input Validation)
+### 8. Security (PII, Secrets, Input Validation, Audit)
 
 **Design:** Complete — RULES.md and SRS specify requirements  
-**Implementation:** ~40% — PII detection complete; input validation via zod; secret scanning pending  
+**Implementation:** ~60% — PII detection, validation, **audit logging** complete; secret scanning pending  
 **Status:** 🟨 Partial
 
 | Requirement                  | Status         | Notes                                                          |
@@ -354,6 +358,7 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logg
 | Secret scanning (pre-commit) | ❌ Not started | Hook script exists in `hooks/` but not installed/tested        |
 | Input validation (CLI/API)   | 🟨 Partial     | Zod validates config and events; query strings not validated  |
 | Rate limiting                | ❌ Not started | No protection against DoS                                      |
+| **Audit logging**            | ✅ **Complete**| Memory, permission, team, knowledge base changes captured     |
 
 **Key security improvements:**
 - All incoming events validated against `NautalisEventSchema`
