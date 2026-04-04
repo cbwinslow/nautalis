@@ -1115,52 +1115,56 @@ export class PostgresStore implements Store {
     );
   }
 
-   // Knowledge Base (with permission enforcement)
-   async createKnowledgeBase(entry: any, options?: { userId?: string }): Promise<string> {
-     const userId = options?.userId || entry.createdById;
-     if (!userId) throw new Error('userId is required for createKnowledgeBase');
-     if (!entry.teamId) throw new Error('teamId is required for createKnowledgeBase');
+    // Knowledge Base (with permission enforcement)
+    async createKnowledgeBase(entry: any, options?: { userId?: string }): Promise<string> {
+      const userId = options?.userId || entry.createdById;
+      if (!userId) throw new Error('userId is required for createKnowledgeBase');
+      if (!entry.teamId) throw new Error('teamId is required for createKnowledgeBase');
 
-     return await this.withTeamContext<string>(
-       entry.teamId,
-       userId,
-       'knowledge_base',
-       'write',
-       async (client) => {
-         const id = entry.id || uuidv4();
-         await client.query(
-           `INSERT INTO knowledge_base (id, team_id, project_id, created_by, title, content, content_type, category, tags, topics, visibility, source, source_agent_id, confidence)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-           [
-             id,
-             entry.teamId,
-             entry.projectId || null,
-             userId,
-             entry.title,
-             entry.content,
-             entry.contentType || 'markdown',
-             entry.category || null,
-             entry.tags || [],
-             entry.topics || [],
-             entry.visibility || 'team',
-             entry.source || 'manual',
-             entry.sourceAgentId || null,
-             entry.confidence ?? 1.0,
-           ],
-         );
+      return await this.withTeamContext<string>(
+        entry.teamId,
+        userId,
+        'knowledge_base',
+        'write',
+        async (client) => {
+          const id = entry.id || uuidv4();
+          await client.query(
+            `INSERT INTO knowledge_base (id, team_id, project_id, created_by, title, content, content_type, category, tags, topics, visibility, source, source_agent_id, confidence)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+            [
+              id,
+              entry.teamId,
+              entry.projectId || null,
+              userId,
+              entry.title,
+              entry.content,
+              entry.contentType || 'markdown',
+              entry.category || null,
+              entry.tags || [],
+              entry.topics || [],
+              entry.visibility || 'team',
+              entry.source || 'manual',
+              entry.sourceAgentId || null,
+              entry.confidence ?? 1.0,
+            ],
+          );
 
-         if (entry.embedding) {
-           await client.query(
-             `INSERT INTO knowledge_base_embeddings (kb_id, embedding) VALUES ($1, $2::vector)`,
-             [id, `[${entry.embedding.join(',')}]`],
-           );
-         }
+          if (entry.embedding) {
+            await client.query(
+              `INSERT INTO knowledge_base_embeddings (kb_id, embedding) VALUES ($1, $2::vector)`,
+              [id, `[${entry.embedding.join(',')}]`],
+            );
+          }
 
-         recordMetric(METRIC_NAMES.KNOWLEDGE_BASE_CREATED, 1);
-         return id;
-       },
-     );
-   }
+          // Audit log for creation
+          const newEntry = { ...entry, id, created_by: userId };
+          await this.logAudit(entry.teamId, userId, 'create', 'knowledge_base', id, { newValues: newEntry }, client);
+
+          recordMetric(METRIC_NAMES.KNOWLEDGE_BASE_CREATED, 1);
+          return id;
+        },
+      );
+    }
 
    async getKnowledgeBase(id: string, options?: { userId?: string }): Promise<any> {
      if (!options?.userId) throw new Error('userId is required for getKnowledgeBase');
@@ -1226,58 +1230,81 @@ export class PostgresStore implements Store {
     }
 
     async updateKnowledgeBase(id: string, updates: any, options?: { userId?: string }): Promise<void> {
-     if (!options?.userId) throw new Error('userId is required for updateKnowledgeBase');
+      if (!options?.userId) throw new Error('userId is required for updateKnowledgeBase');
+      const userId = options.userId; // already validated
 
-     // Get entry to determine teamId
-     const result = await this.pool.query(`SELECT team_id FROM knowledge_base WHERE id = $1`, [id]);
-     if (!result.rows[0]) throw new Error('Knowledge base entry not found');
-     const teamId = result.rows[0].team_id;
+      // Get entry to determine teamId and fetch old state for audit
+      const result = await this.pool.query(`SELECT team_id FROM knowledge_base WHERE id = $1`, [id]);
+      if (!result.rows[0]) throw new Error('Knowledge base entry not found');
+      const teamId = result.rows[0].team_id;
 
-     return await this.withTeamContext<void>(
-       teamId,
-       options.userId,
-       'knowledge_base',
-       'write',
-       async (client) => {
-         const fields = Object.keys(updates).filter((k) => k !== 'id' && k !== 'embedding');
-         if (fields.length === 0) return;
+      // Fetch full old entry within the transaction later, but we need teamId now
 
-         const setClauses = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
-         const values = [
-           id,
-           ...fields.map((f) => {
-             const value = updates[f as keyof any];
-             return Array.isArray(value) ? value : value;
-           }),
-         ];
+      return await this.withTeamContext<void>(
+        teamId,
+        userId,
+        'knowledge_base',
+        'write',
+        async (client) => {
+          // Fetch old entry for audit
+          const oldResult = await client.query(`SELECT * FROM knowledge_base WHERE id = $1`, [id]);
+          const oldEntry = oldResult.rows[0] || null;
 
-         await client.query(
-           `UPDATE knowledge_base SET ${setClauses}, version = version + 1, updated_at = NOW() WHERE id = $1`,
-           values,
-         );
-       },
-     );
-   }
+          const fields = Object.keys(updates).filter((k) => k !== 'id' && k !== 'embedding');
+          if (fields.length === 0) return;
 
-   async deleteKnowledgeBase(id: string, options?: { userId?: string }): Promise<void> {
-     if (!options?.userId) throw new Error('userId is required for deleteKnowledgeBase');
+          const setClauses = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
+          const values = [
+            id,
+            ...fields.map((f) => {
+              const value = updates[f as keyof any];
+              return Array.isArray(value) ? value : value;
+            }),
+          ];
 
-     // Get entry to determine teamId
-     const result = await this.pool.query(`SELECT team_id FROM knowledge_base WHERE id = $1`, [id]);
-     if (!result.rows[0]) throw new Error('Knowledge base entry not found');
-     const teamId = result.rows[0].team_id;
+          const result = await client.query(
+            `UPDATE knowledge_base SET ${setClauses}, version = version + 1, updated_at = NOW() WHERE id = $1 RETURNING *`,
+            values,
+          );
+          const newEntry = result.rows[0];
 
-     return await this.withTeamContext<void>(
-       teamId,
-       options.userId,
-       'knowledge_base',
-       'write',
-       async (client) => {
-         await client.query(`DELETE FROM knowledge_base_embeddings WHERE kb_id = $1`, [id]);
-         await client.query(`DELETE FROM knowledge_base WHERE id = $1`, [id]);
-       },
-     );
-   }
+          // Audit log
+          if (oldEntry) {
+            await this.logAudit(teamId, userId, 'update', 'knowledge_base', id, { oldValues: oldEntry, newValues: newEntry }, client);
+          }
+        },
+      );
+    }
+
+    async deleteKnowledgeBase(id: string, options?: { userId?: string }): Promise<void> {
+      if (!options?.userId) throw new Error('userId is required for deleteKnowledgeBase');
+      const userId = options.userId;
+
+      // Get entry to determine teamId and fetch full entry for audit
+      const result = await this.pool.query(`SELECT team_id FROM knowledge_base WHERE id = $1`, [id]);
+      if (!result.rows[0]) throw new Error('Knowledge base entry not found');
+      const teamId = result.rows[0].team_id;
+
+      return await this.withTeamContext<void>(
+        teamId,
+        userId,
+        'knowledge_base',
+        'write',
+        async (client) => {
+          // Fetch full entry for audit
+          const oldResult = await client.query(`SELECT * FROM knowledge_base WHERE id = $1`, [id]);
+          const oldEntry = oldResult.rows[0] || null;
+
+          await client.query(`DELETE FROM knowledge_base_embeddings WHERE kb_id = $1`, [id]);
+          await client.query(`DELETE FROM knowledge_base WHERE id = $1`, [id]);
+
+          // Audit log
+          if (oldEntry) {
+            await this.logAudit(teamId, userId, 'delete', 'knowledge_base', id, { oldValues: oldEntry }, client);
+          }
+        },
+      );
+    }
 
    async searchKnowledgeBase(teamId: string, query: string, embedding?: number[], options?: { category?: string; limit?: number; userId?: string }): Promise<any[]> {
      if (!options?.userId) throw new Error('userId is required for searchKnowledgeBase');
