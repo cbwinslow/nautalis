@@ -16,7 +16,7 @@
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write src/",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "bun run src/store/migrate.ts",
+    "db:migrate": "DATABASE_URL=${DATABASE_URL:-postgresql://nautalis:nautalis@localhost:5432/nautalis} bun run src/store/migrate.ts",
     "otel:dev": "OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 bun run src/cli.ts",
     "docker:up": "docker compose -f docker/docker-compose.team.yml up -d",
     "docker:down": "docker compose -f docker/docker-compose.team.yml down"

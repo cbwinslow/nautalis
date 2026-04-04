@@ -14,6 +14,7 @@ import { registerSetupCommand } from './setup.js';
 import { registerTeamCommand } from './team.js';
 import { registerPermissionsCommand } from './permissions.js';
 import { registerKnowledgeBaseCommand } from './knowledge-base.js';
+import { registerSystemCommand } from './system.js';
 
 export function registerCommands(program: Command): void {
   registerInitCommand(program);
@@ -31,4 +32,5 @@ export function registerCommands(program: Command): void {
   registerTeamCommand(program);
   registerPermissionsCommand(program);
   registerKnowledgeBaseCommand(program);
+  registerSystemCommand(program);
 }
