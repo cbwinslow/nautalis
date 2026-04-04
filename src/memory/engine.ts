@@ -153,7 +153,22 @@ export class MemoryEngine {
     const allMemories: Memory[] = [];
 
     for (const event of events) {
-      const memories = await this.processEvent(event);
+      // Validate and ensure teamId
+      const validatedEvent = NautalisEventSchema.parse(event);
+      const teamId = validatedEvent.context.teamId || this.config.general.teamId;
+      if (!teamId) {
+        throw new Error(
+          'teamId is required for event ingestion. Set in config or event context.',
+        );
+      }
+      // Ensure the event has teamId set (mutate for storage)
+      validatedEvent.context.teamId = teamId;
+
+      // Store raw event
+      await this.store.insertEvent(validatedEvent);
+
+      // Process into memories
+      const memories = await this.processEvent(validatedEvent);
       allMemories.push(...memories);
     }
 
