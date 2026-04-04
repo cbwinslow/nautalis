@@ -34,7 +34,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Audit Logging** — Comprehensive audit trail for sensitive operations: memory delete/update, permission grants/revokes, team management (createTeam, addTeamMember, removeTeamMember, updateMemberRole, updateTeam), and knowledge base create/update/delete
   - **System User Setup** — `nautalis system create-user` command creates a dedicated non-root system user for secure daemon operation (Linux)
   - **Deployment Templates** — Systemd service file (`deploy/nautalis.service`) and environment configuration example (`deploy/nautalis.env`) for production deployments
- - **Relationship Retrieval** — Store method `getRelatedMemories` to traverse memory relationships (parent, child, supersedes, supersededBy, contradicts, contradictedBy, supports, supportedBy, all)
+  - **Relationship Retrieval** — Store method `getRelatedMemories` to traverse memory relationships (parent, child, supersedes, supersededBy, contradicts, contradictedBy, supports, supportedBy, all)
+
+### Fixed
+
+- **PII Redaction** — Fixed bug where `redactSensitiveData` converted Date objects to empty objects, breaking timestamp validation during ingestion.
+- **Database Indexes** — Re-enabled full-text search using trigger-maintained `search_vector` columns (solves immutability error) and switched vector indexes to HNSW (no training data required), enabling efficient search operations.
+- **Daemon Event Conversion** — Improved conversion of Claude Code hook payloads to NautalisEvent with proper teamId resolution and enhanced error logging.
+
+### Changed
+
+- **RAG Integration** — LlamaIndex index is now built and used automatically for retrieval; hybrid search (vector + full-text) implemented.
 
 ### Changed
 
