@@ -29,8 +29,9 @@ This document tracks the implementation status of all major features and require
 - Event ingestion → memory creation → embedding generation
 - **Raw event storage** (audit trail, replay capability)
 - Semantic search via LlamaIndex index (automatic build on first query) with fallback to raw pgvector
+- **Hybrid search**: RAGEngine supports `useHybrid` option combining vector + full-text (PostgreSQL tsvector) with score normalization
 - Ask command with LLM synthesis (Ollama, OpenAI, Anthropic, custom)
-- 14 CLI commands (all registered, mostly functional)
+- 16 CLI commands (all registered, mostly functional)
 - Team management (create, invite, roles)
 - Permission enforcement with RBAC + RLS for multi-tenant isolation
 - Knowledge base CRUD and search with permissions
@@ -41,20 +42,27 @@ This document tracks the implementation status of all major features and require
 - Basic unit tests (23 passing) for PII detector and memory classifier
 - Claude transcript parser test script
 - **HTTP daemon** (`nautalis daemon start`) with endpoints for Claude hooks: `/api/events`, `/api/context/inject`, `/api/sessions/summarize`, `/api/sessions/finalize`
-- **Semantic injection** — `nautalis inject` supports `--query` for RAG-based retrieval (falls back to recent memories when no query)
-- **Comprehensive audit logging** — memory delete/update, permission grants/revokes, team management, knowledge base changes
-- **Relationship retrieval** — `getRelatedMemories` supports traversing parent/child/supersedes/contradicts/supports relationships
+- **Semantic injection**: `nautalis inject --query` performs RAG-based context retrieval
+- **Comprehensive audit logging**: memory delete/update, permission grants/revokes, team management (createTeam, addTeamMember, removeTeamMember, updateMemberRole, updateTeam), knowledge base create/update/delete
+- **Relationship traversal**: `getRelatedMemories` method in Store for navigating memory relationships (parent, child, supersedes, contradicts, supports, all)
+- **Infrastructure**:
+  - Migration runner with conditional TimescaleDB support (`src/store/migrate.ts`)
+  - Idempotent migrations (enum creation guards, conditional RLS)
+  - `auth.uid()` stub for plain PostgreSQL deployments
+  - TOML config loader support (`@iarna/toml`)
+  - System user setup (`nautalis system create-user`) and deployment templates (`deploy/nautalis.service`, `deploy/nautalis.env`)
 
 ❌ **Not Working / Incomplete:**
 
 - Real-time watch mode for connectors (`watch()` not implemented)
-- LlamaIndex advanced features: hybrid search (BM25), reranking
+- LlamaIndex advanced features: reranking, persistent index across restarts
 - Context injection using semantic search in **SessionStart hook** (daemon endpoint still uses recency)
 - Connector validation on real Claude Code installation (needs end-to-end testing)
 - OpenTelemetry full instrumentation (spans/metrics incomplete)
 - Setup wizard (partial)
 - SQLite fallback
 - Comprehensive test coverage (unit tests only, no integration)
+- Database indexes: full-text GIN and ivfflat vector indexes temporarily disabled due to immutability/config issues
 
 ---
 
@@ -64,13 +72,13 @@ This document tracks the implementation status of all major features and require
 | --------------------- | -------- | -------------------- | ------------ | --------- |
 | **Connector System**  | Complete | Drafted, untested    | 30%          | Yes       |
 | **Memory Enrichment** | Complete | Functional + PII     | 60%          | Yes       |
-| **Storage Layer**     | Complete | Core + permissions + audit | 80%      | Yes       |
+| **Storage Layer**     | Complete | Core + permissions + audit + migrations | 85%  | Yes       |
 | **RAG / Search**      | Complete | Integrated (partial) | 65%          | Yes       |
 | **Context Injection** | Complete | Recency + semantic CLI | 40%        | Yes       |
 | **Team Features**     | Complete | Schema + CLI + RBAC  | 70%          | Yes       |
 | **Observability**     | Complete | Partial              | 35%          | No        |
-| **Security**          | Complete | PII + validation + audit | 60%      | Yes       |
-| **CLI Commands**      | Complete | Mostly complete      | 80%          | Yes       |
+| **Security**          | Complete | PII + validation + audit + deployment | 65%   | Yes       |
+| **CLI Commands**      | Complete | Mostly complete      | 90%          | Yes       |
 | **TUI Dashboard**     | Complete | Stubs only           | 10%          | No        |
 
 ---

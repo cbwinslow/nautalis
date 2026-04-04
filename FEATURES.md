@@ -30,7 +30,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 
 | Category | Implementation | Core for MVP? |
 |----------|----------------|---------------|
-| **Storage Backend**   | ✅ 100% — PostgreSQL + pgvector + TimescaleDB                  | ✅ Essential |
+| **Storage Backend**   | ✅ 95% — PostgreSQL + pgvector (+ TimescaleDB optional)         | ✅ Essential |
 | **Multi-tenancy**     | ✅ 100% — RBAC with RLS enforcement                            | ✅ Essential |
 | **Event Ingestion**   | 🟨 70% — REST API works, connectors need validation            | ✅ Essential |
 | **Memory Enrichment** | 🟨 60% — Classification, extraction, embedding work            | ✅ Essential |
