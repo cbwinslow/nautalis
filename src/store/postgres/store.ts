@@ -8,6 +8,7 @@ import { SPAN_NAMES, METRIC_NAMES } from '../../types/telemetry.js';
 import { v4 as uuidv4 } from 'uuid';
 import { PermissionManager } from './permissions.js';
 import { KnowledgeBaseEngine } from './knowledge-base.js';
+import { NautalisEventSchema, MemorySchema } from '../../validation/schemas.js';
 
 const { Pool } = pg;
 
@@ -491,6 +492,9 @@ export class PostgresStore implements Store {
     });
 
     try {
+      // Validate event input
+      NautalisEventSchema.parse(event);
+
       const id = event.eventId || uuidv4();
 
       await this.pool.query(
@@ -563,14 +567,17 @@ export class PostgresStore implements Store {
      const effectiveUserId = options?.userId || memory.agentIdentity.userId;
      const effectiveTeamId = options?.teamId || memory.context.teamId;
 
-     if (!effectiveTeamId) {
-       throw new Error('teamId is required for insertMemory');
-     }
-     if (!effectiveUserId) {
-       throw new Error('userId is required for insertMemory');
-     }
+      if (!effectiveTeamId) {
+        throw new Error('teamId is required for insertMemory');
+      }
+      if (!effectiveUserId) {
+        throw new Error('userId is required for insertMemory');
+      }
 
-     return await this.withTeamContext<string>(
+      // Validate memory object
+      MemorySchema.parse(memory);
+
+      return await this.withTeamContext<string>(
        effectiveTeamId,
        effectiveUserId,
        'memory',
@@ -1139,6 +1146,12 @@ export class PostgresStore implements Store {
   }
 
   private rowToEvent(row: any): NautalisEvent {
+    // Parse tool output and incorporate exit_code
+    let toolOutput: any = row.tool_output ? JSON.parse(row.tool_output) : {};
+    if (row.exit_code !== null && row.exit_code !== undefined) {
+      toolOutput.exitCode = row.exit_code;
+    }
+
     return {
       eventId: row.id,
       timestamp: new Date(row.timestamp),
@@ -1160,7 +1173,7 @@ export class PostgresStore implements Store {
       type: row.event_type,
       toolName: row.tool_name,
       toolInput: row.tool_input ? JSON.parse(row.tool_input) : undefined,
-      toolOutput: row.tool_output ? JSON.parse(row.tool_output) : undefined,
+      toolOutput: Object.keys(toolOutput).length > 0 ? toolOutput : undefined,
       filesInvolved: row.files_involved || [],
       context: {
         teamId: row.team_id,
@@ -1174,6 +1187,7 @@ export class PostgresStore implements Store {
         errors: row.errors || [],
         topics: row.topics || [],
       },
+      raw: row.raw || undefined,
     };
   }
 

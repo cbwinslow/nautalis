@@ -76,7 +76,8 @@ The MVP must deliver a **working system** that can be deployed by a small team a
   - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`
 - Team management with permission enforcement
 - Configurable Claude Code hooks via `NAUTALIS_SERVER_URL`
-- Remote endpoint support for all services (Tailscale-ready)
+ - Remote endpoint support for all services (Tailscale-ready)
+ - **Configuration validation**: Zod schemas for config and events, validated at startup and ingest points
 
 ### ⬜ Needs Completion for MVP
 
@@ -91,9 +92,6 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 - **Error handling**: Implement retry logic with exponential backoff for external calls (embedding API, LLM API, database)
   - Add circuit breaker for failing services
   - Issue: #44
-- **Configuration validation**: Add zod schemas to validate config at startup and event payloads at ingest
-  - Prevent runtime crashes from malformed data
-  - Issue: (to be created)
 - **Performance tuning**: Benchmark embedding latency, search latency, synthesis latency; optimize queries and add missing indexes
   - Ensure search <500ms p95, embedding <200ms p95
   - Issue: #45

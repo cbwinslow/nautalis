@@ -2,6 +2,7 @@ import pg from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import { logMessage, createSpan } from '../../telemetry/api.js';
 import { SPAN_NAMES } from '../../types/telemetry.js';
+import { KBEntrySchema } from '../../validation/schemas.js';
 
 export interface KBEntry {
   id?: string;
@@ -31,24 +32,58 @@ export class KnowledgeBaseEngine {
   async create(entry: KBEntry): Promise<string> {
     const id = entry.id || uuidv4();
 
+    // Build full entry with defaults
+    const fullEntry = {
+      id,
+      teamId: entry.teamId,
+      projectId: entry.projectId || null,
+      createdById: entry.createdById || null,
+      title: entry.title,
+      content: entry.content,
+      contentType: entry.contentType || 'markdown',
+      category: entry.category || null,
+      tags: entry.tags || [],
+      topics: entry.topics || [],
+      visibility: entry.visibility || 'team',
+      source: entry.source || 'manual',
+      sourceAgentId: entry.sourceAgentId || null,
+      confidence: entry.confidence ?? 1.0,
+      isPublished: false,
+      isArchived: false,
+      viewCount: 0,
+      lastViewedAt: null,
+      embedding: entry.embedding,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Validate full entry against schema
+    KBEntrySchema.parse(fullEntry);
+
     await this.pool.query(
-      `INSERT INTO knowledge_base (id, team_id, project_id, created_by, title, content, content_type, category, tags, topics, visibility, source, source_agent_id, confidence)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      `INSERT INTO knowledge_base (id, team_id, project_id, created_by, title, content, content_type, category, tags, topics, visibility, source, source_agent_id, confidence, is_published, is_archived, view_count, last_viewed_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
       [
-        id,
-        entry.teamId,
-        entry.projectId || null,
-        entry.createdById || null,
-        entry.title,
-        entry.content,
-        entry.contentType || 'markdown',
-        entry.category || null,
-        entry.tags || [],
-        entry.topics || [],
-        entry.visibility || 'team',
-        entry.source || 'manual',
-        entry.sourceAgentId || null,
-        entry.confidence ?? 1.0,
+        fullEntry.id,
+        fullEntry.teamId,
+        fullEntry.projectId,
+        fullEntry.createdById,
+        fullEntry.title,
+        fullEntry.content,
+        fullEntry.contentType,
+        fullEntry.category,
+        fullEntry.tags,
+        fullEntry.topics,
+        fullEntry.visibility,
+        fullEntry.source,
+        fullEntry.sourceAgentId,
+        fullEntry.confidence,
+        fullEntry.isPublished,
+        fullEntry.isArchived,
+        fullEntry.viewCount,
+        fullEntry.lastViewedAt,
+        fullEntry.createdAt,
+        fullEntry.updatedAt,
       ],
     );
 

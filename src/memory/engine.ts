@@ -11,6 +11,7 @@ import { RAGEngine } from './rag.js';
 import { v4 as uuidv4 } from 'uuid';
 import { createSpan, recordMetric, logMessage, benchmarkOperation } from '../telemetry/api.js';
 import { SPAN_NAMES, METRIC_NAMES } from '../types/telemetry.js';
+import { NautalisEventSchema } from '../validation/schemas.js';
 
 export class MemoryEngine {
   private classifier: MemoryClassifier;
@@ -46,17 +47,20 @@ export class MemoryEngine {
     });
 
     try {
+      // Validate incoming event
+      const validatedEvent = NautalisEventSchema.parse(event);
+
       const memories: Memory[] = [];
 
       // Classify the event
-      const classification = this.classifier.classify(event);
+      const classification = this.classifier.classify(validatedEvent);
 
       // Generate embedding for the event summary
-      const summary = this.generateSummary(event);
+      const summary = this.generateSummary(validatedEvent);
       const embeddingResult = await this.embeddingService.embed(summary);
 
       // Ensure teamId is set: use event context or fall back to config
-      const teamId = event.context.teamId || this.config.general.teamId;
+      const teamId = validatedEvent.context.teamId || this.config.general.teamId;
       if (!teamId) {
         throw new Error(
           'teamId is required for memory processing. Set in config or event context.',
@@ -65,7 +69,7 @@ export class MemoryEngine {
 
       // Build context with teamId
       const memoryContext = {
-        ...event.context,
+        ...validatedEvent.context,
         teamId,
       };
 
@@ -74,15 +78,15 @@ export class MemoryEngine {
         id: uuidv4(),
         createdAt: new Date(),
         updatedAt: new Date(),
-        agentIdentity: event.source,
+        agentIdentity: validatedEvent.source,
         context: memoryContext,
         classification,
         content: {
           summary,
-          detail: this.generateDetail(event),
-          filesInvolved: event.filesInvolved,
-          commandsExec: event.toolInput?.command ? [event.toolInput.command] : [],
-          errorsSeen: event.extracted.errors,
+          detail: this.generateDetail(validatedEvent),
+          filesInvolved: validatedEvent.filesInvolved,
+          commandsExec: validatedEvent.toolInput?.command ? [validatedEvent.toolInput.command] : [],
+          errorsSeen: validatedEvent.extracted.errors,
           codeSnippets: [],
         },
         relationships: {
@@ -103,7 +107,7 @@ export class MemoryEngine {
       };
 
       // Extract decisions
-      const decisions = await this.decisionExtractor.extract(event);
+      const decisions = await this.decisionExtractor.extract(validatedEvent);
       for (const decision of decisions) {
         const decisionMemory: Memory = {
           ...memory,
@@ -142,6 +146,8 @@ export class MemoryEngine {
       throw error;
     }
   }
+
+
 
   async ingestEvents(events: NautalisEvent[]): Promise<number> {
     const allMemories: Memory[] = [];
