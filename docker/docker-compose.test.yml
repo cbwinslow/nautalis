@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: nautalis-test-db
+    environment:
+      POSTGRES_DB: nautalis_test
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+    ports:
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U test -d nautalis_test']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: >
+      -c shared_buffers=256MB
+      -c max_connections=100
+    tmpfs:
+      - /var/lib/postgresql/data
