@@ -77,11 +77,22 @@ describe('PII Detector', () => {
       expect(result[1]).toBe('normal text');
     });
 
-    it('should leave numbers and booleans unchanged', () => {
-      const data = { count: 42, active: true };
-      const result = redactSensitiveData(data);
-      expect(result.count).toBe(42);
-      expect(result.active).toBe(true);
-    });
+      it('should leave numbers and booleans unchanged', () => {
+        const data = { count: 42, active: true };
+        const result = redactSensitiveData(data);
+        expect(result.count).toBe(42);
+        expect(result.active).toBe(true);
+      });
+
+      it('should preserve Date objects (timestamp integrity)', () => {
+        const now = new Date();
+        const data = { createdAt: now, updatedAt: now };
+        const result = redactSensitiveData(data);
+        expect(result.createdAt).toBe(now);
+        expect(result.updatedAt).toBe(now);
+        // Ensure not converted to empty object
+        expect(typeof result.createdAt).toBe('object');
+        expect(result.createdAt instanceof Date).toBe(true);
+      });
   });
 });
