@@ -40,19 +40,45 @@ async function main() {
       const memoryEngine = new MemoryEngine(store, config);
       console.log(chalk.green('   ✓ MemoryEngine created'));
 
-      // 3. Create a test event
+      // 3. Create a valid Nautalis event (according to NautalisEventSchema)
       console.log(chalk.gray('[3] Creating test event...'));
+      const userId = config.general.userId;
+      const teamId = config.general.teamId;
       const testEvent = {
-        source: 'integration_test',
-        event_type: 'tool_use',
-        tool_name: 'test_tool',
-        tool_input: { action: 'echo', message: 'Hello from integration test' },
-        tool_output: { result: 'Hello from integration test' },
-        team_id: config.general.teamId,
-        user_id: config.general.userId,
-        session_id: 'test-session-001',
-        cwd: '/tmp',
         timestamp: new Date(),
+        source: {
+          toolName: 'integration_test',
+          toolVersion: '1.0.0',
+          instanceId: 'test-instance',
+          sessionId: '', // empty => NULL, avoids FK constraint
+          agentName: 'IntegrationTest',
+          userId,
+        },
+        project: {
+          teamId,
+          projectId: '', // not used for storage, kept empty
+          repoPath: '/tmp/nautalis-test',
+          repoUrl: '',
+          branch: '',
+          cwd: '/tmp',
+          platform: 'linux',
+        },
+        type: 'tool_use',
+        toolName: 'echo',
+        toolInput: { command: 'echo', message: 'Hello from integration test' },
+        toolOutput: { stdout: 'Hello from integration test\n', exitCode: 0 },
+        filesInvolved: [],
+        context: {
+          teamId,
+          projectId: '', // empty => NULL in DB
+          repoPath: '/tmp/nautalis-test',
+          repoUrl: '',
+          branch: '',
+          cwd: '/tmp',
+          platform: 'linux',
+        },
+        extracted: { decisions: [], errors: [], topics: ['integration', 'test'] },
+        raw: null,
       };
       console.log(chalk.green('   ✓ Test event created'));
 
@@ -68,7 +94,7 @@ async function main() {
       console.log(chalk.gray('[5] Testing vector search...'));
       const queryEmbedding = await store.findSimilarMemories(
         Array(768).fill(0), // dummy zero vector to get all (will use fallback), now with correct dimension
-        targetTeamId,
+        config.general.teamId,
         10, // high limit?
         0, // minScore 0 to get all
         { userId: config.general.userId }
