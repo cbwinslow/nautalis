@@ -25,7 +25,7 @@ describe('MemoryClassifier', () => {
         platform: 'linux',
       },
       type: 'tool_use',
-      toolName: 'Bash',
+      toolName: 'Bash', // default tool name, can be overridden
       filesInvolved: [],
       context: {
         teamId: 'team1',
@@ -40,9 +40,10 @@ describe('MemoryClassifier', () => {
   }
 
   it('classifies decision events as decision memory type', () => {
-    const event = createEvent({ type: 'decision' });
+    const event = createEvent({ type: 'decision', toolName: 'Custom' });
     const result = classifier.classify(event);
     expect(result.memoryType).toBe('decision');
+    expect(result.blockLabel).toBe('general'); // no topics
   });
 
   it('classifies error events as lesson memory type', () => {
@@ -63,14 +64,26 @@ describe('MemoryClassifier', () => {
     expect(result.memoryType).toBe('episodic');
   });
 
-  it('extracts topics from tool name', () => {
+  it('extracts command_execution topic from Bash tool', () => {
+    const event = createEvent({ toolName: 'Bash' });
+    const result = classifier.classify(event);
+    expect(result.topics).toContain('command_execution');
+  });
+
+  it('extracts code_modification topic from Edit tool', () => {
     const event = createEvent({ toolName: 'Edit' });
     const result = classifier.classify(event);
     expect(result.topics).toContain('code_modification');
   });
 
-  it('extracts topics from file paths', () => {
-    const event = createEvent({ filesInvolved: ['/path/to/auth/login.ts'] });
+  it('extracts code_reading topic from Read tool', () => {
+    const event = createEvent({ toolName: 'Read' });
+    const result = classifier.classify(event);
+    expect(result.topics).toContain('code_reading');
+  });
+
+  it('extracts authentication topic from auth file path', () => {
+    const event = createEvent({ toolName: 'Custom', filesInvolved: ['/path/to/auth/login.ts'] });
     const result = classifier.classify(event);
     expect(result.topics).toContain('authentication');
   });
@@ -87,7 +100,7 @@ describe('MemoryClassifier', () => {
     expect(result.confidence).toBe(0.7);
   });
 
-  it('detects high importance for decisions', () => {
+  it('increases importance for decisions', () => {
     const event = createEvent({ type: 'decision' });
     const result = classifier.classify(event);
     expect(result.importance).toBeGreaterThan(0.5);
