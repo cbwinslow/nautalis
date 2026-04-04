@@ -1,14 +1,28 @@
 export type TeamRole = 'owner' | 'admin' | 'manager' | 'member' | 'viewer';
-export type PermissionScope = 'team' | 'project' | 'agent' | 'memory' | 'knowledge_base' | 'telemetry' | 'settings';
-export type PermissionAction = 'read' | 'write' | 'delete' | 'admin' | 'share' | 'export' | 'import';
-export type KbVisibility = 'public' | 'team' | 'project' | 'private';
+export type PermissionScope =
+  | 'team'
+  | 'project'
+  | 'agent'
+  | 'memory'
+  | 'knowledge_base'
+  | 'telemetry'
+  | 'settings';
+export type PermissionAction =
+  | 'read'
+  | 'write'
+  | 'delete'
+  | 'admin'
+  | 'share'
+  | 'export'
+  | 'import';
+import type { KbVisibility } from './knowledge-base.js';
 
 export interface User {
   id: string;
   email: string;
   name?: string;
   avatarUrl?: string;
-  authId?: string;  // Supabase auth.users.id
+  authId?: string; // Supabase auth.users.id
   timezone: string;
   language: string;
   isActive: boolean;
