@@ -44,14 +44,52 @@ export class PermissionManager {
   }
 
   async grant(teamId: string, userId: string, scope: string, action: string, granted: boolean) {
-    await this.pool.query(
-      `INSERT INTO team_permissions (team_id, user_id, scope, action, granted)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (team_id, user_id, scope, action) DO UPDATE SET granted = $5, updated_at = NOW()`,
-      [teamId, userId, scope, action, granted]
-    );
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    this.roleCache.delete(`${teamId}:${userId}`);
+      // Fetch old permission for audit
+      const oldResult = await client.query(
+        `SELECT * FROM team_permissions WHERE team_id = $1 AND user_id = $2 AND scope = $3 AND action = $4`,
+        [teamId, userId, scope, action]
+      );
+      const oldPermission = oldResult.rows[0] || null;
+
+      // Upsert permission
+      const result = await client.query(
+        `INSERT INTO team_permissions (team_id, user_id, scope, action, granted)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (team_id, user_id, scope, action) DO UPDATE SET granted = $5, updated_at = NOW()
+         RETURNING *`,
+        [teamId, userId, scope, action, granted]
+      );
+      const newPermission = result.rows[0];
+
+      // Insert audit log
+      const auditAction = granted ? 'grant' : 'revoke';
+      await client.query(
+        `INSERT INTO audit_log (team_id, user_id, action, resource_type, resource_id, old_values, new_values, timestamp)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+        [
+          teamId,
+          userId,
+          auditAction,
+          'permission',
+          `permission:${teamId}:${userId}:${scope}:${action}`,
+          oldPermission ? JSON.stringify(oldPermission) : null,
+          JSON.stringify(newPermission),
+        ]
+      );
+
+      await client.query('COMMIT');
+
+      this.roleCache.delete(`${teamId}:${userId}`);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   clearCache() {
