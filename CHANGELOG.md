@@ -26,8 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Event Storage** — Raw events are now stored during ingestion, providing audit trail and enabling replay
 - **Connector Testing** — Added test script `scripts/test-claude-parser.ts` to validate Claude Code transcript parsing with sample fixture
 - **RAG-to-Store Integration** — RAGEngine now uses LlamaIndex index when available, with automatic index building on first query; falls back to raw pgvector. Bridge between LlamaIndex and PostgreSQL completed.
-- **PII Detection** — Automatic redaction of sensitive data (emails, phones, credit cards, API keys, passwords in URLs) from events before storage; configurable via guardrails.piiDetection
+ - **PII Detection** — Automatic redaction of sensitive data (emails, phones, credit cards, API keys, passwords in URLs) from events before storage; configurable via guardrails.piiDetection
  - **Unit Tests** — Added initial test suite for PII detector (10 passing tests); foundation for test infrastructure
+ - **Hybrid Search** — RAGEngine supports useHybrid option to combine vector similarity and PostgreSQL full-text search with score normalization (Reciprocal Rank Fusion style)
  - **Daemon Server** — HTTP daemon (`nautalis daemon start`) with endpoints to support Claude Code hooks: `/api/events` (ingest), `/api/context/inject` (context injection), `/api/sessions/summarize` and `/api/sessions/finalize`
  - **Semantic Injection** — `nautalis inject` now supports `--query` flag for RAG-based retrieval; falls back to recent memories when no query provided
  - **Audit Logging** — Comprehensive audit trail for sensitive operations: memory delete/update, permission grants/revokes, team management (createTeam, addTeamMember, removeTeamMember, updateMemberRole, updateTeam), and knowledge base create/update/delete

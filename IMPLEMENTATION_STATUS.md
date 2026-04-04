@@ -208,7 +208,7 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logg
 | RAG Engine class         | ✅ Exists          | configured with multi-provider LLM support                                |
 | `buildIndex()`           | ✅ Working         | Loads memories from DB and creates LlamaIndex                             |
 | `query()`                | ✅ Working         | **Now uses LlamaIndex index when available**, fallback to raw pgvector   |
-| Hybrid search (keyword)  | ❌ Not implemented | Only vector search, no BM25                                               |
+| Hybrid search (keyword)  | 🟨 Partial         | Hybrid implemented via full-text + vector fusion (useHybrid option)     |
 | Search ranking           | 🟨 Basic           | By cosine similarity only (no relevance/recency/importance weighting)     |
 | Relationship retrieval   | 🟨 Partial         | Traversal method `getRelatedMemories` implemented; extraction pending     |
 | Synthesis                | ✅ Working         | Uses configured LLM (Ollama, OpenAI, Anthropic, custom) to answer        |
@@ -231,7 +231,7 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logg
 
 - ✅ `buildIndex()` implemented and automatically used
 - ✅ `getMemoriesByIds` added to store for efficient batch loading
-- ⬜ Add keyword search via `BM25Retriever` or `FusionRetriever` for hybrid
+- ✅ Hybrid search implemented (full-text + vector fusion)
 - ⬜ Add relationship extraction and integrate into retrieval
 - ⬜ Make index persistent (currently rebuilt on first query each session)
 

@@ -34,7 +34,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **Multi-tenancy**     | ✅ 100% — RBAC with RLS enforcement                            | ✅ Essential |
 | **Event Ingestion**   | 🟨 70% — REST API works, connectors need validation            | ✅ Essential |
 | **Memory Enrichment** | 🟨 60% — Classification, extraction, embedding work            | ✅ Essential |
-| **RAG Retrieval**     | 🟨 70% — Vector search, LlamaIndex, relationship traversal    | ✅ Essential |
+| **RAG Retrieval**     | 🟨 80% — Vector + full-text hybrid, LlamaIndex, relationship traversal | ✅ Essential |
 | **RAG Synthesis**     | ✅ 80% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom)| ✅ Essential |
 | **Knowledge Base**    | ✅ 100% — CRUD, search, versioning, visibility                 | ✅ Essential |
 | **CLI Commands**      | ✅ 85% — All 14 commands registered and functional             | ✅ Essential |
