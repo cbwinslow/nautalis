@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Knowledge Base** — Database schema with versioning, visibility controls, and search (CRUD partially implemented, permissions pending)
 - **Runtime Validation** — Zod schemas for all domain types (config, events, memories, knowledge base); validated at startup and ingest points to ensure data integrity
 - **Error Resilience** — Retry with exponential backoff + circuit breaker for external services: embedding API, LLM API, and database operations (transient error handling)
+- **Event Storage** — Raw events are now stored during ingestion, providing audit trail and enabling replay
+- **Connector Testing** — Added test script `scripts/test-claude-parser.ts` to validate Claude Code transcript parsing with sample fixture
 
 ### Changed
 

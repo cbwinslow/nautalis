@@ -85,6 +85,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 - **Connector validation**: Actually install and test Claude Code hooks on real project
   - Verify `record-event.js`, `summarize-session.js`, `inject-context.js` work end-to-end
   - Test real-time ingestion and session lifecycle
+  - Test script available: `scripts/test-claude-parser.ts` to validate transcript parsing
   - Issue: #12, #14
 - **Basic telemetry**: Switch from in-memory metrics to real OTel exporter or at least persistent logs
   - Current `provider.ts` uses pino but needs OTLP integration

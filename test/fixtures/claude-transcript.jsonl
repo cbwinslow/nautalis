@@ -1,0 +1,4 @@
+{"type":"assistant","timestamp":"2025-04-04T13:00:00Z","session_id":"sess_test_123","message":{"content":"I'll help you with that task."}}
+{"type":"assistant","timestamp":"2025-04-04T13:01:00Z","session_id":"sess_test_123","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"ls -la"}}]}}
+{"type":"assistant","timestamp":"2025-04-04T13:02:00Z","session_id":"sess_test_123","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/home/user/project/config.ts","old_string":"export const port = 3000;","new_string":"export const port = 3001;"}}]}}
+{"type":"assistant","timestamp":"2025-04-04T13:03:00Z","session_id":"sess_test_123","message":{"content":"All done!"}}
