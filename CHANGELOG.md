@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Error Resilience** — Retry with exponential backoff + circuit breaker for external services: embedding API, LLM API, and database operations (transient error handling)
 - **Event Storage** — Raw events are now stored during ingestion, providing audit trail and enabling replay
 - **Connector Testing** — Added test script `scripts/test-claude-parser.ts` to validate Claude Code transcript parsing with sample fixture
+- **RAG-to-Store Integration** — RAGEngine now uses LlamaIndex index when available, with automatic index building on first query; falls back to raw pgvector. Bridge between LlamaIndex and PostgreSQL completed.
+- **PII Detection** — Automatic redaction of sensitive data (emails, phones, credit cards, API keys, passwords in URLs) from events before storage; configurable via guardrails.piiDetection
+- **Unit Tests** — Added initial test suite for PII detector (10 passing tests); foundation for test infrastructure
 
 ### Changed
 

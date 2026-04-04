@@ -79,6 +79,8 @@ The MVP must deliver a **working system** that can be deployed by a small team a
  - Remote endpoint support for all services (Tailscale-ready)
  - **Configuration validation**: Zod schemas for config and events, validated at startup and ingest points
  - **Error resilience**: Retry with exponential backoff + circuit breaker for embedding API, LLM API, and database operations
+ - **RAG-to-Store integration**: LlamaIndex index used automatically for semantic search (falls back to pgvector if not built)
+ - **PII detection**: Automatic redaction of emails, phones, credit cards, API keys, and passwords from events
 
 ### ⬜ Needs Completion for MVP
 
