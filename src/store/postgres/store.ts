@@ -1087,9 +1087,34 @@ export class PostgresStore implements Store {
       );
     }
 
-    async getMemoriesByIds(ids: string[], options: { teamId: string; userId?: string }) {
+     async getMemoriesByIds(ids: string[], options: { teamId: string; userId?: string }) {
+       if (!options.userId) {
+         throw new Error('userId is required for getMemoriesByIds');
+       }
+
+       return await this.withTeamContext<Memory[]>(
+         options.teamId,
+         options.userId,
+         'memory',
+         'read',
+         async (client) => {
+           const result = await client.query(
+             `SELECT * FROM memories WHERE id = ANY($1) AND team_id = $2`,
+             [ids, options.teamId]
+           );
+           return result.rows.map((row: any) => this.rowToMemory(row));
+         },
+       );
+     }
+
+    // Relationships
+    async getRelatedMemories(
+      memoryId: string,
+      relationType: 'parent' | 'child' | 'supersedes' | 'supersededBy' | 'contradicts' | 'contradictedBy' | 'supports' | 'supportedBy' | 'all',
+      options: { teamId: string; userId?: string }
+    ): Promise<Memory[]> {
       if (!options.userId) {
-        throw new Error('userId is required for getMemoriesByIds');
+        throw new Error('userId is required for getRelatedMemories');
       }
 
       return await this.withTeamContext<Memory[]>(
@@ -1098,16 +1123,69 @@ export class PostgresStore implements Store {
         'memory',
         'read',
         async (client) => {
-          const result = await client.query(
-            `SELECT * FROM memories WHERE id = ANY($1) AND team_id = $2`,
-            [ids, options.teamId]
-          );
+          let query: string;
+          let queryParams: any[] = [];
+
+          switch (relationType) {
+            case 'parent':
+              query = `SELECT * FROM memories WHERE id = (SELECT parent_memory_id FROM memories WHERE id = $1) AND team_id = $2`;
+              queryParams = [memoryId, options.teamId];
+              break;
+            case 'child':
+              query = `SELECT * FROM memories WHERE parent_memory_id = $1 AND team_id = $2`;
+              queryParams = [memoryId, options.teamId];
+              break;
+            case 'supersedes':
+              query = `SELECT * FROM memories WHERE id = ANY((SELECT supersedes FROM memories WHERE id = $1)) AND team_id = $2`;
+              queryParams = [memoryId, options.teamId];
+              break;
+            case 'supersededBy':
+              query = `SELECT * FROM memories WHERE $1 = ANY(supersedes) AND team_id = $2`;
+              queryParams = [memoryId, options.teamId];
+              break;
+            case 'contradicts':
+              query = `SELECT * FROM memories WHERE id = ANY((SELECT contradicts FROM memories WHERE id = $1)) AND team_id = $2`;
+              queryParams = [memoryId, options.teamId];
+              break;
+            case 'contradictedBy':
+              query = `SELECT * FROM memories WHERE $1 = ANY(contradicts) AND team_id = $2`;
+              queryParams = [memoryId, options.teamId];
+              break;
+            case 'supports':
+              query = `SELECT * FROM memories WHERE id = ANY((SELECT supports FROM memories WHERE id = $1)) AND team_id = $2`;
+              queryParams = [memoryId, options.teamId];
+              break;
+            case 'supportedBy':
+              query = `SELECT * FROM memories WHERE $1 = ANY(supports) AND team_id = $2`;
+              queryParams = [memoryId, options.teamId];
+              break;
+            case 'all':
+              query = `
+                SELECT * FROM memories WHERE
+                  id = (SELECT parent_memory_id FROM memories WHERE id = $1)
+                  OR parent_memory_id = $1
+                  OR $1 = ANY(supersedes)
+                  OR id = ANY((SELECT supersedes FROM memories WHERE id = $1))
+                  OR $1 = ANY(contradicts)
+                  OR id = ANY((SELECT contradicts FROM memories WHERE id = $1))
+                  OR $1 = ANY(supports)
+                  OR id = ANY((SELECT supports FROM memories WHERE id = $1))
+                AND team_id = $2
+              `;
+              queryParams = [memoryId, options.teamId];
+              break;
+            default:
+              const _exhaustive: never = relationType;
+              return [];
+          }
+
+          const result = await client.query(query, queryParams);
           return result.rows.map((row: any) => this.rowToMemory(row));
         },
       );
     }
 
-  async insertEmbedding(memoryId: string, embedding: number[]) {
+   async insertEmbedding(memoryId: string, embedding: number[]) {
     await this.pool.query(
       `INSERT INTO memory_embeddings (memory_id, embedding) VALUES ($1, $2::vector)
        ON CONFLICT (memory_id) DO UPDATE SET embedding = $2::vector`,

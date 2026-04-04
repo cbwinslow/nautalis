@@ -60,8 +60,11 @@ export interface Store {
     findSimilarMemories(embedding: number[], teamId: string, limit?: number, minScore?: number, options?: { userId?: string }): Promise<MemoryQueryResult[]>;
     getMemoriesByIds(ids: string[], options: { teamId: string; userId?: string }): Promise<Memory[]>;
 
-  // Vector operations
-  insertEmbedding(memoryId: string, embedding: number[], options?: { userId?: string }): Promise<void>;
+    // Relationships
+    getRelatedMemories(memoryId: string, relationType: 'parent' | 'child' | 'supersedes' | 'supersededBy' | 'contradicts' | 'contradictedBy' | 'supports' | 'supportedBy' | 'all', options?: { teamId: string; userId?: string }): Promise<Memory[]>;
+
+   // Vector operations
+   insertEmbedding(memoryId: string, embedding: number[], options?: { userId?: string }): Promise<void>;
 
   // Knowledge Base
   createKnowledgeBase(entry: KnowledgeBaseEntry, options?: { userId?: string }): Promise<string>;
