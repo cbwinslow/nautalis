@@ -18,91 +18,61 @@ async function main() {
   await store.init();
   console.log(chalk.green(`   ✓ Store initialized (driver: ${config.database.driver})`));
 
-  // Ensure we have a valid userId and teamId (use first team if not set)
-  if (!config.general.userId) {
-    // Try to derive from system user or fail
-    throw new Error('config.general.userId must be set');
-  }
+      // Ensure we have a valid userId and teamId (use first team if not set)
+      if (!config.general.userId) {
+        // Try to derive from system user or fail
+        throw new Error('config.general.userId must be set');
+      }
 
-  // Auto-detect teamId if missing or placeholder
-  if (!config.general.teamId || config.general.teamId === 'default') {
-    console.log(chalk.yellow('   Team ID not set, attempting to find a team for the user...'));
-    const teams = await store.getTeamsForUser(config.general.userId);
-    if (teams.length === 0) {
-      throw new Error('No teams found for user. Please create a team first (nautalis team create).');
-    }
-    config.general.teamId = teams[0].id;
-    console.log(chalk.green(`   ✓ Using team: ${teams[0].name} (${teams[0].id})`));
-  }
+      // Auto-detect teamId if missing or placeholder
+      if (!config.general.teamId || config.general.teamId === 'default') {
+        console.log(chalk.yellow('   Team ID not set, attempting to find a team for the user...'));
+        const teams = await store.getTeamsForUser(config.general.userId);
+        if (teams.length === 0) {
+          throw new Error('No teams found for user. Please create a team first (nautalis team create).');
+        }
+        config.general.teamId = teams[0].id;
+        console.log(chalk.green(`   ✓ Using team: ${teams[0].name} (${teams[0].id})`));
+      }
 
-  // 2. Create MemoryEngine
-  console.log(chalk.gray('[2] Creating MemoryEngine...'));
-  const memoryEngine = new MemoryEngine(store, config);
-  console.log(chalk.green('   ✓ MemoryEngine created'));
+      // 2. Create MemoryEngine
+      console.log(chalk.gray('[2] Creating MemoryEngine...'));
+      const memoryEngine = new MemoryEngine(store, config);
+      console.log(chalk.green('   ✓ MemoryEngine created'));
 
-  // 3. Create a valid Nautalis event (according to NautalisEventSchema)
-  console.log(chalk.gray('[3] Creating test event...'));
-  const now = new Date();
-  const testEvent = {
-    eventId: `test-${Date.now()}`,
-    timestamp: now,
-    source: {
-      toolName: 'integration_test',
-      toolVersion: '1.0.0',
-      instanceId: 'test-instance',
-      sessionId: 'test-session-001',
-      agentName: 'IntegrationTest',
-      userId: config.general.userId,
-    },
-    project: {
-      teamId: config.general.teamId,
-      projectId: 'test-project',
-      repoPath: '/tmp/nautalis-test',
-      repoUrl: '',
-      branch: 'main',
-      cwd: '/tmp',
-      platform: 'linux',
-    },
-    type: 'tool_use',
-    toolName: 'echo',
-    toolInput: { command: 'echo', message: 'Hello from integration test' },
-    toolOutput: { stdout: 'Hello from integration test\n', exitCode: 0 },
-    filesInvolved: [],
-    context: {
-      teamId: config.general.teamId,
-      projectId: 'test-project',
-      repoPath: '/tmp/nautalis-test',
-      repoUrl: '',
-      branch: 'main',
-      cwd: '/tmp',
-      platform: 'linux',
-    },
-    extracted: {
-      decisions: [],
-      errors: [],
-      topics: ['integration', 'test'],
-    },
-    raw: null,
-  };
-  console.log(chalk.green('   ✓ Test event created'));
+      // 3. Create a test event
+      console.log(chalk.gray('[3] Creating test event...'));
+      const testEvent = {
+        source: 'integration_test',
+        event_type: 'tool_use',
+        tool_name: 'test_tool',
+        tool_input: { action: 'echo', message: 'Hello from integration test' },
+        tool_output: { result: 'Hello from integration test' },
+        team_id: config.general.teamId,
+        user_id: config.general.userId,
+        session_id: 'test-session-001',
+        cwd: '/tmp',
+        timestamp: new Date(),
+      };
+      console.log(chalk.green('   ✓ Test event created'));
 
-  // 4. Ingest event
-  console.log(chalk.gray('[4] Ingesting event...'));
-  const count = await memoryEngine.ingestEvents([testEvent]);
-  console.log(chalk.green(`   ✓ Ingested ${count} event(s)`));
+      // 4. Ingest event
+      console.log(chalk.gray('[4] Ingesting event...'));
+      const count = await memoryEngine.ingestEvents([testEvent]);
+      console.log(chalk.green(`   ✓ Ingested ${count} event(s)`));
 
-  // Wait a moment for async processing (embedding)
-  await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait a moment for async processing (embedding)
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-  // 5. Query memories via vector search
-  console.log(chalk.gray('[5] Testing vector search...'));
-  const queryEmbedding = await store.findSimilarMemories(
-    Array(384).fill(0), // dummy zero vector to fetch recent (will use fallback)
-    config.general.teamId,
-    10,
-    0,
-    { userId: config.general.userId }
-  );
+      // 5. Query memories via vector search
+      console.log(chalk.gray('[5] Testing vector search...'));
+      const queryEmbedding = await store.findSimilarMemories(
+        Array(768).fill(0), // dummy zero vector to get all (will use fallback), now with correct dimension
+        targetTeamId,
+        10, // high limit?
+        0, // minScore 0 to get all
+        { userId: config.general.userId }
+      );
   // Actually, we want to test the real vector search. Let's use the embedding service to get an embedding for a query.
   // We'll need to import EmbeddingService.
   // But simpler: use store.listMemories to see if our memory is there.

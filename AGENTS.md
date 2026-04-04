@@ -132,7 +132,7 @@ The project has exceptional architectural foundations but significant implementa
 | **Time-Series**     | TimescaleDB 2.26 | PostgreSQL extension                           |
 | **Vector Search**   | pgvector         | PostgreSQL extension                           |
 | **RAG**             | LlamaIndex.TS    | Context engineering framework                  |
-| **Embeddings**      | Ollama (default) | Local, free, nomic-embed-text (384-dim)        |
+| **Embeddings**      | Ollama (default) | Local, free, nomic-embed-text (768-dim)        |
 | **Observability**   | OpenTelemetry    | Traces, metrics, logs                          |
 | **Auth**            | Supabase GoTrue  | When using Supabase driver                     |
 | **Package Manager** | bun              | `bun install`, `bun run`, `bun test`           |
@@ -253,7 +253,7 @@ nautalis/
 - **sessions** — AI agent conversation sessions
 - **events** — All AI agent events (tool calls, edits, commands, decisions, errors)
 - **memories** — Enriched memories with classification, relationships, lifecycle
-- **memory_embeddings** — pgvector embeddings for memories (384-dim)
+- **memory_embeddings** — pgvector embeddings for memories (768-dim)
 - **knowledge_base** — Curated knowledge entries with versioning
 - **knowledge_base_embeddings** — pgvector embeddings for KB entries
 - **knowledge_base_history** — Edit history for KB entries
@@ -361,7 +361,7 @@ Raw Event → MemoryClassifier → DecisionExtractor → EmbeddingService → St
 
 1. **MemoryClassifier** — Determines memory type (episodic/semantic/procedural/decision/lesson/preference), extracts topics from tool names and file paths, calculates importance score (0.0-1.0), detects sensitivity level
 2. **DecisionExtractor** — Pattern-based extraction from conversation text (TODO: replace with LLM-based)
-3. **EmbeddingService** — Generates 384-dim vector via Ollama (nomic-embed-text)
+3. **EmbeddingService** — Generates 768-dim vector via Ollama (nomic-embed-text)
 4. **Store** — Inserts memory + embedding into PostgreSQL
 
 ### Memory Relationships
