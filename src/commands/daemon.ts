@@ -156,46 +156,81 @@ export function registerDaemonCommand(program: Command): void {
               }
               const { session_id, cwd } = body ? JSON.parse(body) : {};
 
-              if (!config.general.teamId) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Team ID required' }));
-                return;
-              }
+               if (!config.general.teamId) {
+                 res.writeHead(400, { 'Content-Type': 'application/json' });
+                 res.end(JSON.stringify({ error: 'Team ID required' }));
+                 return;
+               }
 
-              // Build context: recent important memories from the team (same as CLI inject)
-              const limit = 10;
-              const memories = await store.listMemories(config.general.teamId, {
-                limit,
-                userId: config.general.userId,
-              });
+               const limit = 10;
+               let context: string;
 
-              const contextLines: string[] = [];
-              contextLines.push('=== Recent Team Activity ===\n');
+               // Use semantic injection if configured, otherwise fallback to recency
+               if (config.rag?.useSemanticInject) {
+                 // Perform a RAG query with a general query to get relevant memories
+                 const queryResult = await memoryEngine.query('important team activity', {
+                   limit,
+                 });
+                 const memories = queryResult.map(r => r.memory);
 
-              for (const memory of memories) {
-                const timeAgo = formatDistanceToNow(memory.createdAt, { addSuffix: true });
-                const agent = memory.agentIdentity.agentName || memory.agentIdentity.toolName;
-                const type = memory.classification.memoryType;
-                const summary = memory.content.summary;
-                contextLines.push(`[${timeAgo}] ${agent} (${type}): ${summary}`);
+                 const contextLines: string[] = [];
+                 contextLines.push('=== Semantically Relevant Activity ===\n');
 
-                if (memory.content.detail && memory.content.detail.length > 0) {
-                  const detailPreview =
-                    memory.content.detail.length > 200
-                      ? memory.content.detail.substring(0, 200) + '...'
-                      : memory.content.detail;
-                  contextLines.push(`  Details: ${detailPreview}\n`);
-                } else {
-                  contextLines.push('');
-                }
-              }
+                 for (const memory of memories) {
+                   const timeAgo = formatDistanceToNow(memory.createdAt, { addSuffix: true });
+                   const agent = memory.agentIdentity.agentName || memory.agentIdentity.toolName;
+                   const type = memory.classification.memoryType;
+                   const summary = memory.content.summary;
+                   contextLines.push(`[${timeAgo}] ${agent} (${type}): ${summary}`);
 
-              contextLines.push('=== End of Context ===');
-              const context = contextLines.join('\n');
+                   if (memory.content.detail && memory.content.detail.length > 0) {
+                     const detailPreview =
+                       memory.content.detail.length > 200
+                         ? memory.content.detail.substring(0, 200) + '...'
+                         : memory.content.detail;
+                     contextLines.push(`  Details: ${detailPreview}\n`);
+                   } else {
+                     contextLines.push('');
+                   }
+                 }
 
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ formatted_context: context }));
-              return;
+                 contextLines.push('=== End of Context ===');
+                 context = contextLines.join('\n');
+               } else {
+                 // Original recency-based approach
+                 const memories = await store.listMemories(config.general.teamId, {
+                   limit,
+                   userId: config.general.userId,
+                 });
+
+                 const contextLines: string[] = [];
+                 contextLines.push('=== Recent Team Activity ===\n');
+
+                 for (const memory of memories) {
+                   const timeAgo = formatDistanceToNow(memory.createdAt, { addSuffix: true });
+                   const agent = memory.agentIdentity.agentName || memory.agentIdentity.toolName;
+                   const type = memory.classification.memoryType;
+                   const summary = memory.content.summary;
+                   contextLines.push(`[${timeAgo}] ${agent} (${type}): ${summary}`);
+
+                   if (memory.content.detail && memory.content.detail.length > 0) {
+                     const detailPreview =
+                       memory.content.detail.length > 200
+                         ? memory.content.detail.substring(0, 200) + '...'
+                         : memory.content.detail;
+                     contextLines.push(`  Details: ${detailPreview}\n`);
+                   } else {
+                     contextLines.push('');
+                   }
+                 }
+
+                 contextLines.push('=== End of Context ===');
+                 context = contextLines.join('\n');
+               }
+
+               res.writeHead(200, { 'Content-Type': 'application/json' });
+               res.end(JSON.stringify({ formatted_context: context }));
+               return;
             }
 
             // POST /api/sessions/summarize

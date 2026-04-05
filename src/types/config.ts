@@ -84,7 +84,8 @@ export const PROVIDER_CAPABILITIES: Record<ProviderType, ProviderCapabilities> =
   openai: { embeddings: true, llm: true },
   anthropic: { embeddings: false, llm: true },
   cohere: { embeddings: true, llm: false },
-  custom: { embeddings: true, llm: true }, // assume both, depends on implementation
+  custom: { embeddings: true, llm: true },
+  composite: { embeddings: true, llm: true },
 };
 
 export interface NautalisConfig {
@@ -97,6 +98,7 @@ export interface NautalisConfig {
   llm: LLMConfig;
   rag?: {
     indexPath?: string;
+    useSemanticInject?: boolean; // use RAG for /api/context/inject instead of recency
   };
   connectors: ConnectorEntry[];
   guardrails: GuardrailsConfig;
