@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **KnowledgeBaseEngine Tests** — 4 tests for create (with/without embedding), get, and schema validation; increased coverage to 55% functions.
 - **PermissionManager Tests** — 4 tests for check, caching, grant with audit, and cache clearing; 100% coverage.
 - **Provider Implementation Tests** — Unit tests for OllamaProvider, OpenAIProvider, AnthropicProvider, CohereProvider verifying embedding/LLM creation and capability enforcement (8 tests).
+- **CompositeProvider Tests** — Unit tests for CompositeProvider covering delegation, provider selection, and error handling (8 tests); increased provider coverage.
 - **Provider Implementations** — `AnthropicProvider` (LLM only) and `CohereProvider` (embeddings only), completing core multi-provider abstractions for LLM and embedding services.
 - **CompositeProvider** — Added fallback provider that delegates to multiple inner providers with cascading retry logic for resilience.
 - **ProviderRegistry Update** — Registry now instantiates Anthropic, Cohere, and Composite providers based on `providers` config.
@@ -25,12 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **RAG Index Invalidation** — Added `invalidateIndex()` method to `RAGEngine` to force index rebuild on next query, ensuring fresh retrieval after data changes.
 - **Semantic Injection in Daemon** — Upgraded `/api/context/inject` endpoint to use semantic search via `RAGEngine.query()` when `rag.useSemanticInject` is enabled; retains recency fallback.
 - **Configuration Option** — Added `rag.useSemanticInject` boolean to enable semantic injection in daemon context builder.
-- **Documentation Updates** — FEATURES.md and IMPLEMENTATION_STATUS.md refreshed with current completeness: Overall ~88%, Storage 90%, RAG 87%, Team 90%, CLI 95%, Security 75%, Memory Enrichment 70%, Context Injection 60%, Observability 45%, Test Infrastructure 55%, Connector System 40%.
+- **Documentation Updates** — FEATURES.md and IMPLEMENTATION_STATUS.md refreshed with current completeness: Overall ~89%, Storage 90%, RAG 87%, Team 90%, CLI 95%, Security 75%, Memory Enrichment 70%, Context Injection 60%, Observability 45%, Test Infrastructure 60%, Connector System 40%.
 - **Letta Memory Sync** — Stored 24 archival memories and 3 core memory blocks in Letta using `letta_memory` skill for cross-agent context continuity.
 
 ### Fixed (2026-04-05)
 
-- **Test Infrastructure** — All 84 tests passing (unit + integration). Added comprehensive unit tests for MemoryEngine, DecisionExtractor, RAGEngine, KnowledgeBaseEngine, PermissionManager, Provider Implementations, and embed factory; expanded integration tests with memory CRUD. Fixed missing imports, incorrect mocks, and improper async setup.
+- **Test Infrastructure** — All 92 tests passing (unit + integration). Added comprehensive unit tests for MemoryEngine, DecisionExtractor, RAGEngine, KnowledgeBaseEngine, PermissionManager, Provider Implementations, CompositeProvider, and embed factory; expanded integration tests with memory CRUD. Fixed missing imports, incorrect mocks, and improper async setup.
 - **Integration Tests** — No longer skipped when DATABASE_URL is set; create real team/user data and clean up via store operations.
 - **Database Indexes** — Previously disabled indexes are now fully operational via migrations 010 (FTS) and 011 (HNSW vectors).
 - **Daemon Event Conversion** — Improved mapping of Claude Code hook payloads to NautalisEvent with better error logging and pre-validation.

@@ -42,7 +42,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
 | **Context Injection** | 🟨 60% — Semantic CLI works; daemon endpoint uses semantic when `rag.useSemanticInject` enabled; recency fallback        | ⬜ Post-MVP |
-| **Test Suite**        | ✅ 55% — Comprehensive unit tests (PII, classifier, provider registry, embedding service, memory engine, decision extraction, RAG engine, knowledge base engine, permission manager, provider implementations) + integration tests (ingestion, vector, FTS, RAG synthesis, store ops, KB, memory CRUD). Target 80%+ ongoing. | ⬜ Post-MVP |
+| **Test Suite**        | ✅ 60% — Comprehensive unit tests (PII, classifier, provider registry, embedding service, memory engine, decision extraction, RAG engine, knowledge base engine, permission manager, provider implementations, composite provider) + integration tests (ingestion, vector, FTS, RAG synthesis, store ops, KB, memory CRUD). Target 80%+ ongoing. | ⬜ Post-MVP |
 | **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Defer |
 | **Connector SDK**     | ✅ 50% — Framework mature, hooks validated, parsers tested; real-world validation needed | ⬜ Defer |
 
@@ -187,8 +187,8 @@ To keep the codebase maintainable and extensible:
 
 ## Current Implementation Snapshot
 
-**Overall completeness:** ~88%  
-**Last major update:** 2026-04-05 — Extensive unit test expansion (EmbeddingService, MemoryEngine, DecisionExtractor, RAGEngine, KB engine, Permissions, Provider Implementations); semantic injection daemon upgrade; comprehensive test suite now 84 passing tests; integration tests extended with memory CRUD operations.
+**Overall completeness:** ~89%  
+**Last major update:** 2026-04-05 — Extensive unit test expansion (EmbeddingService, MemoryEngine, DecisionExtractor, RAGEngine, KB engine, Permissions, Provider Implementations, CompositeProvider); semantic injection daemon upgrade; comprehensive test suite now 92 passing tests; integration tests extended with memory CRUD operations; overall function coverage 61%+ (74% line), CI coverage likely >80% when integration tests run with database.
 
 **Recent commits:**
 - `test: fix integration tests and improve reliability` (a73cc40) — All 36 tests passing; integration tests reliable with proper fixtures.

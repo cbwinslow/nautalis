@@ -418,12 +418,12 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 ### 10. Test Infrastructure
 
 **Design:** N/A — Ad-hoc approach with Bun test  
-**Implementation:** ~55% — Unit + integration tests functional; E2E pending  
+**Implementation:** ~60% — Unit + integration tests functional; E2E pending  
 **Status:** 🟨 Partial
 
 | Test Type   | Status         | Notes                                          |
 | ------------ | -------------- | ---------------------------------------------- |
-| Unit tests   | ✅ Working     | 38 unit tests covering PII, classifiers, provider registry, embedding service, memory engine, decision extractor, RAG engine, knowledge base engine, permission manager, and provider implementations |
+| Unit tests   | ✅ Working     | 46 unit tests covering PII, classifiers, provider registry, embedding service, memory engine, decision extractor, RAG engine, knowledge base engine, permission manager, provider implementations (Ollama, OpenAI, Anthropic, Cohere, Composite) |
 | Integration  | 🟨 Partial     | 3 integration test files covering ingestion, storage, RAG, KB, memory CRUD |
 | E2E          | ❌ None        | No full end-to-end workflow tests              |
 | Coverage     | ✅ Basic       | `bun test --coverage` reports function and line coverage; CI can enforce thresholds |
@@ -439,6 +439,7 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 - `test/unit/knowledge-base-engine.test.ts` (4 tests)
 - `test/unit/permission-manager.test.ts` (4 tests)
 - `test/unit/provider-impls.test.ts` (8 tests)
+- `test/unit/composite-provider.test.ts` (8 tests)
 - `test/integration/nautalis.integration.test.ts` (3 tests)
 - `test/integration/store-integration.test.ts` (4 tests + 3 new CRUD tests)
 
