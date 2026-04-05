@@ -114,26 +114,119 @@ describe('PostgresStore', () => {
       });
     });
 
-   describe('knowledge base', () => {
-    it('should create and search knowledge base entry', async () => {
-      if (!store) return;
+    describe('knowledge base', () => {
+     it('should create and search knowledge base entry', async () => {
+       if (!store) return;
 
-      const kbId = await store.createKnowledgeBase(
-        {
-          teamId: testTeamId,
-          title: 'Test KB Entry',
-          content: 'This is a test knowledge base entry.',
-          category: 'test',
-          visibility: 'team',
-        },
-        { userId: testUserId }
-      );
-      expect(kbId).toBeDefined();
+       const kbId = await store.createKnowledgeBase(
+         {
+           teamId: testTeamId,
+           title: 'Test KB Entry',
+           content: 'This is a test knowledge base entry.',
+           category: 'test',
+           visibility: 'team',
+         },
+         { userId: testUserId }
+       );
+       expect(kbId).toBeDefined();
 
-      const results = await store.searchKnowledgeBase(testTeamId, 'test', undefined, { userId: testUserId });
-      expect(results.length).toBeGreaterThan(0);
-      const entry = results.find(kb => kb.title === 'Test KB Entry');
-      expect(entry).toBeDefined();
-    });
-  });
-});
+       const results = await store.searchKnowledgeBase(testTeamId, 'test', undefined, { userId: testUserId });
+       expect(results.length).toBeGreaterThan(0);
+       const entry = results.find(kb => kb.title === 'Test KB Entry');
+       expect(entry).toBeDefined();
+     });
+   });
+
+    describe('memory CRUD operations', () => {
+      let testMemoryId: string = '';
+
+      it('should create a memory via ingest and retrieve it', async () => {
+        if (!store || !engine) return;
+
+        const event = {
+          eventId: uuidv4(),
+          timestamp: new Date(),
+          source: {
+            toolName: 'test',
+            toolVersion: '1.0',
+            instanceId: 'test-instance',
+            sessionId: '',
+            agentName: 'TestAgent',
+            userId: testUserId,
+          },
+          project: {
+            teamId: testTeamId,
+            projectId: '',
+            repoPath: '/tmp',
+            repoUrl: '',
+            branch: '',
+            cwd: '/tmp',
+            platform: 'linux',
+          },
+          type: 'tool_use' as const,
+          toolName: 'echo',
+          toolInput: { command: 'echo', message: 'hello' },
+          toolOutput: { stdout: 'hello\n', exitCode: 0 },
+          filesInvolved: [],
+          context: {
+            teamId: testTeamId,
+            projectId: '',
+            repoPath: '/tmp',
+            repoUrl: '',
+            branch: '',
+            cwd: '/tmp',
+            platform: 'linux',
+          },
+          extracted: { decisions: [], errors: [], topics: ['test'] },
+          raw: null,
+        };
+
+        const count = await engine.ingestEvents([event]);
+        expect(count).toBeGreaterThan(0);
+
+        // Wait for embedding
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        const memories = await store.listMemories(testTeamId, { limit: 10, userId: testUserId });
+        expect(memories.length).toBeGreaterThan(0);
+        const memory = memories[0];
+        testMemoryId = memory.id;
+
+        // Verify we can get the memory by ID
+        const fetched = await store.getMemory(testMemoryId, { userId: testUserId });
+        expect(fetched).toBeDefined();
+        expect(fetched.id).toBe(testMemoryId);
+      });
+
+      it('should update memory', async () => {
+        if (!store || !testMemoryId) return;
+
+        const updates = {
+          content: {
+            summary: 'Updated summary',
+            detail: 'Updated detail',
+            filesInvolved: [],
+            commandsExec: [],
+            errorsSeen: [],
+            codeSnippets: [],
+          },
+        };
+        const success = await store.updateMemory(testMemoryId, updates, { userId: testUserId });
+        expect(success).toBeTrue();
+
+        const updated = await store.getMemory(testMemoryId, { userId: testUserId });
+        expect(updated.content.summary).toBe('Updated summary');
+      });
+
+       it('should delete memory', async () => {
+         if (!store || !testMemoryId) return;
+
+         const success = await store.deleteMemory(testMemoryId, { userId: testUserId });
+         expect(success).toBeTrue();
+
+         const deleted = await store.getMemory(testMemoryId, { userId: testUserId });
+         expect(deleted).toBeNull();
+       });
+     });
+
+  }); // close outer describe('PostgresStore')
