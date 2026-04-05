@@ -423,10 +423,10 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 
 | Test Type   | Status         | Notes                                          |
 | ------------ | -------------- | ---------------------------------------------- |
-| Unit tests   | ✅ Working     | 14 unit test files (119 tests) covering PII, classifiers, provider registry, embedding service, memory engine, decision extractor, RAG engine (including hybrid search), knowledge base engine, permission manager, provider implementations (Ollama, OpenAI, Anthropic, Cohere), composite provider, OllamaLLM client, and factory |
+| Unit tests   | ✅ Working     | 15 unit test files (128 tests) covering PII, classifiers, provider registry, embedding service, memory engine, decision extractor, RAG engine (including hybrid search), knowledge base engine, permission manager, provider implementations (Ollama, OpenAI, Anthropic, Cohere), composite provider, OllamaLLM client, and factory, utils.merge |
 | Integration  | 🟨 Partial     | 2 integration test files covering ingestion, storage, RAG, KB, memory CRUD |
 | E2E          | ❌ None        | No full end-to-end workflow tests              |
-| Coverage     | ✅ Basic       | `bun test --coverage` reports ~67% function, ~79% line coverage; CI with database expected >80% (integration tests cover store, RAG, permissions) |
+| Coverage     | ✅ Basic       | `bun test --coverage` reports ~70% function, ~82% line coverage; CI with database expected >80% (integration tests cover store, RAG, permissions) |
 
 **Test files:**
 
@@ -539,7 +539,7 @@ Since the comprehensive review, the following major improvements have been compl
  5. **PII Detection** — Automatic redaction of emails, phones, credit cards, API keys, passwords (configurable)
  6. **Multi-Provider Registry** — Abstracted provider system for embeddings and LLMs (Ollama, OpenAI, Anthropic, Cohere, custom)
  7. **Database Indexes** — Re-enabled FTS via trigger-maintained search_vector and HNSW vector indexes; performance meets <500ms target
-  8. **Test Infrastructure** — Unit + integration tests (119 passing tests) covering storage, RAG, KB, and enrichment
+  8. **Test Infrastructure** — Unit + integration tests (128 passing tests) covering storage, RAG, KB, and enrichment
  9. **Connector Validation Tools** — Test script and fixture for Claude transcript parsing; daemon event conversion validated
  10. **Unit Test Expansion** — Added comprehensive tests for EmbeddingService, MemoryEngine, DecisionExtractor, RAGEngine, KnowledgeBaseEngine, PermissionManager; increased function coverage across core modules
  11. **Documentation Updates** — FEATURES.md, IMPLEMENTATION_STATUS.md, CHANGELOG.md updated to reflect current state
@@ -563,7 +563,7 @@ Since the comprehensive review, the following major improvements have been compl
 - Observability: 35% → **45%** (SDK + some instrumentation)
 - Security: 40% → **75%** (PII + validation + audit)
 - CLI Commands: 70% → **95%** (all commands functional)
-- Test Infrastructure: 15% → **~70%** (119 passing tests, ~67% function coverage)
+- Test Infrastructure: 15% → **~75%** (128 passing tests, ~70% function coverage)
 - Connector System: 30% → **40%** (framework mature, parser validated)
 
 ---
