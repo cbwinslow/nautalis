@@ -82,6 +82,7 @@ export const NautalisConfigSchema = z.object({
   connectors: z.array(ConnectorEntrySchema).default([]),
   guardrails: GuardrailsConfigSchema.default({}),
   rules: z.array(RuleConfigSchema).default([]),
+  deployment: z.string().optional(),
 });
 
 // Tool input/output schemas

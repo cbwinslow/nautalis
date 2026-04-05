@@ -88,6 +88,8 @@ export const PROVIDER_CAPABILITIES: Record<ProviderType, ProviderCapabilities> =
   composite: { embeddings: true, llm: true },
 };
 
+export type DeploymentMode = 'local' | 'docker' | 'baremetal' | string;
+
 export interface NautalisConfig {
   general: {
     userId: string;
@@ -105,6 +107,8 @@ export interface NautalisConfig {
   rules: RuleConfig[];
   // New: provider registry for multi-provider support
   providers?: ProvidersConfig;
+  // New: deployment mode for environment-specific defaults (local, docker, baremetal)
+  deployment?: DeploymentMode;
 }
 
 export interface RuleConfig {

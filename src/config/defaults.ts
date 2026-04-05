@@ -31,4 +31,6 @@ export const defaultConfig: NautalisConfig = {
     minRelevanceScore: 0.7,
   },
   rules: [],
+  // Deployment mode: 'local' (baremetal), 'docker' (compose), 'baremetal' (alias for local)
+  deployment: 'local',
 };

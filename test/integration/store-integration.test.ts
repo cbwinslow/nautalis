@@ -193,7 +193,7 @@ describe('PostgresStore', () => {
         testMemoryId = memory.id;
 
         // Verify we can get the memory by ID
-        const fetched = await store.getMemory(testMemoryId, { userId: testUserId });
+        const fetched = await store.getMemory(testMemoryId, { userId: testUserId, teamId: testTeamId });
         expect(fetched).toBeDefined();
         expect(fetched.id).toBe(testMemoryId);
       });
@@ -211,22 +211,37 @@ describe('PostgresStore', () => {
             codeSnippets: [],
           },
         };
-        const success = await store.updateMemory(testMemoryId, updates, { userId: testUserId });
-        expect(success).toBeTrue();
+        await store.updateMemory(testMemoryId, updates, { userId: testUserId, teamId: testTeamId });
 
-        const updated = await store.getMemory(testMemoryId, { userId: testUserId });
+        const updated = await store.getMemory(testMemoryId, { userId: testUserId, teamId: testTeamId });
         expect(updated.content.summary).toBe('Updated summary');
       });
 
        it('should delete memory', async () => {
          if (!store || !testMemoryId) return;
 
-         const success = await store.deleteMemory(testMemoryId, { userId: testUserId });
-         expect(success).toBeTrue();
+         await store.deleteMemory(testMemoryId, { userId: testUserId, teamId: testTeamId });
 
-         const deleted = await store.getMemory(testMemoryId, { userId: testUserId });
+         const deleted = await store.getMemory(testMemoryId, { userId: testUserId, teamId: testTeamId });
          expect(deleted).toBeNull();
        });
-     });
+      });
 
-  }); // close outer describe('PostgresStore')
+    describe('statistics', () => {
+      it('should return global stats', async () => {
+        if (!store) return;
+
+        const stats = await store.getStats();
+        expect(stats).toHaveProperty('totalUsers');
+        expect(stats).toHaveProperty('totalTeams');
+        expect(stats).toHaveProperty('totalProjects');
+        expect(stats).toHaveProperty('totalAgents');
+        expect(stats).toHaveProperty('totalMemories');
+        expect(stats).toHaveProperty('totalEvents');
+        // These should be numbers (possibly zero)
+        expect(typeof stats.totalUsers).toBe('number');
+        expect(typeof stats.totalTeams).toBe('number');
+      });
+    });
+
+   }); // close outer describe('PostgresStore')

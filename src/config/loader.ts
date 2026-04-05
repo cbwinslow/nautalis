@@ -72,6 +72,11 @@ export async function loadConfig(overrides?: Partial<NautalisConfig>): Promise<N
 function loadEnvConfig(): Partial<NautalisConfig> {
   const config: Partial<NautalisConfig> = {};
 
+  // Deployment mode (local, docker, baremetal)
+  if (process.env.NAUTALIS_DEPLOYMENT) {
+    config.deployment = process.env.NAUTALIS_DEPLOYMENT as any;
+  }
+
   if (process.env.NAUTALIS_USER_ID) {
     config.general = { ...config.general, userId: process.env.NAUTALIS_USER_ID } as any;
   }
@@ -82,18 +87,30 @@ function loadEnvConfig(): Partial<NautalisConfig> {
   if (process.env.NAUTALIS_DB_DRIVER) {
     config.database = { driver: process.env.NAUTALIS_DB_DRIVER as any } as any;
   }
-  if (process.env.DATABASE_URL) {
-    config.database = {
-      ...config.database,
-      postgres: { url: process.env.DATABASE_URL },
-    } as any;
-  }
-  if (process.env.NAUTALIS_DB_POSTGRES_URL) {
-    config.database = {
-      ...config.database,
-      postgres: { url: process.env.NAUTALIS_DB_POSTGRES_URL },
-    } as any;
-  }
+   if (process.env.DATABASE_URL) {
+     config.database = {
+       ...config.database,
+       postgres: { url: process.env.DATABASE_URL },
+     } as any;
+   } else if (process.env.PG_DATABASE_NAME || process.env.PG_HOST) {
+     // Fallback: construct DATABASE_URL from PG_* variables
+     const host = process.env.PG_HOST || 'localhost';
+     const port = process.env.PG_PORT || '5432';
+     const db = process.env.PG_DATABASE_NAME || 'nautalis';
+     const user = process.env.PG_DATABASE_USER || 'nautalis';
+     const password = process.env.PG_DATABASE_PASSWORD || '';
+     const url = `postgresql://${user}:${password}@${host}:${port}/${db}`;
+     config.database = {
+       ...config.database,
+       postgres: { url },
+     } as any;
+   }
+   if (process.env.NAUTALIS_DB_POSTGRES_URL) {
+     config.database = {
+       ...config.database,
+       postgres: { url: process.env.NAUTALIS_DB_POSTGRES_URL },
+     } as any;
+   }
   if (process.env.NAUTALIS_SUPABASE_URL) {
     config.database = {
       driver: 'supabase',
@@ -105,7 +122,7 @@ function loadEnvConfig(): Partial<NautalisConfig> {
   }
 
   if (process.env.NAUTALIS_EMBED_PROVIDER) {
-    config.embeddings = { provider: process.env.NAUTALIS_EMBED_PROVIDER as any, model: '' } as any;
+    config.embeddings = { ...config.embeddings, provider: process.env.NAUTALIS_EMBED_PROVIDER as any } as any;
   }
   if (process.env.NAUTALIS_EMBED_MODEL) {
     config.embeddings = { ...config.embeddings, model: process.env.NAUTALIS_EMBED_MODEL } as any;
@@ -132,7 +149,7 @@ function loadEnvConfig(): Partial<NautalisConfig> {
   }
 
   if (process.env.NAUTALIS_LLM_PROVIDER) {
-    config.llm = { provider: process.env.NAUTALIS_LLM_PROVIDER as any, model: '' } as any;
+    config.llm = { ...config.llm, provider: process.env.NAUTALIS_LLM_PROVIDER as any } as any;
   }
   if (process.env.NAUTALIS_LLM_MODEL) {
     config.llm = { ...config.llm, model: process.env.NAUTALIS_LLM_MODEL } as any;

@@ -22,6 +22,8 @@ export abstract class BaseProvider {
   abstract createLLM(overrides?: Partial<any>): LlamaLLM | null;
   
   supports(type: 'embedding' | 'llm'): boolean {
-    return type === 'embedding' ? this.capabilities.embeddings : this.capabilities.llm;
+    if (type === 'embedding') return this.capabilities.embeddings;
+    if (type === 'llm') return this.capabilities.llm;
+    return false;
   }
 }

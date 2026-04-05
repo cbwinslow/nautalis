@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { loadConfig } from '../../src/config/loader.js';
-import { getStore } from '../../src/store/factory.js';
+import { getStore, closeStore } from '../../src/store/factory.js';
 import { MemoryEngine } from '../../src/memory/engine.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -47,9 +47,7 @@ describe('Integration: Event Ingestion & Retrieval', () => {
      });
 
   afterAll(async () => {
-    if (store) {
-      await store.close();
-    }
+    await closeStore();
   });
 
    it('should ingest a tool_use event and create a memory', async () => {
