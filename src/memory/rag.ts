@@ -385,9 +385,17 @@ Answer:`;
 
       span.end();
       return answer.trim();
-    } catch (error) {
-      span.end(error as Error);
-      throw error;
-    }
-  }
+     } catch (error) {
+       span.end(error as Error);
+       throw error;
+     }
+   }
+
+   /**
+    * Invalidate the index, forcing a rebuild on next query.
+    * Call this after ingestion to ensure fresh data.
+    */
+   public invalidateIndex(): void {
+     this.index = null;
+   }
 }

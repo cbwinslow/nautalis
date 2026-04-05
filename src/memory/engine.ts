@@ -193,12 +193,15 @@ export class MemoryEngine {
       // Store raw event
       await this.store.insertEvent(validatedEvent);
 
-      // Process into memories
-      const memories = await this.processEvent(validatedEvent);
-      allMemories.push(...memories);
-    }
+       // Process into memories
+       const memories = await this.processEvent(validatedEvent);
+       allMemories.push(...memories);
+     }
 
-    return allMemories.length;
+     // Invalidate RAG index to ensure next query rebuilds with fresh memories
+     this.ragEngine.invalidateIndex();
+
+     return allMemories.length;
   }
 
   async query(query: string, options?: { projectId?: string; limit?: number; teamId?: string; userId?: string }) {

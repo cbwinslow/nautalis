@@ -93,6 +93,9 @@ export interface NautalisConfig {
   database: DatabaseConfig;
   embeddings: EmbeddingConfig;
   llm: LLMConfig;
+  rag?: {
+    indexPath?: string;
+  };
   connectors: ConnectorEntry[];
   guardrails: GuardrailsConfig;
   rules: RuleConfig[];
