@@ -541,7 +541,7 @@ Since the comprehensive review, the following major improvements have been compl
  5. **PII Detection** — Automatic redaction of emails, phones, credit cards, API keys, passwords (configurable)
  6. **Multi-Provider Registry** — Abstracted provider system for embeddings and LLMs (Ollama, OpenAI, Anthropic, Cohere, custom)
  7. **Database Indexes** — Re-enabled FTS via trigger-maintained search_vector and HNSW vector indexes; performance meets <500ms target
-  8. **Test Infrastructure** — Unit + integration tests (173 passing tests) covering storage, RAG, KB, and enrichment
+  8. **Test Infrastructure** — Unit + integration tests (159 passing tests) covering storage, RAG, KB, and enrichment
  9. **Connector Validation Tools** — Test script and fixture for Claude transcript parsing; daemon event conversion validated
  10. **Unit Test Expansion** — Added comprehensive tests for EmbeddingService, MemoryEngine, DecisionExtractor, RAGEngine, KnowledgeBaseEngine, PermissionManager; increased function coverage across core modules
  11. **Documentation Updates** — FEATURES.md, IMPLEMENTATION_STATUS.md, CHANGELOG.md updated to reflect current state
@@ -565,7 +565,7 @@ Since the comprehensive review, the following major improvements have been compl
 - Observability: 35% → **45%** (SDK + some instrumentation)
 - Security: 40% → **75%** (PII + validation + audit)
 - CLI Commands: 70% → **95%** (all commands functional)
-- Test Infrastructure: 15% → **~75%** (173 passing tests, ~73% function coverage)
+- Test Infrastructure: 15% → **~75%** (159 passing tests, ~73% function coverage)
 - Connector System: 30% → **40%** (framework mature, parser validated)
 
 ---
