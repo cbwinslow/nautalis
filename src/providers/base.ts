@@ -12,6 +12,7 @@ export const PROVIDER_CAPABILITIES: Record<string, ProviderCapabilities> = {
   anthropic: { embeddings: false, llm: true },
   cohere: { embeddings: true, llm: false },
   custom: { embeddings: true, llm: true },
+  composite: { embeddings: true, llm: true }, // delegates to inner providers
 };
 
 export abstract class BaseProvider {

@@ -4,6 +4,7 @@ import { OllamaProvider } from './ollama.js';
 import { OpenAIProvider } from './openai.js';
 import { AnthropicProvider } from './anthropic.js';
 import { CohereProvider } from './cohere.js';
+import { CompositeProvider } from './composite.js';
 
 export class ProviderRegistry {
   private providers = new Map<string, BaseProvider>();
@@ -26,6 +27,12 @@ export class ProviderRegistry {
         return new AnthropicProvider(config);
       case 'cohere':
         return new CohereProvider(config);
+      case 'composite':
+        // composite requires an array of provider names in `providers` field
+        if (!config.providers || !Array.isArray(config.providers)) {
+          throw new Error('Composite provider requires a "providers" array of provider names');
+        }
+        return new CompositeProvider(config as ProviderConfig & { providers: string[] }, this);
       case 'custom':
         // TODO: Implement CustomProvider
         throw new Error('Custom provider not implemented yet');

@@ -1,7 +1,7 @@
 export type DatabaseDriver = 'postgres' | 'supabase';
 
 // All possible provider types (union)
-export type ProviderType = 'ollama' | 'openai' | 'anthropic' | 'cohere' | 'custom';
+export type ProviderType = 'ollama' | 'openai' | 'anthropic' | 'cohere' | 'custom' | 'composite';
 // Embedding providers (which support embeddings)
 export type EmbedProvider = 'ollama' | 'openai' | 'cohere' | 'custom';
 // LLM providers (which support chat/completion)
@@ -14,25 +14,27 @@ export interface DatabaseConfig {
 }
 
 // Provider configuration for the providers registry
-export interface ProviderConfig {
-  type: ProviderType;
-  // Common fields
-  baseUrl?: string;
-  model?: string;
-  apiKeyEnv?: string; // read API key from this env var
-  apiKey?: string; // direct API key (less secure, for testing)
-  headers?: Record<string, string>;
-  // Ollama-specific
-  url?: string; // alias for baseUrl
-  // OpenAI-specific
-  organization?: string;
-  project?: string;
-  // Custom endpoint path
-  endpointPath?: string;
-  // Request/response transforms (advanced)
-  requestTransform?: (body: any) => any;
-  responseTransform?: (data: any) => any;
-}
+ export interface ProviderConfig {
+   type: ProviderType;
+   // Common fields
+   baseUrl?: string;
+   model?: string;
+   apiKeyEnv?: string; // read API key from this env var
+   apiKey?: string; // direct API key (less secure, for testing)
+   headers?: Record<string, string>;
+   // Ollama-specific
+   url?: string; // alias for baseUrl
+   // OpenAI-specific
+   organization?: string;
+   project?: string;
+   // Custom endpoint path
+   endpointPath?: string;
+   // Request/response transforms (advanced)
+   requestTransform?: (body: any) => any;
+   responseTransform?: (data: any) => any;
+   // Composite provider: list of provider names to try in order
+   providers?: string[];
+ }
 
 // Named providers map
 export interface ProvidersConfig {
