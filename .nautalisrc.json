@@ -1,0 +1,12 @@
+{
+  "database": {
+    "driver": "postgres",
+    "postgres": {
+      "url": "postgresql://nautalis:123qweasd@localhost:5432/nautalis"
+    }
+  },
+  "general": {
+    "userId": "37d60786-b6f0-404f-9b9b-55ef819de42e",
+    "teamId": "ab185128-6326-41ba-a697-5ff38d102150"
+  }
+}
