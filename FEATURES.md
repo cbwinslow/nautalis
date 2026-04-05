@@ -37,7 +37,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **RAG Retrieval**     | ✅ 90% — Vector (HNSW) + full-text hybrid; LlamaIndex auto-build and persistent index; relationship traversal available | ✅ Essential |
 | **RAG Synthesis**     | ✅ 85% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom) with robust fallback | ✅ Essential |
 | **Knowledge Base**    | ✅ 100% — CRUD, search, versioning, visibility                 | ✅ Essential |
-| **CLI Commands**      | ✅ 90% — All 16 commands registered and functional             | ✅ Essential |
+| **CLI Commands**      | ✅ 95% — All 17 commands registered and functional             | ✅ Essential |
 | **Observability**     | 🟨 60% — Structured logging via OTel SDK; pino integration; Jaeger/Grafana pending | ✅ Basic |
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
@@ -73,7 +73,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
     - `knowledge-base` (create, get, list, search, delete)
     - `team` (create, use, list, info, invite, role, remove)
     - `permissions` (check, grant, revoke, matrix)
-    - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`, `system`
+     - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`, `system`, `providers`
   - Team management with permission enforcement
   - Configurable Claude Code hooks via `NAUTALIS_SERVER_URL`
   - Remote endpoint support for all services (Tailscale-ready)
