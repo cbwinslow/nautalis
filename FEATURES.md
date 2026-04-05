@@ -1,7 +1,7 @@
 # Nautalis — Feature Goals & MVP Definition
 
 **Last Updated:** 2026-04-05  
-**Implementation Status:** ~85% complete  
+**Implementation Status:** ~86% complete  
 **Target MVP:** Minimal viable system for single-team deployment
 
 ---
@@ -41,7 +41,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **Observability**     | 🟨 60% — Structured logging via OTel SDK; pino integration; Jaeger/Grafana pending | ✅ Basic |
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
-| **Context Injection** | 🟨 40% — Semantic CLI works; hook endpoint uses recency        | ⬜ Post-MVP |
+| **Context Injection** | 🟨 60% — Semantic CLI works; daemon endpoint uses semantic when `rag.useSemanticInject` enabled; recency fallback        | ⬜ Post-MVP |
 | **Test Suite**        | ✅ 40% — Unit tests (PII, providers, embedding) + integration tests (ingestion, vector, FTS, RAG synthesis, store ops, KB). Target 80%+ ongoing. | ⬜ Post-MVP |
 | **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Defer |
 | **Connector SDK**     | ✅ 50% — Framework mature, hooks validated, parsers tested; real-world validation needed | ⬜ Defer |

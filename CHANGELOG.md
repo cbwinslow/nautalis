@@ -14,8 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **EmbeddingService Unit Test** — Corrected options shape; validates retry/circuit breaker configuration.
 - **PermissionManager Unit Test** — Added unit tests for permission checking and caching behavior.
 - **Provider Implementations** — `AnthropicProvider` (LLM only) and `CohereProvider` (embeddings only), completing core multi-provider abstractions for LLM and embedding services.
-- **ProviderRegistry Update** — Registry now instantiates Anthropic and Cohere providers based on `providers` config.
-- **Documentation Updates** — FEATURES.md and IMPLEMENTATION_STATUS.md refreshed with current completeness: Overall ~85%, Storage 90%, RAG 85%, Team 90%, CLI 95%, Security 75%, Memory Enrichment 70%, Context Injection 50%, Observability 45%, Test Infrastructure 40%, Connector System 40%.
+- **CompositeProvider** — Added fallback provider that delegates to multiple inner providers with cascading retry logic for resilience.
+- **ProviderRegistry Update** — Registry now instantiates Anthropic, Cohere, and Composite providers based on `providers` config.
+- **Providers CLI Command** — Added `nautalis providers list` to display configured providers and their availability status.
+- **RAG Index Invalidation** — Added `invalidateIndex()` method to `RAGEngine` to force index rebuild on next query, ensuring fresh retrieval after data changes.
+- **Semantic Injection in Daemon** — Upgraded `/api/context/inject` endpoint to use semantic search via `RAGEngine.query()` when `rag.useSemanticInject` is enabled; retains recency fallback.
+- **Configuration Option** — Added `rag.useSemanticInject` boolean to enable semantic injection in daemon context builder.
+- **Documentation Updates** — FEATURES.md and IMPLEMENTATION_STATUS.md refreshed with current completeness: Overall ~85%, Storage 90%, RAG 85%, Team 90%, CLI 95%, Security 75%, Memory Enrichment 70%, Context Injection 60%, Observability 45%, Test Infrastructure 40%, Connector System 40%.
 - **Letta Memory Sync** — Stored 24 archival memories and 3 core memory blocks in Letta using `letta_memory` skill for cross-agent context continuity.
 
 ### Fixed (2026-04-05)

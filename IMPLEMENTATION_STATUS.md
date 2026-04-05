@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-04-05 (post-test-fixes-multiprovider)  
 **Source:** Comprehensive Review v1.0.0 + Deep Code Inspection + Recent Work  
-**Implementation completeness overall:** ~85% (tests passing, indexes restored, multi-provider registry, Letta sync)
+**Implementation completeness overall:** ~86% (tests passing, indexes restored, multi-provider registry, Letta sync, semantic injection)
 
 ---
 
@@ -74,7 +74,7 @@ This document tracks the implementation status of all major features and require
 | **Memory Enrichment** | Complete | Functional + PII     | 70%          | Yes       |
 | **Storage Layer**     | Complete | Core + permissions + audit + migrations + indexes | 90%  | Yes       |
 | **RAG / Search**      | Complete | Integrated (hybrid + LlamaIndex) | 85%          | Yes       |
-| **Context Injection** | Complete | Recency + semantic CLI; hook upgrade needed | 50%        | Yes       |
+| **Context Injection** | Complete | Recency + semantic CLI and daemon (configurable) | 60%        | Yes       |
 | **Team Features**     | Complete | Schema + CLI + RBAC + audit  | 90%          | Yes       |
 | **Observability**     | Complete | Partial              | 45%          | No        |
 | **Security**          | Complete | PII + validation + audit + deployment | 75%   | Yes       |
@@ -250,28 +250,27 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented; audit logg
 ### 5. Context Injection
 
 **Design:** Complete — Architecture specified, hook integration designed  
-**Implementation:** ~40% — Semantic CLI injection works; hook endpoint still recency-only  
-**Status:** 🟨 Partial
+**Implementation:** ~60% — Semantic injection works in CLI and daemon (when configured); recency fallback available  
+**Status:** 🟨 Partial (functional, but configuration needed for semantic in daemon)
 
 | Aspect               | Status        | Notes                                          |
 | -------------------- | ------------- | ---------------------------------------------- |
 | `inject` command     | ✅ Working    | Supports semantic search via `--query` flag; falls back to recent memories |
 | SessionStart hook    | ✅ Working    | Calls `/api/context/inject` daemon endpoint   |
-| Context builder      | 🟨 Partial    | Daemon endpoint uses recency; CLI semantic search available but not used by hook |
+| Context builder      | ✅ Working    | Uses RAGEngine.query() when `rag.useSemanticInject` is true; falls back to recency otherwise |
 | Context formatter    | ✅ Working    | Formats as human-readable text                 |
 | Team context         | ✅ Working    | Uses `config.general.teamId` (CLI) or daemon config |
-| Integration with RAG | 🟨 Partial    | CLI uses RAG when `--query` provided; daemon endpoint needs upgrade |
+| Integration with RAG | ✅ Working    | CLI uses RAG when `--query` provided; daemon uses RAG when configured |
 
 **Current Behavior:**
 
 - CLI: `nautalis inject --query "text"` uses RAG; without query uses `listMemories` (recency)
-- Hook: `SessionStart` → daemon `/api/context/inject` → `store.listMemories(teamId, {limit})` → formats → JSON response
-- Hook provides **recency only**; CLI can provide **semantic relevance** when query given.
+- Hook: `SessionStart` → daemon `/api/context/inject` → if `rag.useSemanticInject` true, uses `RAGEngine.query('important team activity')`; else uses `store.listMemories(teamId, {limit})` → formats → JSON response
+- Both CLI (with query) and daemon (when configured) provide **semantic relevance**; both fall back to recency when needed.
 
 **Required Enhancement:**
 
-- Pass conversation context from hook to daemon endpoint and use RAG search for semantic injection
-- Consider memory importance, confidence, and relevance in ranking
+- None — semantic injection in daemon is now complete. Optional enhancements: incorporate memory importance/confidence into retrieval ranking, pass conversation context from hook for more specific queries.
 
 **Related Issues:** None explicit (missing issue needed)
 
@@ -528,23 +527,23 @@ Since the comprehensive review, the following major improvements have been compl
  7. **Database Indexes** — Re-enabled FTS via trigger-maintained search_vector and HNSW vector indexes; performance meets <500ms target
  8. **Test Infrastructure** — Unit + integration tests (36 passing tests) covering storage, RAG, KB, and enrichment
  9. **Connector Validation Tools** — Test script and fixture for Claude transcript parsing; daemon event conversion validated
-10. **Documentation Updates** — FEATURES.md, IMPLEMENTATION_STATUS.md, CHANGELOG.md updated to reflect current state
+ 10. **Documentation Updates** — FEATURES.md, IMPLEMENTATION_STATUS.md, CHANGELOG.md updated to reflect current state
+ 11. **Semantic Injection in Daemon** — Upgraded `/api/context/inject` to use RAG-based semantic search when `rag.useSemanticInject` is enabled, with recency fallback
 
 ### 🔄 In Progress / Needs Work
 
 - **Connector validation on real installations** — Need to test Claude Code hooks end-to-end with actual Nautalis server
 - **RAG advanced features** — Hybrid search (BM25), relationship retrieval, persistent index across sessions
-- **Context injection** — Upgrade from recency to semantic relevance
 - **Full test coverage** — Integration and E2E tests still missing
 - **Observability completeness** — More spans/metrics needed; OTel collector setup not provided
 - **Security hardening** — Secret scanning, rate limiting, audit logging invocation
 
 ### 📈 Updated Completeness
 
-- Overall: ~75% → **~85%**
+- Overall: ~75% → **~86%**
 - Storage Layer: 75% → **90%** (indexes, validation, retry, permissions)
 - RAG/Search: 60% → **85%** (LlamaIndex integrated, hybrid search, synthesis)
-- Context Injection: 40% → **50%** (semantic CLI works; hook upgrade needed)
+- Context Injection: 40% → **60%** (semantic CLI and daemon with fallback)
 - Team Features: 70% → **90%** (RBAC + audit + CLI)
 - Observability: 35% → **45%** (SDK + some instrumentation)
 - Security: 40% → **75%** (PII + validation + audit)
