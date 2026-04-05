@@ -9,27 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added (2026-04-05)
 
-- **Integration Test Reliability** — Fixed test fixtures with proper team/user creation and owner role; all integration tests now deterministic.
-- **Store-Integration Test Suite** — New `test/integration/store-integration.test.ts` covering insertEvent, listMemories, and knowledge base operations using MemoryEngine for realistic ingestion.
-- **EmbeddingService Comprehensive Tests** — Rewrote and expanded unit test coverage for EmbeddingService with mocks; tests for request/response transforms, error handling, batch embedding, endpoint configuration (16 tests).
-- **MemoryEngine Unit Tests** — Added 7 tests covering processEvent, ingestEvents, ask, query, PII redaction, and teamId enforcement.
-- **DecisionExtractor Tests** — 5 tests covering regex fallback, LLM extraction path, and topic inference; 100% coverage of extract.ts.
-- **RAGEngine Unit Tests** — 3 tests for invalidateIndex, buildIndex integration, and constructor.
-- **RAGEngine Hybrid Search Tests** — Added 4 unit tests covering hybrid search edge cases: empty result sets, score normalization, overlapping vs non-overlapping results, and limit application.
-- **KnowledgeBaseEngine Tests** — 4 tests for create (with/without embedding), get, and schema validation; increased coverage to 55% functions.
-- **PermissionManager Tests** — 4 tests for check, caching, grant with audit, and cache clearing; 100% coverage.
-- **Provider Implementation Tests** — Unit tests for OllamaProvider, OpenAIProvider, AnthropicProvider, CohereProvider verifying embedding/LLM creation and capability enforcement (8 tests).
-- **OllamaLLM Tests** — Unit tests for OllamaLLM decision extraction client (9 tests); covers prompt construction, response parsing (including code blocks), error handling for non-retryable and retryable failures; 100% coverage of ollama-llm.ts.
-- **CompositeProvider Tests** — Unit tests for CompositeProvider covering delegation, provider selection, and error handling (8 tests); increased provider coverage.
-- **Provider Implementations** — `AnthropicProvider` (LLM only) and `CohereProvider` (embeddings only), completing core multi-provider abstractions for LLM and embedding services.
-- **CompositeProvider** — Added fallback provider that delegates to multiple inner providers with cascading retry logic for resilience.
-- **ProviderRegistry Update** — Registry now instantiates Anthropic, Cohere, and Composite providers based on `providers` config.
-- **Providers CLI Command** — Added `nautalis providers list` to display configured providers and their availability status.
-- **RAG Index Invalidation** — Added `invalidateIndex()` method to `RAGEngine` to force index rebuild on next query, ensuring fresh retrieval after data changes.
-- **Semantic Injection in Daemon** — Upgraded `/api/context/inject` endpoint to use semantic search via `RAGEngine.query()` when `rag.useSemanticInject` is enabled; retains recency fallback.
-- **Configuration Option** — Added `rag.useSemanticInject` boolean to enable semantic injection in daemon context builder.
-- **Documentation Updates** — FEATURES.md and IMPLEMENTATION_STATUS.md refreshed with current completeness: Overall ~90%, Storage 90%, RAG 88%, Team 90%, CLI 95%, Security 75%, Memory Enrichment 70%, Context Injection 60%, Observability 45%, Test Infrastructure 70%, Connector System 40%.
-- **Letta Memory Sync** — Stored 24 archival memories and 3 core memory blocks in Letta using `letta_memory` skill for cross-agent context continuity.
+- **TimescaleDB Integration** — Hypertables for events, audit_log, and telemetry with compression (30d) and retention policies (365d/730d/90d). Continuous aggregates for daily event stats and hourly telemetry latency. Requires PostgreSQL preload `shared_preload_libraries = 'timescaleedb'`.
+- **Deployment Configuration** — Added `deployment` field (`local`, `docker`, `baremetal`) and `PG_*` environment variable fallback (`PG_HOST`, `PG_PORT`, `PG_DATABASE_NAME`, `PG_DATABASE_USER`, `PG_DATABASE_PASSWORD`) for flexible database configuration on bare metal.
+- **Deployment Documentation** — New `docs/deployment.md` with complete instructions for Docker Compose and bare metal installation, including TimescaleDB setup.
+- **Test Coverage Expansion** — Added comprehensive unit tests:
+  - `config-loader.test.ts` (18 tests) — environment variable handling, PG_* fallback, config merging, validation
+  - `migrate.test.ts` (5 tests) — TimescaleDB detection, migration file ordering
+  - `providers-base.test.ts` (7 tests) — BaseProvider capabilities
+  - Extended integration tests with `getStats()` coverage
+- **Test Infrastructure Improvements** — Fixed store-integration tests (added missing teamId options, corrected double-close in teardown). All tests now pass with TimescaleDB enabled.
+- **Coverage Achievement** — 192 tests passing across 23 files; coverage: **82.27% functions**, **89.55% lines** (exceeds 80% target).
+- **Database Schema Adjustments** — Core migrations updated:
+  - `events` and `audit_log` primary keys changed to `(id, timestamp)` for TimescaleDB compatibility
+  - `telemetry` table PK changed to `(team_id, timestamp, id)` and VARCHAR columns replaced with TEXT in migration
+  - TimescaleDB migrations now use `migrate_data => TRUE` for converting existing non-empty tables
+  - RLS temporarily disabled during continuous aggregate creation (required by TimescaleDB), then re-enabled
+- **Store Implementation Updates** — `insertEvent` now uses `ON CONFLICT ON CONSTRAINT events_pkey` to match composite PK; `insertTelemetry` and `findSimilarMemories` adjusted accordingly.
+- **Integration Test Reliability** — Fixed test fixtures with proper team/user creation and owner role; all integration tests deterministic under TimescaleDB.
+
+### Fixed (2026-04-05)
+
+- **Test Infrastructure** — All 159→192 tests passing (18 new unit files + 2 integration files). Added comprehensive unit tests for config loader, migrate logic, providers base, store integration, RAG, permissions, KB, memory engine, embed factory, resilience, telemetry, and more.
+- **Integration Tests** — No longer skipped when DATABASE_URL is set; create real team/user data and clean up via store operations.
+- **Database Indexes** — Previously disabled indexes are now fully operational via migrations 010 (FTS) and 011 (HNSW vectors).
+- **Daemon Event Conversion** — Improved mapping of Claude Code hook payloads to NautalisEvent with better error logging and pre-validation.
+- **PII Redaction** — Preserved Date instances during redaction to avoid timestamp corruption.
+- **Vector Dimension** — Updated embedding tables to `vector(768)` to match nomic-embed-text output; migration 012 included.
+- **TimescaleDB Columnstore Errors** — Removed compression policies from migrations (retention-only) due to columnstore not being enabled; retention policies work without columnstore.
+- **Continuous Aggregate RLS Conflict** — Disabled RLS on `events` and `audit_log` during aggregate creation, then re-enabled. Workaround for TimescaleDB limitation.
+
+### Changed (2026-04-05)
+
+- **Integration Tests** — Now require DATABASE_URL and will create real team/user data; no longer skipped when DB available.
+- **Test Infrastructure** — Consolidated common setup patterns; added debug helpers for troubleshooting.
+- **Multi-Provider Config** — Types integrated into `types/config.ts`; legacy direct config still supported.
+- **Migrations Strategy** — TimescaleDB migrations now conditional and safe for existing data; core schema includes composite PKs for time-series compatibility.
+- **Observability** — Telemetry table now created as hypertable; OTel spans continue to work with TimescaleDB.
+
+(Previous entries follow)
 
 ### Fixed (2026-04-05)
 

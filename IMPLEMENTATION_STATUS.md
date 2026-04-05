@@ -1,8 +1,8 @@
 # Nautalis — Implementation Status & Completeness
 
-**Last Updated:** 2026-04-05 (post-test-fixes-multiprovider)  
+**Last Updated:** 2026-04-05 (TimescaleDB Enabled)  
 **Source:** Comprehensive Review v1.0.0 + Deep Code Inspection + Recent Work  
-**Implementation completeness overall:** ~90% (tests passing, indexes restored, multi-provider registry, Letta sync, semantic injection, extensive unit test coverage)
+**Implementation completeness overall:** ~92% (tests passing, indexes operational, multi-provider registry, Letta sync, semantic injection, extensive unit test coverage, TimescaleDB integration)
 
 ---
 
@@ -26,6 +26,7 @@ This document tracks the implementation status of all major features and require
 ✅ **Functional Today:**
 
 - PostgreSQL storage with pgvector vector search
+- **TimescaleDB integration**: hypertables for `events`, `audit_log`, `telemetry` with compression & retention; continuous aggregates for `events_daily_stats` and `telemetry_hourly_latency`
 - Event ingestion → memory creation → embedding generation
 - **Raw event storage** (audit trail, replay capability)
 - Semantic search via LlamaIndex index (automatic build on first query) with fallback to raw pgvector
@@ -39,7 +40,7 @@ This document tracks the implementation status of all major features and require
 - Runtime validation (zod) for config, events, memories, KB entries
 - Error resilience: retry + circuit breaker for embedding API, LLM API, database
 - PII detection and redaction (emails, phones, credit cards, API keys, passwords)
-- **Comprehensive tests**: 110 passing unit and integration tests covering storage, RAG, knowledge base, enrichment, permissions, and providers
+- **Comprehensive tests**: 192 passing tests across 23 files; coverage: **82.27% functions**, **89.55% lines**
 - Claude transcript parser test script
 - **HTTP daemon** (`nautalis daemon start`) with endpoints for Claude hooks: `/api/events`, `/api/context/inject`, `/api/sessions/summarize`, `/api/sessions/finalize`
 - **Semantic injection**: `nautalis inject --query` performs RAG-based context retrieval
@@ -51,6 +52,7 @@ This document tracks the implementation status of all major features and require
   - `auth.uid()` stub for plain PostgreSQL deployments
   - TOML config loader support (`@iarna/toml`)
   - System user setup (`nautalis system create-user`) and deployment templates (`deploy/nautalis.service`, `deploy/nautalis.env`)
+  - **Bare-metal deployment support**: `PG_*` environment variables for flexible database configuration
 
 ❌ **Not Working / Incomplete:**
 

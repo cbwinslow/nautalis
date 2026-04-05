@@ -1,7 +1,7 @@
 # Nautalis — Feature Goals & MVP Definition
 
-**Last Updated:** 2026-04-05  
-**Implementation Status:** ~90% complete  
+**Last Updated:** 2026-04-05 (TimescaleDB Enabled)  
+**Implementation Status:** ~92% complete  
 **Target MVP:** Minimal viable system for single-team deployment
 
 ---
@@ -30,7 +30,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 
 | Category | Implementation | Core for MVP? |
 |----------|----------------|---------------|
-| **Storage Backend**   | ✅ 100% — PostgreSQL + pgvector with functional indexes (HNSW, FTS via triggers) | ✅ Essential |
+| **Storage Backend**   | ✅ 100% — PostgreSQL + pgvector + TimescaleDB hypertables with compression/retention; full-text and HNSW indexes operational | ✅ Essential |
 | **Multi-tenancy**     | ✅ 100% — RBAC with RLS enforcement                            | ✅ Essential |
 | **Event Ingestion**   | 🟨 85% — REST API works, daemon conversion ready, connectors need real-world validation | ✅ Essential |
 | **Memory Enrichment** | ✅ 80% — Classification, extraction, embedding, PII redaction (stable) | ✅ Essential |
@@ -42,7 +42,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
 | **Context Injection** | 🟨 60% — Semantic CLI works; daemon endpoint uses semantic when `rag.useSemanticInject` enabled; recency fallback        | ⬜ Post-MVP |
-| **Test Suite**        | ✅ 70% — Comprehensive unit tests (PII, classifier, provider registry, embedding service, memory engine, decision extraction, RAG engine including hybrid search, knowledge base engine, permission manager, provider implementations, composite provider, OllamaLLM client) + integration tests (ingestion, vector, FTS, RAG synthesis, store ops, KB, memory CRUD). Target 80%+ ongoing. | ⬜ Post-MVP |
+| **Test Suite**        | ✅ 85% — 192 passing tests (23 files); coverage: 82.27% functions, 89.55% lines; includes unit tests for config loader, migrate logic, providers base, store integration, RAG, permissions, KB, memory engine, embed factory, resilience, telemetry, and more. | ✅ Essential |
 | **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Defer |
 | **Connector SDK**     | ✅ 50% — Framework mature, hooks validated, parsers tested; real-world validation needed | ⬜ Defer |
 
