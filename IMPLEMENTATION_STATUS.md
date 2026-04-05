@@ -418,21 +418,26 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 ### 10. Test Infrastructure
 
 **Design:** N/A — Ad-hoc approach with Bun test  
-**Implementation:** ~40% — Unit + integration tests functional; E2E pending  
+**Implementation:** ~50% — Unit + integration tests functional; E2E pending  
 **Status:** 🟨 Partial
 
 | Test Type   | Status         | Notes                                          |
 | ------------ | -------------- | ---------------------------------------------- |
-| Unit tests   | ✅ Working     | 17 unit tests (PII, providers, embedding) + 19 integration tests |
-| Integration  | 🟨 Partial     | Multiple integration tests covering ingestion, storage, RAG, KB |
+| Unit tests   | ✅ Working     | 30 unit tests covering PII, classifiers, provider registry, embedding service (with mocks), memory engine, decision extractor, RAG engine, knowledge base engine, permission manager |
+| Integration  | 🟨 Partial     | 3 integration test files covering store operations, ingestion pipeline, RAG synthesis, knowledge base |
 | E2E          | ❌ None        | No full end-to-end workflow tests              |
-| Coverage     | ❌ Not measured | No coverage reporting                          |
+| Coverage     | ✅ Basic       | `bun test --coverage` reports function and line coverage; CI can enforce thresholds |
 
 **Test files:**
 - `test/unit/pii-detector.test.ts` (10 tests)
 - `test/unit/memory-classifier.test.ts` (13 tests)
 - `test/unit/provider-registry.test.ts` (4 tests)
-- `test/unit/embedding-service.test.ts` (2 tests)
+- `test/unit/embedding-service.test.ts` (16 tests)
+- `test/unit/memory-engine.test.ts` (7 tests)
+- `test/unit/decision-extractor.test.ts` (5 tests)
+- `test/unit/rag-engine.test.ts` (3 tests)
+- `test/unit/knowledge-base-engine.test.ts` (4 tests)
+- `test/unit/permission-manager.test.ts` (4 tests)
 - `test/integration/nautalis.integration.test.ts` (3 tests)
 - `test/integration/store-integration.test.ts` (4 tests)
 
@@ -527,8 +532,9 @@ Since the comprehensive review, the following major improvements have been compl
  7. **Database Indexes** — Re-enabled FTS via trigger-maintained search_vector and HNSW vector indexes; performance meets <500ms target
  8. **Test Infrastructure** — Unit + integration tests (36 passing tests) covering storage, RAG, KB, and enrichment
  9. **Connector Validation Tools** — Test script and fixture for Claude transcript parsing; daemon event conversion validated
- 10. **Documentation Updates** — FEATURES.md, IMPLEMENTATION_STATUS.md, CHANGELOG.md updated to reflect current state
- 11. **Semantic Injection in Daemon** — Upgraded `/api/context/inject` to use RAG-based semantic search when `rag.useSemanticInject` is enabled, with recency fallback
+ 10. **Unit Test Expansion** — Added comprehensive tests for EmbeddingService, MemoryEngine, DecisionExtractor, RAGEngine, KnowledgeBaseEngine, PermissionManager; increased function coverage across core modules
+ 11. **Documentation Updates** — FEATURES.md, IMPLEMENTATION_STATUS.md, CHANGELOG.md updated to reflect current state
+ 12. **Semantic Injection in Daemon** — Upgraded `/api/context/inject` to use RAG-based semantic search when `rag.useSemanticInject` is enabled, with recency fallback
 
 ### 🔄 In Progress / Needs Work
 

@@ -42,7 +42,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
 | **Context Injection** | 🟨 60% — Semantic CLI works; daemon endpoint uses semantic when `rag.useSemanticInject` enabled; recency fallback        | ⬜ Post-MVP |
-| **Test Suite**        | ✅ 40% — Unit tests (PII, providers, embedding) + integration tests (ingestion, vector, FTS, RAG synthesis, store ops, KB). Target 80%+ ongoing. | ⬜ Post-MVP |
+| **Test Suite**        | ✅ 50% — Comprehensive unit tests (PII, classifier, provider registry, embedding service, memory engine, decision extraction, RAG engine, knowledge base engine, permission manager) + integration tests (ingestion, vector, FTS, RAG synthesis, store ops, KB). Target 80%+ ongoing. | ⬜ Post-MVP |
 | **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Defer |
 | **Connector SDK**     | ✅ 50% — Framework mature, hooks validated, parsers tested; real-world validation needed | ⬜ Defer |
 
@@ -187,8 +187,8 @@ To keep the codebase maintainable and extensible:
 
 ## Current Implementation Snapshot
 
-**Overall completeness:** ~85%  
-**Last major update:** 2026-04-05 — Integration tests passing; multi-provider registry implemented; test coverage expanded.
+**Overall completeness:** ~87%  
+**Last major update:** 2026-04-05 — Extensive unit test expansion (EmbeddingService, MemoryEngine, DecisionExtractor, RAGEngine, KB engine, Permissions); semantic injection daemon upgrade; comprehensive test suite now 73 passing tests.
 
 **Recent commits:**
 - `test: fix integration tests and improve reliability` (a73cc40) — All 36 tests passing; integration tests reliable with proper fixtures.
