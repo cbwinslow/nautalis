@@ -1,7 +1,7 @@
 # Nautalis — Feature Goals & MVP Definition
 
 **Last Updated:** 2026-04-05  
-**Implementation Status:** ~86% complete  
+**Implementation Status:** ~90% complete  
 **Target MVP:** Minimal viable system for single-team deployment
 
 ---
@@ -34,7 +34,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **Multi-tenancy**     | ✅ 100% — RBAC with RLS enforcement                            | ✅ Essential |
 | **Event Ingestion**   | 🟨 85% — REST API works, daemon conversion ready, connectors need real-world validation | ✅ Essential |
 | **Memory Enrichment** | ✅ 80% — Classification, extraction, embedding, PII redaction (stable) | ✅ Essential |
-| **RAG Retrieval**     | ✅ 90% — Vector (HNSW) + full-text hybrid; LlamaIndex auto-build and persistent index; relationship traversal available | ✅ Essential |
+| **RAG Retrieval**     | ✅ 90% — Vector (HNSW) + full-text hybrid; LlamaIndex auto-build and index; score normalization; relationship traversal available | ✅ Essential |
 | **RAG Synthesis**     | ✅ 85% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom) with robust fallback | ✅ Essential |
 | **Knowledge Base**    | ✅ 100% — CRUD, search, versioning, visibility                 | ✅ Essential |
 | **CLI Commands**      | ✅ 95% — All 17 commands registered and functional             | ✅ Essential |
@@ -42,7 +42,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
 | **Context Injection** | 🟨 60% — Semantic CLI works; daemon endpoint uses semantic when `rag.useSemanticInject` enabled; recency fallback        | ⬜ Post-MVP |
-| **Test Suite**        | ✅ 65% — Comprehensive unit tests (PII, classifier, provider registry, embedding service, memory engine, decision extraction, RAG engine, knowledge base engine, permission manager, provider implementations, composite provider, OllamaLLM client) + integration tests (ingestion, vector, FTS, RAG synthesis, store ops, KB, memory CRUD). Target 80%+ ongoing. | ⬜ Post-MVP |
+| **Test Suite**        | ✅ 70% — Comprehensive unit tests (PII, classifier, provider registry, embedding service, memory engine, decision extraction, RAG engine including hybrid search, knowledge base engine, permission manager, provider implementations, composite provider, OllamaLLM client) + integration tests (ingestion, vector, FTS, RAG synthesis, store ops, KB, memory CRUD). Target 80%+ ongoing. | ⬜ Post-MVP |
 | **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Defer |
 | **Connector SDK**     | ✅ 50% — Framework mature, hooks validated, parsers tested; real-world validation needed | ⬜ Defer |
 

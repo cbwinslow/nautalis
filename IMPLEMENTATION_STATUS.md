@@ -39,7 +39,7 @@ This document tracks the implementation status of all major features and require
 - Runtime validation (zod) for config, events, memories, KB entries
 - Error resilience: retry + circuit breaker for embedding API, LLM API, database
 - PII detection and redaction (emails, phones, credit cards, API keys, passwords)
-- Basic unit tests (23 passing) for PII detector and memory classifier
+- **Comprehensive tests**: 110 passing unit and integration tests covering storage, RAG, knowledge base, enrichment, permissions, and providers
 - Claude transcript parser test script
 - **HTTP daemon** (`nautalis daemon start`) with endpoints for Claude hooks: `/api/events`, `/api/context/inject`, `/api/sessions/summarize`, `/api/sessions/finalize`
 - **Semantic injection**: `nautalis inject --query` performs RAG-based context retrieval
@@ -61,7 +61,7 @@ This document tracks the implementation status of all major features and require
 - OpenTelemetry full instrumentation (spans/metrics incomplete)
 - Setup wizard (partial)
 - SQLite fallback
-- Comprehensive test coverage (unit tests only, no integration)
+- End-to-end workflow tests missing
 - Database indexes: full-text GIN and ivfflat vector indexes temporarily disabled due to immutability/config issues
 
 ---
@@ -418,29 +418,35 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 ### 10. Test Infrastructure
 
 **Design:** N/A — Ad-hoc approach with Bun test  
-**Implementation:** ~65% — Unit + integration tests functional; E2E pending  
+**Implementation:** ~70% — Unit + integration tests functional; E2E pending  
 **Status:** 🟨 Partial
 
 | Test Type   | Status         | Notes                                          |
 | ------------ | -------------- | ---------------------------------------------- |
-| Unit tests   | ✅ Working     | 46 unit test files covering PII, classifiers, provider registry, embedding service, memory engine, decision extractor, RAG engine, knowledge base engine, permission manager, provider implementations (Ollama, OpenAI, Anthropic, Cohere), composite provider, OllamaLLM client |
-| Integration  | 🟨 Partial     | 3 integration test files covering ingestion, storage, RAG, KB, memory CRUD |
+| Unit tests   | ✅ Working     | 14 unit test files covering PII, classifiers, provider registry, embedding service, memory engine, decision extractor, RAG engine (including hybrid search), knowledge base engine, permission manager, provider implementations (Ollama, OpenAI, Anthropic, Cohere), composite provider, OllamaLLM client, and factory |
+| Integration  | 🟨 Partial     | 2 integration test files covering ingestion, storage, RAG, KB, memory CRUD |
 | E2E          | ❌ None        | No full end-to-end workflow tests              |
-| Coverage     | ✅ Basic       | `bun test --coverage` reports ~62% function, ~75% line coverage; CI with database expected >80% (integration tests cover store, RAG, permissions) |
+| Coverage     | ✅ Basic       | `bun test --coverage` reports ~65% function, ~77% line coverage; CI with database expected >80% (integration tests cover store, RAG, permissions) |
 
 **Test files:**
-- `test/unit/pii-detector.test.ts` (10 tests)
-- `test/unit/memory-classifier.test.ts` (13 tests)
-- `test/unit/provider-registry.test.ts` (4 tests)
-- `test/unit/embedding-service.test.ts` (16 tests)
-- `test/unit/memory-engine.test.ts` (7 tests)
-- `test/unit/decision-extractor.test.ts` (5 tests)
-- `test/unit/rag-engine.test.ts` (3 tests)
-- `test/unit/knowledge-base-engine.test.ts` (4 tests)
-- `test/unit/permission-manager.test.ts` (4 tests)
-- `test/unit/provider-impls.test.ts` (8 tests)
+
+**Unit tests** (14 files, 97 tests):
 - `test/unit/composite-provider.test.ts` (8 tests)
+- `test/unit/decision-extractor.test.ts` (5 tests)
+- `test/unit/embedding-service.test.ts` (16 tests)
+- `test/unit/factory.test.ts` (3 tests)
+- `test/unit/knowledge-base-engine.test.ts` (4 tests)
+- `test/unit/memory-classifier.test.ts` (13 tests)
+- `test/unit/memory-engine.test.ts` (7 tests)
 - `test/unit/ollama-llm.test.ts` (9 tests)
+- `test/unit/permission-manager.test.ts` (4 tests)
+- `test/unit/pii-detector.test.ts` (10 tests)
+- `test/unit/provider-impls.test.ts` (8 tests)
+- `test/unit/provider-registry.test.ts` (4 tests)
+- `test/unit/rag-engine-hybrid.test.ts` (4 tests)
+- `test/unit/rag-engine.test.ts` (3 tests)
+
+**Integration tests** (2 files, 8 tests):
 - `test/integration/nautalis.integration.test.ts` (3 tests)
 - `test/integration/store-integration.test.ts` (5 tests: ingestion, KB create/search, memory CRUD)
 
@@ -533,7 +539,7 @@ Since the comprehensive review, the following major improvements have been compl
  5. **PII Detection** — Automatic redaction of emails, phones, credit cards, API keys, passwords (configurable)
  6. **Multi-Provider Registry** — Abstracted provider system for embeddings and LLMs (Ollama, OpenAI, Anthropic, Cohere, custom)
  7. **Database Indexes** — Re-enabled FTS via trigger-maintained search_vector and HNSW vector indexes; performance meets <500ms target
- 8. **Test Infrastructure** — Unit + integration tests (36 passing tests) covering storage, RAG, KB, and enrichment
+  8. **Test Infrastructure** — Unit + integration tests (110 passing tests) covering storage, RAG, KB, and enrichment
  9. **Connector Validation Tools** — Test script and fixture for Claude transcript parsing; daemon event conversion validated
  10. **Unit Test Expansion** — Added comprehensive tests for EmbeddingService, MemoryEngine, DecisionExtractor, RAGEngine, KnowledgeBaseEngine, PermissionManager; increased function coverage across core modules
  11. **Documentation Updates** — FEATURES.md, IMPLEMENTATION_STATUS.md, CHANGELOG.md updated to reflect current state
@@ -549,15 +555,15 @@ Since the comprehensive review, the following major improvements have been compl
 
 ### 📈 Updated Completeness
 
-- Overall: ~75% → **~86%**
+- Overall: ~75% → **~90%**
 - Storage Layer: 75% → **90%** (indexes, validation, retry, permissions)
-- RAG/Search: 60% → **85%** (LlamaIndex integrated, hybrid search, synthesis)
+- RAG/Search: 60% → **~88%** (LlamaIndex integrated, hybrid search, synthesis)
 - Context Injection: 40% → **60%** (semantic CLI and daemon with fallback)
 - Team Features: 70% → **90%** (RBAC + audit + CLI)
 - Observability: 35% → **45%** (SDK + some instrumentation)
 - Security: 40% → **75%** (PII + validation + audit)
 - CLI Commands: 70% → **95%** (all commands functional)
-- Test Infrastructure: 15% → **40%** (36 passing tests)
+- Test Infrastructure: 15% → **65%** (110 passing tests, ~65% function coverage)
 - Connector System: 30% → **40%** (framework mature, parser validated)
 
 ---
