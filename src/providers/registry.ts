@@ -2,7 +2,8 @@ import type { ProviderConfig } from '../types/config.js';
 import { BaseProvider } from './base.js';
 import { OllamaProvider } from './ollama.js';
 import { OpenAIProvider } from './openai.js';
-// Others not yet implemented
+import { AnthropicProvider } from './anthropic.js';
+import { CohereProvider } from './cohere.js';
 
 export class ProviderRegistry {
   private providers = new Map<string, BaseProvider>();
@@ -21,13 +22,13 @@ export class ProviderRegistry {
         return new OllamaProvider(config);
       case 'openai':
         return new OpenAIProvider(config);
+      case 'anthropic':
+        return new AnthropicProvider(config);
+      case 'cohere':
+        return new CohereProvider(config);
       case 'custom':
         // TODO: Implement CustomProvider
         throw new Error('Custom provider not implemented yet');
-      case 'anthropic':
-        throw new Error('Anthropic provider not implemented yet');
-      case 'cohere':
-        throw new Error('Cohere provider not implemented yet');
       default:
         throw new Error(`Unknown provider type: ${(config as any).type}`);
     }
