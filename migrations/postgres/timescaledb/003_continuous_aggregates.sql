@@ -22,7 +22,12 @@ SELECT add_continuous_aggregate_policy(
     schedule_interval => INTERVAL '1 hour'
 );
 
+-- Re-enable RLS on events after aggregate creation (required for security)
+ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+
 -- Continuous aggregate: daily memory growth
+-- NOTE: Disabled because `memories` is not a hypertable. To enable, convert memories to hypertable first.
+/*
 CREATE MATERIALIZED VIEW memories_daily_stats
 WITH (timescaledb.continuous) AS
 SELECT
@@ -43,6 +48,7 @@ SELECT add_continuous_aggregate_policy(
     end_offset => INTERVAL '1 hour',
     schedule_interval => INTERVAL '1 hour'
 );
+*/
 
 -- Continuous aggregate: hourly telemetry latency
 CREATE MATERIALIZED VIEW telemetry_hourly_latency

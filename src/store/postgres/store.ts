@@ -677,7 +677,7 @@ export class PostgresStore implements Store {
           event_type, tool_name, tool_input, tool_output, files_involved, exit_code,
           decisions, errors, topics, raw, timestamp)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT ON CONSTRAINT events_pkey DO NOTHING`,
         [
           id,
           event.context.teamId || '',

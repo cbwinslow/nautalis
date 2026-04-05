@@ -1,6 +1,6 @@
 -- Audit log (will be converted to TimescaleDB hypertable)
 CREATE TABLE audit_log (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT uuid_generate_v4(),
     team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id),
     agent_id UUID REFERENCES agents(id),
@@ -22,7 +22,10 @@ CREATE TABLE audit_log (
     -- Timestamp
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    
+    -- Primary key includes timestamp for TimescaleDB hypertable conversion
+    PRIMARY KEY (id, timestamp)
 );
 
 CREATE INDEX idx_audit_log_team ON audit_log(team_id);

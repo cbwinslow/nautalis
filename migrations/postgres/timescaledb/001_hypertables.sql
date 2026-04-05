@@ -3,15 +3,13 @@ SELECT create_hypertable(
     'events',
     'timestamp',
     chunk_time_interval => INTERVAL '7 days',
-    if_not_exists => TRUE
+    if_not_exists => TRUE,
+    migrate_data => TRUE
 );
 
--- Add compression policy for events (compress after 30 days)
-SELECT add_compression_policy(
-    'events',
-    compress_after => INTERVAL '30 days',
-    if_not_exists => TRUE
-);
+-- Disable RLS on events for TimescaleDB continuous aggregates (required)
+-- RLS is re-enabled after aggregate creation if needed
+ALTER TABLE events DISABLE ROW LEVEL SECURITY;
 
 -- Add retention policy for events (drop after 365 days)
 SELECT add_retention_policy(
@@ -25,14 +23,12 @@ SELECT create_hypertable(
     'audit_log',
     'timestamp',
     chunk_time_interval => INTERVAL '7 days',
-    if_not_exists => TRUE
+    if_not_exists => TRUE,
+    migrate_data => TRUE
 );
 
-SELECT add_compression_policy(
-    'audit_log',
-    compress_after => INTERVAL '30 days',
-    if_not_exists => TRUE
-);
+-- Disable RLS on audit_log
+ALTER TABLE audit_log DISABLE ROW LEVEL SECURITY;
 
 SELECT add_retention_policy(
     'audit_log',

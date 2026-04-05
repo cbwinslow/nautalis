@@ -1,6 +1,6 @@
 -- Events (will be converted to TimescaleDB hypertable later)
 CREATE TABLE events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT uuid_generate_v4(),
     
     -- Context
     team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
@@ -29,7 +29,10 @@ CREATE TABLE events (
     -- Timestamp (critical for time-series)
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    
+    -- Primary key includes timestamp for TimescaleDB hypertable conversion
+    PRIMARY KEY (id, timestamp)
 );
 
 -- Memories

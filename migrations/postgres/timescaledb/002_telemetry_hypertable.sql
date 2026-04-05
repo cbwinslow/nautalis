@@ -1,6 +1,6 @@
 -- Telemetry table for OpenTelemetry data (traces, metrics, logs)
 CREATE TABLE telemetry (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT uuid_generate_v4(),
     team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     
     -- Signal type
@@ -41,7 +41,10 @@ CREATE TABLE telemetry (
     -- Timestamp
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    
+    -- Primary key must include timestamp for TimescaleDB hypertable
+    PRIMARY KEY (team_id, timestamp, id)
 );
 
 -- Convert to hypertable
@@ -49,7 +52,8 @@ SELECT create_hypertable(
     'telemetry',
     'timestamp',
     chunk_time_interval => INTERVAL '1 day',
-    if_not_exists => TRUE
+    if_not_exists => TRUE,
+    migrate_data => TRUE
 );
 
 SELECT add_compression_policy(
