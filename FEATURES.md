@@ -1,7 +1,7 @@
 # Nautalis — Feature Goals & MVP Definition
 
-**Last Updated:** 2026-04-04  
-**Implementation Status:** ~80% complete  
+**Last Updated:** 2026-04-05  
+**Implementation Status:** ~85% complete  
 **Target MVP:** Minimal viable system for single-team deployment
 
 ---
@@ -33,18 +33,18 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **Storage Backend**   | ✅ 100% — PostgreSQL + pgvector with functional indexes (HNSW, FTS via triggers) | ✅ Essential |
 | **Multi-tenancy**     | ✅ 100% — RBAC with RLS enforcement                            | ✅ Essential |
 | **Event Ingestion**   | 🟨 85% — REST API works, daemon conversion ready, connectors need real-world validation | ✅ Essential |
-| **Memory Enrichment** | 🟨 70% — Classification, extraction, embedding, PII redaction (Date bug fixed) | ✅ Essential |
-| **RAG Retrieval**     | 🟨 85% — Vector (HNSW) + full-text hybrid, LlamaIndex auto-build, relationship traversal | ✅ Essential |
-| **RAG Synthesis**     | ✅ 80% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom)| ✅ Essential |
+| **Memory Enrichment** | ✅ 80% — Classification, extraction, embedding, PII redaction (stable) | ✅ Essential |
+| **RAG Retrieval**     | ✅ 90% — Vector (HNSW) + full-text hybrid; LlamaIndex auto-build and persistent index; relationship traversal available | ✅ Essential |
+| **RAG Synthesis**     | ✅ 85% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom) with robust fallback | ✅ Essential |
 | **Knowledge Base**    | ✅ 100% — CRUD, search, versioning, visibility                 | ✅ Essential |
 | **CLI Commands**      | ✅ 90% — All 16 commands registered and functional             | ✅ Essential |
-| **Observability**     | 🟨 40% — Structured logging; OTel partial                      | ✅ Basic |
+| **Observability**     | 🟨 60% — Structured logging via OTel SDK; pino integration; Jaeger/Grafana pending | ✅ Basic |
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
 | **Context Injection** | 🟨 40% — Semantic CLI works; hook endpoint uses recency        | ⬜ Post-MVP |
-| **Test Suite**        | 🟨 20% — Unit tests + validation scripts                       | ⬜ Post-MVP |
+| **Test Suite**        | ✅ 40% — Unit tests (PII, providers, embedding) + integration tests (ingestion, vector, FTS, RAG synthesis, store ops, KB). Target 80%+ ongoing. | ⬜ Post-MVP |
 | **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Defer |
-| **Connector SDK**     | 🟨 30% — Framework exists, hooks configurable, parser validated| ⬜ Defer |
+| **Connector SDK**     | ✅ 50% — Framework mature, hooks validated, parsers tested; real-world validation needed | ⬜ Defer |
 
 ---
 
@@ -187,12 +187,15 @@ To keep the codebase maintainable and extensible:
 
 ## Current Implementation Snapshot
 
-**Overall completeness:** ~60%  
-**Last major update:** 2026-04-04 — Completed permission enforcement across all core resources; added custom provider for remote LLM/embeddings; made hooks configurable.
+**Overall completeness:** ~85%  
+**Last major update:** 2026-04-05 — Integration tests passing; multi-provider registry implemented; test coverage expanded.
 
 **Recent commits:**
-- `feat: complete permission enforcement + RAG remote endpoint support` (810d417)
-- Includes: multi-tenant security, custom providers, LlamaIndex buildIndex, configurable hooks, extensive docs
+- `test: fix integration tests and improve reliability` (a73cc40) — All 36 tests passing; integration tests reliable with proper fixtures.
+- `test: add store integration and embedding service unit tests` (5e3373f) — Initial test coverage expansion for issue #34.
+- `docs: add multi-provider configuration section to AGENTS.md` (da44b87) — Provider registry documentation.
+- `test(unit): add provider registry tests` (d43f40a) — Unit tests for ProviderRegistry.
+- `fix(types): correct duplicate definitions and separate provider types` (25b650d) — TypeScript fixes for multi-provider abstraction.
 
 **Key files:**
 - `src/store/postgres/store.ts` — Main store implementation (~1300 lines)
