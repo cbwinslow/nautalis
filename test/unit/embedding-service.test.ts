@@ -18,8 +18,12 @@ describe('EmbeddingService', () => {
       llm: { provider: 'ollama', model: 'test', ollama: { url: 'http://localhost:11434' } },
       connectors: [],
     };
-    // Avoid actual network calls in unit tests
-    service = new EmbeddingService(config.embeddings);
+    // Construct options in the shape EmbeddingService expects
+    const embedOptions = {
+      baseUrl: config.embeddings.ollama.url,
+      model: config.embeddings.model,
+    };
+    service = new EmbeddingService(embedOptions);
   });
 
   it('should have retry and circuit breaker configured', async () => {
