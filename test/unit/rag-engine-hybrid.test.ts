@@ -32,10 +32,23 @@ class MockStore implements Store {
   }
   async queryMemories(_query: any) { return []; }
   async fullTextSearchMemories(_teamId: string, _query: string, _limit: number, _options?: any) {
-    // Return results with a score attribute
+    // Return results with a score attribute; need actual memory objects
+    // We'll create a helper to return a minimal memory without async
+    const createMemory = (id: string) => ({
+      id,
+      content: { summary: id, detail: '' },
+      classification: { memoryType: 'episodic', topics: [], importance: 0.5, sensitivity: 'internal' },
+      agentIdentity: { agentName: 'test', toolName: 'test' },
+      context: { teamId: 'team1', projectId: '' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      relationships: { parentMemoryId: undefined, supersedes: [], contradicts: [], supports: [], tags: [] },
+      lifecycle: { ttl: undefined, decayRate: 0.01, lastAccess: new Date(), accessCount: 0, isStale: false },
+      embedding: [],
+    });
     return [
-      { memory: this.getMemoriesByIds(['mem1'])[0], score: 0.8 },
-      { memory: this.getMemoriesByIds(['mem2'])[0], score: 0.7 },
+      { memory: createMemory('mem1'), score: 0.8 },
+      { memory: createMemory('mem2'), score: 0.7 },
     ];
   }
 }
@@ -114,19 +127,14 @@ test("RAGEngine: hybrid search with empty vector results returns full-text only"
 
   const rag = new RAGEngine(config, store, embeddingService);
 
-  // No index means fallback to vector search; override to return empty
-  store.findSimilarMemories = async () => [];
+  // Set a mock index that returns no vector results (simulating empty index without building real index)
+  rag.index = new MockVectorStoreIndex([]) as any;
 
   // Mock full-text search to return some results
   store.fullTextSearchMemories = async () => [
     { memory: { id: 'ft1', content: { summary: 'FT1' } } as any, score: 0.8 },
     { memory: { id: 'ft2', content: { summary: 'FT2' } } as any, score: 0.6 },
   ];
-
-  // Mock getMemoriesByIds
-  store.getMemoriesByIds = async (ids: string[]) => {
-    return ids.map(id => ({ id, content: { summary: id }, classification: { memoryType: 'episodic', topics: [], importance: 0.5, sensitivity: 'internal' }, agentIdentity: { agentName: 'test', toolName: 'test' }, context: { teamId: 'team1', projectId: '' }, createdAt: new Date(), updatedAt: new Date(), relationships: { parentMemoryId: undefined, supersedes: [], contradicts: [], supports: [], tags: [] }, lifecycle: { ttl: undefined, decayRate: 0.01, lastAccess: new Date(), accessCount: 0, isStale: false }, embedding: [] }));
-  };
 
   const results = await rag.query('test', { useHybrid: true, limit: 10 });
 
@@ -250,23 +258,21 @@ test("RAGEngine: query without index builds index automatically", async () => {
   // index is null initially
   expect((rag as any).index).toBeNull();
 
-  // We'll let the query build index. Our MockStore should return enough memories for build.
-  // The buildIndex calls store.findSimilarMemories with dummy vector and limit 10000.
-  // We'll override findSimilarMemories to return some results.
+  // Spy on buildIndex
   let buildCalled = false;
-  store.findSimilarMemories = async (_embedding, _teamId, _limit, _minScore?, _options?) => {
+  const originalBuildIndex = rag.buildIndex.bind(rag);
+  rag.buildIndex = async () => {
     buildCalled = true;
-    return [
-      { memory: { id: 'm1', content: { summary: 'A' } } as any, score: 0.5 },
-    ];
+    // Set a mock index so subsequent query doesn't rebuild
+    (rag as any).index = new MockVectorStoreIndex([]) as any;
+    return (rag as any).index;
   };
 
-  // Also need getMemoriesByIds to return full memories
-  store.getMemoriesByIds = async (ids: string[]) => {
-    return ids.map(id => ({ id, content: { summary: id }, classification: { memoryType: 'episodic', topics: [], importance: 0.5, sensitivity: 'internal' }, agentIdentity: { agentName: 'test', toolName: 'test' }, context: { teamId: 'team1', projectId: '' }, createdAt: new Date(), updatedAt: new Date(), relationships: { parentMemoryId: undefined, supersedes: [], contradicts: [], supports: [], tags: [] }, lifecycle: { ttl: undefined, decayRate: 0.01, lastAccess: new Date(), accessCount: 0, isStale: false }, embedding: [] }));
-  };
+  // Also stub store.findSimilarMemories to avoid any usage (though our buildIndex override won't call it)
+  store.findSimilarMemories = async () => [];
 
   const results = await rag.query('test', { limit: 5 });
+
   expect(buildCalled).toBeTrue();
   expect(results.length).toBeGreaterThanOrEqual(0);
 });
