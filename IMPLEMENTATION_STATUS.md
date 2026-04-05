@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-04-05 (post-test-fixes-multiprovider)  
 **Source:** Comprehensive Review v1.0.0 + Deep Code Inspection + Recent Work  
-**Implementation completeness overall:** ~86% (tests passing, indexes restored, multi-provider registry, Letta sync, semantic injection)
+**Implementation completeness overall:** ~90% (tests passing, indexes restored, multi-provider registry, Letta sync, semantic injection, extensive unit test coverage)
 
 ---
 
@@ -418,15 +418,15 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 ### 10. Test Infrastructure
 
 **Design:** N/A — Ad-hoc approach with Bun test  
-**Implementation:** ~60% — Unit + integration tests functional; E2E pending  
+**Implementation:** ~65% — Unit + integration tests functional; E2E pending  
 **Status:** 🟨 Partial
 
 | Test Type   | Status         | Notes                                          |
 | ------------ | -------------- | ---------------------------------------------- |
-| Unit tests   | ✅ Working     | 46 unit tests covering PII, classifiers, provider registry, embedding service, memory engine, decision extractor, RAG engine, knowledge base engine, permission manager, provider implementations (Ollama, OpenAI, Anthropic, Cohere, Composite) |
+| Unit tests   | ✅ Working     | 46 unit test files covering PII, classifiers, provider registry, embedding service, memory engine, decision extractor, RAG engine, knowledge base engine, permission manager, provider implementations (Ollama, OpenAI, Anthropic, Cohere), composite provider, OllamaLLM client |
 | Integration  | 🟨 Partial     | 3 integration test files covering ingestion, storage, RAG, KB, memory CRUD |
 | E2E          | ❌ None        | No full end-to-end workflow tests              |
-| Coverage     | ✅ Basic       | `bun test --coverage` reports function and line coverage; CI can enforce thresholds |
+| Coverage     | ✅ Basic       | `bun test --coverage` reports ~62% function, ~75% line coverage; CI with database expected >80% (integration tests cover store, RAG, permissions) |
 
 **Test files:**
 - `test/unit/pii-detector.test.ts` (10 tests)
@@ -440,8 +440,9 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 - `test/unit/permission-manager.test.ts` (4 tests)
 - `test/unit/provider-impls.test.ts` (8 tests)
 - `test/unit/composite-provider.test.ts` (8 tests)
+- `test/unit/ollama-llm.test.ts` (9 tests)
 - `test/integration/nautalis.integration.test.ts` (3 tests)
-- `test/integration/store-integration.test.ts` (4 tests + 3 new CRUD tests)
+- `test/integration/store-integration.test.ts` (5 tests: ingestion, KB create/search, memory CRUD)
 
 **Test utilities:**
 - `scripts/benchmark-search.ts` — Performance measurement for vector, FTS, hybrid

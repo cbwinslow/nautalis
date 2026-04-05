@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **KnowledgeBaseEngine Tests** — 4 tests for create (with/without embedding), get, and schema validation; increased coverage to 55% functions.
 - **PermissionManager Tests** — 4 tests for check, caching, grant with audit, and cache clearing; 100% coverage.
 - **Provider Implementation Tests** — Unit tests for OllamaProvider, OpenAIProvider, AnthropicProvider, CohereProvider verifying embedding/LLM creation and capability enforcement (8 tests).
+- **OllamaLLM Tests** — Unit tests for OllamaLLM decision extraction client (9 tests); covers prompt construction, response parsing (including code blocks), error handling for non-retryable and retryable failures; 100% coverage of ollama-llm.ts.
 - **CompositeProvider Tests** — Unit tests for CompositeProvider covering delegation, provider selection, and error handling (8 tests); increased provider coverage.
 - **Provider Implementations** — `AnthropicProvider` (LLM only) and `CohereProvider` (embeddings only), completing core multi-provider abstractions for LLM and embedding services.
 - **CompositeProvider** — Added fallback provider that delegates to multiple inner providers with cascading retry logic for resilience.
@@ -26,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **RAG Index Invalidation** — Added `invalidateIndex()` method to `RAGEngine` to force index rebuild on next query, ensuring fresh retrieval after data changes.
 - **Semantic Injection in Daemon** — Upgraded `/api/context/inject` endpoint to use semantic search via `RAGEngine.query()` when `rag.useSemanticInject` is enabled; retains recency fallback.
 - **Configuration Option** — Added `rag.useSemanticInject` boolean to enable semantic injection in daemon context builder.
-- **Documentation Updates** — FEATURES.md and IMPLEMENTATION_STATUS.md refreshed with current completeness: Overall ~89%, Storage 90%, RAG 87%, Team 90%, CLI 95%, Security 75%, Memory Enrichment 70%, Context Injection 60%, Observability 45%, Test Infrastructure 60%, Connector System 40%.
+- **Documentation Updates** — FEATURES.md and IMPLEMENTATION_STATUS.md refreshed with current completeness: Overall ~90%, Storage 90%, RAG 88%, Team 90%, CLI 95%, Security 75%, Memory Enrichment 70%, Context Injection 60%, Observability 45%, Test Infrastructure 65%, Connector System 40%.
 - **Letta Memory Sync** — Stored 24 archival memories and 3 core memory blocks in Letta using `letta_memory` skill for cross-agent context continuity.
 
 ### Fixed (2026-04-05)
