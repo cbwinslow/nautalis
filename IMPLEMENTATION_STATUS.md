@@ -423,34 +423,14 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 
 | Test Type   | Status         | Notes                                          |
 | ------------ | -------------- | ---------------------------------------------- |
-| Unit tests   | ✅ Working     | 18 unit test files (173 tests) covering PII, classifiers, provider registry, embedding service, memory engine, decision extractor, RAG engine (including hybrid search), knowledge base engine, permission manager, provider implementations (Ollama, OpenAI, Anthropic, Cohere), composite provider, OllamaLLM client, factory, utils.merge, telemetry provider, embed-factory, resilience |
-| Integration  | 🟨 Partial     | 2 integration test files covering ingestion, storage, RAG, KB, memory CRUD |
+| Unit tests   | ✅ Working     | 18 test files covering all core modules (PII, classifiers, providers, memory, RAG, KB, permissions, resilience, utilities) |
+| Integration  | 🟨 Partial     | 2 test files covering ingestion, storage, RAG, KB, memory CRUD |
 | E2E          | ❌ None        | No full end-to-end workflow tests              |
 | Coverage     | ✅ Basic       | `bun test --coverage` reports ~73% function, ~84% line coverage; CI with database expected >80% (integration tests cover store, RAG, permissions) |
 
-**Unit tests** (18 files, 173 tests):
-- `test/unit/composite-provider.test.ts` (8 tests)
-- `test/unit/decision-extractor.test.ts` (5 tests)
-- `test/unit/embedding-service.test.ts` (16 tests)
-- `test/unit/embed-factory.test.ts` (9 tests)
-- `test/unit/factory.test.ts` (3 tests)
-- `test/unit/knowledge-base-engine.test.ts` (13 tests)
-- `test/unit/memory-classifier.test.ts` (13 tests)
-- `test/unit/memory-engine.test.ts` (7 tests)
-- `test/unit/ollama-llm.test.ts` (9 tests)
-- `test/unit/permission-manager.test.ts` (4 tests)
-- `test/unit/pii-detector.test.ts` (10 tests)
-- `test/unit/provider-impls.test.ts` (8 tests)
-- `test/unit/provider-registry.test.ts` (4 tests)
-- `test/unit/rag-engine-hybrid.test.ts` (6 tests)
-- `test/unit/rag-engine.test.ts` (3 tests)
-- `test/unit/telemetry-provider.test.ts` (8 tests)
-- `test/unit/resilience.test.ts` (14 tests)
-- `test/unit/utils-merge.test.ts` (9 tests)
-
-**Integration tests** (2 files, 8 tests):
-- `test/integration/nautalis.integration.test.ts` (3 tests)
-- `test/integration/store-integration.test.ts` (5 tests: ingestion, KB create/search, memory CRUD)
+**Test files** (total 20 files, 159 tests):
+- **Unit**: composite-provider, decision-extractor, embedding-service, embed-factory, factory, knowledge-base-engine, memory-classifier, memory-engine, ollama-llm, permission-manager, pii-detector, provider-impls, provider-registry, rag-engine-hybrid, rag-engine, telemetry-provider, resilience, utils-merge
+- **Integration**: nautalis.integration, store-integration
 
 **Test utilities:**
 - `scripts/benchmark-search.ts` — Performance measurement for vector, FTS, hybrid

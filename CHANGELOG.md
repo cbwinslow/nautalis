@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed (2026-04-05)
 
-- **Test Infrastructure** — All 159 tests passing (unit + integration). Added comprehensive unit tests for MemoryEngine, DecisionExtractor, RAGEngine (including hybrid search), KnowledgeBaseEngine, PermissionManager, Provider Implementations (Ollama, OpenAI, Anthropic, Cohere), CompositeProvider, OllamaLLM client, merge utility, telemetry provider, embed-factory, and resilience; expanded integration tests with memory CRUD. Coverage: ~73% functions, ~84% lines (local unit run).
+- **Test Infrastructure** — All 159 tests passing (18 unit + 2 integration files). Added comprehensive unit tests for MemoryEngine, DecisionExtractor, RAGEngine (including hybrid search), KnowledgeBaseEngine, PermissionManager, Provider Implementations (Ollama, OpenAI, Anthropic, Cohere), CompositeProvider, OllamaLLM client, merge utility, telemetry provider, embed-factory, and resilience; expanded integration tests with memory CRUD. Coverage: ~73% functions, ~84% lines (local unit run).
 - **Integration Tests** — No longer skipped when DATABASE_URL is set; create real team/user data and clean up via store operations.
 - **Database Indexes** — Previously disabled indexes are now fully operational via migrations 010 (FTS) and 011 (HNSW vectors).
 - **Daemon Event Conversion** — Improved mapping of Claude Code hook payloads to NautalisEvent with better error logging and pre-validation.
