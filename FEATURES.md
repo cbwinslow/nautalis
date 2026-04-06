@@ -96,26 +96,22 @@ The MVP must deliver a **working system** that can be deployed by a small team a
   - Test real-time ingestion and session lifecycle
   - Test script available: `scripts/test-claude-parser.ts` to validate transcript parsing
   - Issue: #12, #14
-- **RAG advanced features** (index is working, need these to match design):
-  - Hybrid search (vector + BM25/Full-text)
-  - Relationship extraction & integration into retrieval (traversal implemented but not used)
-  - Persistent index across restarts (currently rebuilt each session)
-- **Context injection improvement**: Use semantic search in **SessionStart hook** (CLI already supports `--query`)
-  - Enhance daemon endpoint to accept conversation context and perform RAG query
-- **Basic telemetry**: Switch from in-memory metrics to real OTel exporter or at least persistent logs
-  - Current `provider.ts` uses pino but needs OTLP integration
-- **Integration / E2E tests**: Need comprehensive tests covering store ops, RAG pipeline, permissions, connectors
-- **MVP scope definition**: Reduce from 70+ requirements to essential 30% to ship functional system (issue #42)
-  - Ensure all spans and metrics are actually recorded and exportable
-  - Issue: #22
-- **Performance tuning**: Benchmark embedding latency, search latency, synthesis latency; optimize queries and add missing indexes
-  - Ensure search <500ms p95, embedding <200ms p95
-  - Issue: #45
-- **Test infrastructure expansion**: Add integration and E2E tests; aim for 80%+ coverage
-  - Issue: #34
-- **Setup wizard**: Interactive onboarding to lower barrier
-  - Issue: #46
-- **Audit logging**: Call `logAudit()` for all sensitive operations (memory changes, KB edits, permission changes, team changes)
+ - **RAG advanced features** (index is working, need these to match design):
+   - Hybrid search (vector + BM25/Full-text)
+   - Relationship extraction & integration into retrieval (traversal implemented but not used)
+   - Persistent index across restarts (currently rebuilt each session)
+ - **Context injection improvement**: Use semantic search in **SessionStart hook** (CLI already supports `--query`)
+   - Enhance daemon endpoint to accept conversation context and perform RAG query
+ - **Integration / E2E tests**: Need comprehensive tests covering store ops, RAG pipeline, permissions, connectors
+ - **MVP scope definition**: Reduce from 70+ requirements to essential 30% to ship functional system (issue #42)
+ - **Performance tuning**: Benchmark embedding latency, search latency, synthesis latency; optimize queries and add missing indexes
+   - Ensure search <500ms p95, embedding <200ms p95
+   - Issue: #45
+ - **Test infrastructure expansion**: Add integration and E2E tests; aim for 80%+ coverage
+   - Issue: #34
+ - **Setup wizard**: Interactive onboarding to lower barrier
+   - Issue: #46
+ - **Audit logging**: Call `logAudit()` for all sensitive operations (memory changes, KB edits, permission changes, team changes)
 
 ---
 

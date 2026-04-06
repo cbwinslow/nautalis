@@ -1,8 +1,8 @@
 # Nautalis — Implementation Status & Completeness
 
-**Last Updated:** 2026-04-05 (TimescaleDB Enabled)  
+**Last Updated:** 2026-04-06 (Observability Complete)  
 **Source:** Comprehensive Review v1.0.0 + Deep Code Inspection + Recent Work  
-**Implementation completeness overall:** ~92% (tests passing, indexes operational, multi-provider registry, Letta sync, semantic injection, extensive unit test coverage, TimescaleDB integration)
+**Implementation completeness overall:** ~93% (tests passing, indexes operational, multi-provider registry, Letta sync, semantic injection, extensive unit test coverage, TimescaleDB integration, comprehensive OTel instrumentation)
 
 ---
 
@@ -17,7 +17,7 @@ This document tracks the implementation status of all major features and require
 - **✅ Complete** — Fully implemented and tested
 - **🟦 Skeleton** — Code structure exists but functionality disconnected
 
-**Key Insight:** Since the 2026-04-03 review, significant progress has been made: runtime validation, error resilience, PII detection, RAG-to-Store integration, and test infrastructure are now complete. Permission enforcement is largely done. Remaining gaps: connector validation on real installations, comprehensive test coverage, and full RAG features (hybrid search, relationship retrieval).
+**Key Insight:** Since the 2026-04-03 review, significant progress has been made: runtime validation, error resilience, PII detection, RAG-to-Store integration, test infrastructure (>80% coverage), permission enforcement, and **full observability pipeline** (OTel instrumentation, collector, Jaeger, Grafana). Remaining gaps: connector validation on real installations, TUI dashboard, and minor RAG enhancements (persistent index).
 
 ---
 
