@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { loadConfig } from '../config/loader.js';
 import { getStore } from '../store/factory.js';
 import { initTelemetry } from '../telemetry/provider.js';
+import { withSpan } from '../telemetry/api.js';
 import { formatDistanceToNow } from 'date-fns';
 import chalk from 'chalk';
 import ora from 'ora';
@@ -16,43 +17,48 @@ export function registerInjectCommand(program: Command): void {
     .option('--limit <n>', 'Maximum memories to include', '10')
     .option('--query <text>', 'Query to search for relevant memories using semantic search')
     .action(async (opts) => {
+      initTelemetry();
       const spinner = ora('Building context from memories...').start();
 
       try {
-        initTelemetry();
-        const config = await loadConfig();
+        const memories = await withSpan('nautalis.command.inject', { 
+          query: opts.query || 'recency',
+          limit: parseInt(opts.limit),
+          dryRun: opts.dryRun
+        }, async () => {
+          const config = await loadConfig();
 
-        // Team context is required
-        if (!config.general.teamId) {
-          throw new Error('Team ID required. Set --team flag or configure teamId in config.');
-        }
+          // Team context is required
+          if (!config.general.teamId) {
+            throw new Error('Team ID required. Set --team flag or configure teamId in config.');
+          }
 
-        const store = await getStore(config);
-        await store.init();
+          const store = await getStore(config);
+          await store.init();
 
-        const limit = parseInt(opts.limit);
-        let memories;
+          const limit = parseInt(opts.limit);
 
-        // If a query is provided, use semantic search via RAG
-        if (opts.query) {
-          const { RAGEngine } = await import('../memory/rag.js');
-          const embeddingService = createEmbeddingService(config);
-          const rag = new RAGEngine(config, store, embeddingService);
+          // If a query is provided, use semantic search via RAG
+          if (opts.query) {
+            const { RAGEngine } = await import('../memory/rag.js');
+            const embeddingService = createEmbeddingService(config);
+            const rag = new RAGEngine(config, store, embeddingService);
 
-          const results = await rag.query(opts.query, {
-            teamId: config.general.teamId,
-            userId: config.general.userId,
-            limit,
-          });
+            const results = await rag.query(opts.query, {
+              teamId: config.general.teamId,
+              userId: config.general.userId,
+              limit,
+            });
 
-          memories = results.map((r) => r.memory);
-        } else {
-          // Build context: recent important memories from the team
-          memories = await store.listMemories(config.general.teamId, {
-            limit,
-            userId: config.general.userId,
-          });
-        }
+            return results.map((r) => r.memory);
+          } else {
+            // Build context: recent important memories from the team
+            return await store.listMemories(config.general.teamId, {
+              limit,
+              userId: config.general.userId,
+            });
+          }
+        });
 
         spinner.stop();
 
@@ -98,7 +104,7 @@ export function registerInjectCommand(program: Command): void {
         process.stdout.write(context + '\n');
       } catch (error) {
         spinner.fail(chalk.red(`Injection failed: ${error}`));
-        process.exit(1);
+        throw error;
       }
     });
 }

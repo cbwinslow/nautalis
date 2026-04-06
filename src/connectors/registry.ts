@@ -50,77 +50,102 @@ class ConnectorRegistry {
     return result;
   }
 
-   async setupAll(configs: NautalisConfig['connectors']): Promise<void> {
-     const enabled = this.getEnabled(configs);
-     const span = createSpan('nautalis.connector.setup_all', { connector_count: enabled.length });
+  async setupAll(configs: NautalisConfig['connectors']): Promise<void> {
+    const enabled = this.getEnabled(configs);
+    const span = createSpan('nautalis.connector.setup_all', { connector_count: enabled.length });
 
-     try {
-       for (const { connector, config } of enabled) {
-         try {
-           await connector.setup(config);
-           logMessage('info', `Setup complete for connector: ${connector.metadata.name}`);
-         } catch (error) {
-           logMessage('error', `Failed to setup connector ${connector.metadata.name}: ${error}`);
-         }
-       }
-     } finally {
-       span.end();
-     }
-   }
+    try {
+      for (const { connector, config } of enabled) {
+        try {
+          await connector.setup(config);
+          logMessage('info', `Setup complete for connector: ${connector.metadata.name}`);
+        } catch (error) {
+          logMessage('error', `Failed to setup connector ${connector.metadata.name}: ${error}`);
+        }
+      }
+    } finally {
+      span.end();
+    }
+  }
 
-   async ingestAll(configs: NautalisConfig['connectors']): Promise<NautalisEvent[]> {
-     const enabled = this.getEnabled(configs);
-     const span = createSpan('nautalis.connector.ingest_all', { connector_count: enabled.length });
-     const allEvents: NautalisEvent[] = [];
+  async ingestAll(configs: NautalisConfig['connectors']): Promise<NautalisEvent[]> {
+    const enabled = this.getEnabled(configs);
+    const span = createSpan('nautalis.connector.ingest_all', { connector_count: enabled.length });
+    const allEvents: NautalisEvent[] = [];
 
-     try {
-       for (const { connector, config } of enabled) {
-         try {
-           const events = await connector.ingest(config);
-           allEvents.push(...events);
-           logMessage('info', `Ingested ${events.length} events from ${connector.metadata.name}`);
-         } catch (error) {
-           logMessage('error', `Failed to ingest from ${connector.metadata.name}: ${error}`);
-         }
-       }
-     } finally {
-       span.end();
-     }
+    try {
+      for (const { connector, config } of enabled) {
+        try {
+          const events = await connector.ingest(config);
+          allEvents.push(...events);
+          logMessage('info', `Ingested ${events.length} events from ${connector.metadata.name}`);
+        } catch (error) {
+          logMessage('error', `Failed to ingest from ${connector.metadata.name}: ${error}`);
+        }
+      }
+    } finally {
+      span.end();
+    }
 
-     // Record total events ingested metric (also recorded per event later)
-     recordMetric(METRIC_NAMES.EVENTS_INGESTED, allEvents.length, { source: 'connectors' });
+    // Record total events ingested metric (also recorded per event later)
+    recordMetric(METRIC_NAMES.EVENTS_INGESTED, allEvents.length, { source: 'connectors' });
 
-     return allEvents;
-   }
+    return allEvents;
+  }
 
   async watchAll(configs: NautalisConfig['connectors']): Promise<AsyncGenerator<NautalisEvent>> {
     const enabled = this.getEnabled(configs);
     const generators: AsyncGenerator<NautalisEvent>[] = [];
 
     for (const { connector, config } of enabled) {
-      if (config.watchMode) {
+      if (connector.watch) {
         generators.push(connector.watch(config));
       }
     }
 
-    return mergeAsyncGenerators(generators);
+    return this.mergeGenerators(generators);
   }
-}
 
-async function* mergeAsyncGenerators<T>(generators: AsyncGenerator<T>[]): AsyncGenerator<T> {
-  const iterators = generators.map((g) => g[Symbol.asyncIterator]());
-  let active = iterators.length;
-
-  while (active > 0) {
-    for (let i = 0; i < iterators.length; i++) {
-      const result = await iterators[i].next();
-      if (result.done) {
-        active--;
-        iterators.splice(i, 1);
-        i--;
-      } else {
-        yield result.value;
+  async healthAll(): Promise<Record<string, any>> {
+    const results: Record<string, any> = {};
+    for (const [name, connector] of this.connectors.entries()) {
+      try {
+        const health = await connector.health();
+        results[name] = {
+          status: health.status,
+          lastCheck: health.lastCheck,
+          lastIngest: health.lastIngest,
+          eventsIngested: health.eventsIngested,
+          error: null,
+        };
+      } catch (error) {
+        results[name] = {
+          status: 'unhealthy',
+          lastCheck: new Date(),
+          lastIngest: null,
+          eventsIngested: 0,
+          error: String(error),
+        };
       }
+    }
+    return results;
+  }
+
+  private async *mergeGenerators<T>(
+    generators: AsyncGenerator<T>[],
+  ): AsyncGenerator<T> {
+    const iterators = generators.map((g) => g[Symbol.asyncIterator]());
+    while (true) {
+      let doneCount = 0;
+      for (const iterator of iterators) {
+        const { value, done } = await iterator.next();
+        if (done) {
+          doneCount++;
+        } else if (value !== undefined) {
+          yield value;
+        }
+      }
+      if (doneCount === iterators.length) break;
     }
   }
 }
@@ -141,4 +166,16 @@ export function getAllConnectors(): Map<string, Connector> {
 
 export async function setupConnectors(config: NautalisConfig): Promise<void> {
   await connectorRegistry.setupAll(config.connectors);
+}
+
+export async function ingestConnectors(config: NautalisConfig): Promise<NautalisEvent[]> {
+  return connectorRegistry.ingestAll(config.connectors);
+}
+
+export async function watchConnectors(config: NautalisConfig): Promise<AsyncGenerator<NautalisEvent>> {
+  return connectorRegistry.watchAll(config.connectors);
+}
+
+export async function healthConnectors(): Promise<Record<string, any>> {
+  return connectorRegistry.healthAll();
 }
