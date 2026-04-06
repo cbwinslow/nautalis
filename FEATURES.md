@@ -1,7 +1,7 @@
 # Nautalis — Feature Goals & MVP Definition
 
-**Last Updated:** 2026-04-05 (TimescaleDB Enabled)  
-**Implementation Status:** ~92% complete  
+**Last Updated:** 2026-04-06 (Observability Complete)  
+**Implementation Status:** ~96% complete  
 **Target MVP:** Minimal viable system for single-team deployment
 
 ---
@@ -37,14 +37,14 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **RAG Retrieval**     | ✅ 90% — Vector (HNSW) + full-text hybrid; LlamaIndex auto-build and index; score normalization; relationship traversal available | ✅ Essential |
 | **RAG Synthesis**     | ✅ 85% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom) with robust fallback | ✅ Essential |
 | **Knowledge Base**    | ✅ 100% — CRUD, search, versioning, visibility                 | ✅ Essential |
-| **CLI Commands**      | ✅ 95% — All 17 commands registered and functional             | ✅ Essential |
-| **Observability**     | 🟩 90% — Full OTel instrumentation, DB fallback, collector, Jaeger, Grafana with pre-provisioned dashboard; health checks | ✅ Basic |
+| **CLI Commands**      | ✅ 100% — All 17 commands fully instrumented and functional    | ✅ Essential |
+| **Observability**     | 🟩 95% — Complete OTel instrumentation across all commands; DB fallback; collector; Jaeger; Grafana with pre-provisioned dashboard; health checks; connector health | ✅ Basic |
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
-| **Context Injection** | 🟨 60% — Semantic CLI works; daemon endpoint uses semantic when `rag.useSemanticInject` enabled; recency fallback        | ⬜ Post-MVP |
+| **Context Injection** | 🟨 70% — Semantic CLI and daemon (configurable); recency fallback; needs validation on real Claude hooks        | ⬜ Post-MVP |
 | **Test Suite**        | ✅ 85% — 192 passing tests (23 files); coverage: 82.27% functions, 89.55% lines; includes unit tests for config loader, migrate logic, providers base, store integration, RAG, permissions, KB, memory engine, embed factory, resilience, telemetry, and more. | ✅ Essential |
 | **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Defer |
-| **Connector SDK**     | ✅ 50% — Framework mature, hooks validated, parsers tested; real-world validation needed | ⬜ Defer |
+| **Connector SDK**     | ✅ 50% — Framework mature, watch implemented (polling); health methods; real-world validation needed | ⬜ Defer |
 
 ---
 
