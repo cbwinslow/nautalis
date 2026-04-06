@@ -68,7 +68,8 @@ Since the comprehensive review, the following major improvements have been compl
   10. **Unit Test Expansion** — Added comprehensive tests for EmbeddingService, MemoryEngine, DecisionExtractor, RAGEngine, KnowledgeBaseEngine, PermissionManager; increased function coverage across core modules
   11. **Documentation Updates** — FEATURES.md, IMPLEMENTATION_STATUS.md, CHANGELOG.md updated to reflect current state
   12. **Semantic Injection in Daemon** — Upgraded `/api/context/inject` to use RAG-based semantic search when `rag.useSemanticInject` is enabled, with recency fallback
-  13. **Observability Completion** — Full OTel instrumentation across all commands, connector health reporting, Docker Compose with Jaeger + Grafana, end-to-end validated
+   13. **Observability Completion** — Full OTel instrumentation across all commands, connector health reporting, Docker Compose with Jaeger + Grafana, end-to-end validated
+   14. **Performance Benchmarking** — Added `scripts/benchmark-search.ts` with auto-setup; verified p95 latencies: vector 17ms, FTS 14ms, hybrid 184ms (well under 500ms target)
 
 ### 🔄 In Progress / Needs Work
 
