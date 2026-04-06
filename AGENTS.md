@@ -50,7 +50,7 @@ The project has exceptional architectural foundations and most core features are
 - **Security:** 40% complete — PII detection done, input validation incomplete, audit logging partial
 - **CLI:** 90% complete — All 16 commands registered and functional
 - **Test Suite:** 20% complete — Unit tests present, integration tests in progress; target 80%+
-- **Observability:** 40% complete — Structured logging, partial OTel instrumentation; Jaeger/Grafana pending
+- **Observability:** 85% complete — Full OTel instrumentation, DB fallback, collector, Jaeger, Grafana; dashboards optional
 - **Team Features:** 80% complete — permissions enforced for all core resources (memories, KB, teams, projects, agents, sessions)
 
 ### Critical Success Factors
