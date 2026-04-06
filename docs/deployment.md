@@ -242,10 +242,25 @@ Metrics are also stored directly in the TimescaleDB `telemetry` hypertable as a 
 ### Accessing Components
 
 - **Jaeger UI**: Open http://localhost:16686 to search traces.
-- **Grafana**: Open http://localhost:3000. You can add data sources:
-  - Prometheus (if configured) for metrics
-  - Jaeger for traces
-  - PostgreSQL (TimescaleDB) for querying the `telemetry` table (custom dashboards)
+- **Grafana**: Open http://localhost:3000 (default admin password: `admin` or set `GRAFANA_PASSWORD`). A pre-provisioned dashboard named "Nautalis Observability" should be available automatically, showing key metrics from TimescaleDB. You can also create custom dashboards using the PostgreSQL data source.
+
+### Data Source Configuration
+
+Grafana is provisioned with a dashboard that queries the `telemetry` table (for metrics) and `events_daily_stats` view (for event counts). To ensure queries work, add a PostgreSQL data source in Grafana pointing to the Nautalis database:
+
+- Host: `postgres` (Docker network) or `localhost` (if running locally)
+- Database: `nautalis`
+- User: `nautalis`
+- Password: `nautalis`
+
+The dashboard uses this data source to display:
+
+- Events ingested (24h)
+- Query latency p95 (last hour)
+- Errors count (24h)
+- Memories stored (24h)
+
+If you prefer to import the dashboard manually, the JSON file is located at `docker/grafana/nautalis-dashboard.json`.
 
 ### Enabling Full Observability
 

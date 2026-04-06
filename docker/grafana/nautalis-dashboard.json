@@ -1,0 +1,84 @@
+{
+  "dashboard": {
+    "title": "Nautalis Observability Dashboard",
+    "uid": "nautalis-observability",
+    "tags": ["nautalis", "observability"],
+    "timezone": "browser",
+    "schemaVersion": 30,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Events Ingested (24h)",
+        "type": "timeseries",
+        "datasource": "TimescaleDB - Nautalis",
+        "targets": [
+          {
+            "expr": "SELECT time_bucket('1 hour', bucket) as time, sum(event_count) as value FROM events_daily_stats WHERE bucket > now() - interval '1 day' GROUP BY time ORDER BY time",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "legend": { "displayMode": "table", "placement": "bottom" },
+          "tooltip": { "mode": "single" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        },
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+      },
+      {
+        "id": 2,
+        "title": "Query Latency p95 (last hour)",
+        "type": "timeseries",
+        "datasource": "TimescaleDB - Nautalis",
+        "targets": [
+          {
+            "expr": "SELECT time_bucket('5 minutes', start_time) as time, avg(value) as value FROM telemetry WHERE name = 'nautalis.operation.latency_ms' AND start_time > now() - interval '1 hour' GROUP BY time ORDER BY time",
+            "format": "table"
+          }
+        ],
+        "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+        "fieldConfig": { "defaults": { "unit": "ms" } },
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+      },
+      {
+        "id": 3,
+        "title": "Errors Count (24h)",
+        "type": "timeseries",
+        "datasource": "TimescaleDB - Nautalis",
+        "targets": [
+          {
+            "expr": "SELECT time_bucket('1 hour', start_time) as time, sum(value) as value FROM telemetry WHERE name = 'nautalis.errors' AND start_time > now() - interval '1 day' GROUP BY time ORDER BY time",
+            "format": "table"
+          }
+        ],
+        "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+        "fieldConfig": { "defaults": { "unit": "short" } },
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
+      },
+      {
+        "id": 4,
+        "title": "Memories Stored (24h)",
+        "type": "timeseries",
+        "datasource": "TimescaleDB - Nautalis",
+        "targets": [
+          {
+            "expr": "SELECT time_bucket('1 hour', start_time) as time, sum(value) as value FROM telemetry WHERE name = 'nautalis.memories.stored' AND start_time > now() - interval '1 day' GROUP BY time ORDER BY time",
+            "format": "table"
+          }
+        ],
+        "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+        "fieldConfig": { "defaults": { "unit": "short" } },
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
+      }
+    ]
+  }
+}
