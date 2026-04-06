@@ -1,12 +1,8 @@
 // @ts-nocheck - Temporarily disable type checking for OTel due to version mismatches
 import { trace, metrics } from '@opentelemetry/api';
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 
 import { loadConfig } from '../config/loader.js';
 import { logMessage } from './api.js';
@@ -38,55 +34,39 @@ export async function initTelemetry(serviceName = 'nautalis', version = '0.1.0')
     return;
   }
 
-  try {
-    // Build Resource
-    const resource = new Resource({
-      [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
-      [SemanticResourceAttributes.SERVICE_VERSION]: version,
-      ...(config.deployment && { 'deployment.environment': config.deployment }),
-    });
+   try {
+     // Build Resource
+     const resource = new Resource({
+       [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
+       [SemanticResourceAttributes.SERVICE_VERSION]: version,
+       ...(config.deployment && { 'deployment.environment': config.deployment }),
+     });
 
-    // Trace
-    const traceExporter = new OTLPTraceExporter({
-      url: `${endpoint}/v1/traces`,
-    });
-    const spanProcessor = new BatchSpanProcessor({ exporter: traceExporter });
+     // Use NodeSDK with auto-configuration from environment.
+     // It will automatically create OTLP exporters if OTEL_EXPORTER_OTLP_ENDPOINT is set.
+     sdk = new NodeSDK({
+       resource,
+       // No manual spanProcessor or metricReader; let OTel pick up env vars.
+     });
 
-    // Metrics
-    const metricExporter = new OTLPMetricExporter({
-      url: `${endpoint}/v1/metrics`,
-    });
-    const metricReader = new PeriodicExportingMetricReader({
-      exporter: metricExporter,
-      exportIntervalMillis: 60000,
-    });
+     await sdk.start();
 
-    // SDK (trace + metrics only; logs not yet integrated)
-    sdk = new NodeSDK({
-      resource,
-      spanProcessor,
-      metricReader,
-      // No logExporter for now
-    });
+     // Get global instruments
+     _tracer = trace.getTracer(serviceName);
+     _meter = metrics.getMeter(serviceName);
+     // OTel logs not configured; _logger stays null; fallback to console
 
-    await sdk.start();
+     logMessage('info', `Observability initialized — OTLP endpoint: ${endpoint}`);
 
-    // Get global instruments
-    _tracer = trace.getTracer(serviceName);
-    _meter = metrics.getMeter(serviceName);
-    // OTel logs not configured; _logger stays null; fallback to console
-
-    logMessage('info', `Observability initialized — OTLP endpoint: ${endpoint}`);
-
-    if (obs.debug || process.env.NAUTALIS_TELEMETRY_DEBUG === 'true') {
-      // Enable diagnostic logging
-      const { diag, DiagConsoleLogger, DiagLogLevel } = require('@opentelemetry/api');
-      diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
-    }
-  } catch (error) {
-    logMessage('error', 'Observability initialization failed: ' + (error as Error).message);
-    sdk = null;
-  }
+     if (obs.debug || process.env.NAUTALIS_TELEMETRY_DEBUG === 'true') {
+       // Enable diagnostic logging
+       const { diag, DiagConsoleLogger, DiagLogLevel } = require('@opentelemetry/api');
+       diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
+     }
+   } catch (error) {
+     logMessage('error', 'Observability initialization failed: ' + (error as Error).message);
+     sdk = null;
+   }
 }
 
 /**

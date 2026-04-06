@@ -32,7 +32,7 @@ Examples:
 
 registerCommands(program);
 
-// Handle graceful shutdown
+// Handle graceful shutdown on signals
 process.on('SIGINT', async () => {
   await shutdownTelemetry();
   process.exit(0);
@@ -43,4 +43,16 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-program.parse();
+// Parse and then shutdown telemetry to flush spans
+;(async () => {
+  try {
+    await program.parseAsync(process.argv);
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+  await shutdownTelemetry();
+})().catch(err => {
+  console.error('Unexpected error:', err);
+  process.exit(1);
+});

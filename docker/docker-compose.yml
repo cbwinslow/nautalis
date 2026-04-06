@@ -5,12 +5,17 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     ports:
-      - "3001:3001"
+      - "3002:3001"
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://nautalis:nautalis@localhost:5432/nautalis}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://nautalis:nautalis@host.docker.internal:5432/nautalis}
       - NAUTALIS_DB_DRIVER=postgres
       - NAUTALIS_EMBED_PROVIDER=ollama
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http
+      - OTEL_BSP_SCHEDULE_DELAY=100
+      - NAUTALIS_TELEMETRY_DEBUG=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       otel-collector:
         condition: service_started
@@ -21,8 +26,6 @@ services:
       retries: 3
       start_period: 5s
     restart: unless-stopped
-    # For connecting to host's PostgreSQL, use host networking or ensure proper networking
-    network_mode: host
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
@@ -45,7 +48,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "3000:3000"
+      - "4000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
     volumes:
