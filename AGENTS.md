@@ -665,3 +665,45 @@ done
 4. **Check existing connectors** — `src/connectors/claude-code.ts` is the reference implementation
 5. **Check the RLS policies** — `migrations/postgres/rls/001_rls_policies.sql` defines all security rules
 6. **Ask** — If something is unclear, the conversation history above has the reasoning behind every decision
+
+---
+
+## 16. Development Environment Setup
+
+### PostgreSQL Database
+
+Nautalis requires a PostgreSQL 16+ database with TimescaleDB and pgvector extensions installed. For development, you can either:
+
+- **Use an existing bare-metal PostgreSQL** (default): Ensure extensions are installed and set `DATABASE_URL` environment variable, e.g.:
+  ```bash
+  export DATABASE_URL=postgresql://nautalis:nautalis@localhost:5432/nautalis
+  ```
+  Then run `bun run db:migrate` to apply migrations, or use `nautalis init` which will attempt migrations automatically.
+
+- **Use Docker Compose** (for full stack with observability): The provided `docker/docker-compose.yml` starts nautalis, OpenTelemetry Collector, Jaeger, and Grafana. **It does NOT start PostgreSQL** — it expects an external database. Configure `DATABASE_URL` either in a `.env` file or as an environment variable before running `docker compose up -d`.
+
+### Running with Docker Compose (Observability Stack)
+
+1. Ensure your bare-metal PostgreSQL is running and accessible at `localhost:5432` with database `nautalis` and user `nautalis`.
+2. Copy `.env.example` to `.env` and adjust `DATABASE_URL` if needed.
+3. Bring up the stack:
+   ```bash
+   docker compose -f docker/docker-compose.yml up -d
+   ```
+4. Initialize the database inside the nautalis container:
+   ```bash
+   docker exec docker-nautalis-1 bun run dist/cli.js init
+   ```
+5. Access services:
+   - Nautalis daemon: http://localhost:3001
+   - Jaeger UI: http://localhost:16686
+   - Grafana: http://localhost:3000 (admin/admin)
+   - OTel Collector endpoints: http://localhost:4317 (gRPC), http://localhost:4318 (HTTP)
+
+### Notes
+
+- The `docker-compose.yml` uses `network_mode: host` for nautalis so it can reach the host's PostgreSQL via `localhost`.
+- If you need to run everything in Docker (including PostgreSQL), use `docker-compose.team.yml` or `docker-compose.enterprise.yml` which include database services. Those are for team/enterprise deployments and self-contained testing.
+- Always run `bun run typecheck` and `bun test` before committing.
+- Current test coverage: >80% (192 passing tests).
+

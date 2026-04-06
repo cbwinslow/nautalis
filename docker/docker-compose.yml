@@ -1,46 +1,28 @@
-# Default deployment — PostgreSQL + TimescaleDB + pgvector + Observability
+# Default deployment — Connects to existing PostgreSQL + OpenTelemetry stack
 services:
-   nautalis:
-     build:
-       context: ..
-       dockerfile: docker/Dockerfile
-     ports:
-       - "3001:3001"
-     environment:
-       - DATABASE_URL=postgresql://nautalis:nautalis@postgres:5432/nautalis
-       - NAUTALIS_DB_DRIVER=postgres
-       - NAUTALIS_EMBED_PROVIDER=ollama
-       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-     depends_on:
-       postgres:
-         condition: service_healthy
-       otel-collector:
-         condition: service_started
-     healthcheck:
-       test: ["CMD", "bun", "-e", "try { const res = await (await fetch('http://localhost:3001/health')).ok; process.exit(res ? 0 : 1) } catch (e) { process.exit(1) }"]
-       interval: 30s
-       timeout: 10s
-       retries: 3
-       start_period: 5s
-     restart: unless-stopped
-
-  postgres:
-    image: timescale/timescaledb-ha:pg16
-    environment:
-      POSTGRES_USER: nautalis
-      POSTGRES_PASSWORD: nautalis
-      POSTGRES_DB: nautalis
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ../migrations/postgres:/docker-entrypoint-initdb.d
+  nautalis:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     ports:
-      - "5432:5432"
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://nautalis:nautalis@localhost:5432/nautalis}
+      - NAUTALIS_DB_DRIVER=postgres
+      - NAUTALIS_EMBED_PROVIDER=ollama
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      otel-collector:
+        condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nautalis"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "bun", "-e", "try { const res = await (await fetch('http://localhost:3001/health')).ok; process.exit(res ? 0 : 1) } catch (e) { process.exit(1) }"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     restart: unless-stopped
+    # For connecting to host's PostgreSQL, use host networking or ensure proper networking
+    network_mode: host
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
@@ -55,22 +37,21 @@ services:
     image: jaegertracing/all-in-one:latest
     ports:
       - "16686:16686"  # UI
-      - "4317:14317"   # OTLP gRPC
+      - "14268:14268"  # OTLP gRPC
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     restart: unless-stopped
 
-   grafana:
-     image: grafana/grafana:latest
-     ports:
-       - "3000:3000"
-     environment:
-       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
-     volumes:
-       - grafana-data:/var/lib/grafana
-       - ./grafana/provisioning:/etc/grafana/provisioning
-     restart: unless-stopped
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    restart: unless-stopped
 
 volumes:
-  postgres-data:
   grafana-data:
