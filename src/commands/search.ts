@@ -2,7 +2,8 @@ import { Command } from 'commander';
 import { loadConfig } from '../config/loader.js';
 import { getStore } from '../store/factory.js';
 import { MemoryEngine } from '../memory/engine.js';
-import { initTelemetry, createSpan } from '../telemetry/provider.js';
+import { initTelemetry } from '../telemetry/provider.js';
+import { withSpan } from '../telemetry/api.js';
 import chalk from 'chalk';
 import ora from 'ora';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,36 +19,28 @@ export function registerSearchCommand(program: Command): void {
     .option('--json', 'Output as JSON')
     .action(async (query, opts) => {
       initTelemetry();
-      const span = createSpan('nautalis.command.search', { query, project: opts.project || 'all' });
       const spinner = ora(`Searching for "${query}"...`).start();
-      
       try {
-        const config = await loadConfig();
-        const store = await getStore(config);
-        await store.init();
-        
-        const memoryEngine = new MemoryEngine(store, config);
-        const results = await memoryEngine.query(query, {
-          projectId: opts.project,
-          limit: parseInt(opts.limit),
+        const results = await withSpan('nautalis.command.search', { query, project: opts.project || 'all' }, async () => {
+          const config = await loadConfig();
+          const store = await getStore(config);
+          await store.init();
+          const memoryEngine = new MemoryEngine(store, config);
+          return await memoryEngine.query(query, {
+            projectId: opts.project,
+            limit: parseInt(opts.limit),
+          });
         });
-        
         spinner.stop();
-        
         if (opts.json) {
           console.log(JSON.stringify(results, null, 2));
-          span.end();
           return;
         }
-        
         if (results.length === 0) {
           console.log(chalk.yellow('No results found'));
-          span.end();
           return;
         }
-        
         console.log(chalk.cyan(`\n  Found ${results.length} results for "${query}":\n`));
-        
         for (const result of results) {
           const memory = result.memory;
           console.log(chalk.bold(`  ┌─ ${memory.content.summary}`));
@@ -58,11 +51,9 @@ export function registerSearchCommand(program: Command): void {
           console.log(chalk.gray(`  │ ${formatDistanceToNow(memory.createdAt)} ago`));
           console.log(chalk.bold(`  └─\n`));
         }
-        span.end();
       } catch (error) {
         spinner.fail(chalk.red(`Search failed: ${error}`));
-        span.end(error as Error);
-        process.exit(1);
+        throw error; // withSpan already handled span error
       }
     });
 }

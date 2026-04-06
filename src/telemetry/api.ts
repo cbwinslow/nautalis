@@ -69,6 +69,28 @@ export async function recordMetric(
 }
 
 /**
+ * Execute a function within a span, automatically ending it and recording errors.
+ * @param name Span name
+ * @param attributes Optional span attributes
+ * @param fn Async function to execute
+ */
+export async function withSpan<T>(
+  name: string,
+  attributes?: Record<string, string | number | boolean>,
+  fn: () => Promise<T>
+): Promise<T> {
+  const span = createSpan(name, attributes);
+  try {
+    const result = await fn();
+    span.end();
+    return result;
+  } catch (error) {
+    span.end(error as Error);
+    throw error;
+  }
+}
+
+/**
  * Log a structured message.
  */
 export function logMessage(
