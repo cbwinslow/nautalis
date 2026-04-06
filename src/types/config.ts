@@ -109,6 +109,12 @@ export interface NautalisConfig {
   providers?: ProvidersConfig;
   // New: deployment mode for environment-specific defaults (local, docker, baremetal)
   deployment?: DeploymentMode;
+  // New: observability configuration
+  observability?: {
+    enabled?: boolean;
+    otlpEndpoint?: string;
+    debug?: boolean;
+  };
 }
 
 export interface RuleConfig {

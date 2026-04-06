@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { v4 as uuidv4 } from 'uuid';
-import { logMessage, createSpan } from '../../telemetry/api.js';
-import { SPAN_NAMES } from '../../types/telemetry.js';
+import { logMessage, createSpan, recordMetric } from '../../telemetry/api.js';
+import { SPAN_NAMES, METRIC_NAMES } from '../../types/telemetry.js';
 import { KBEntrySchema } from '../../validation/schemas.js';
 
 export interface KBEntry {
@@ -142,8 +142,9 @@ export class KnowledgeBaseEngine {
     });
 
     try {
+      let result: any;
       if (embedding) {
-        const result = await this.pool.query(
+        result = await this.pool.query(
           `SELECT kb.*, 1 - (kbe.embedding <=> $1::vector) AS similarity
            FROM knowledge_base_embeddings kbe
            JOIN knowledge_base kb ON kb.id = kbe.kb_id
@@ -160,11 +161,8 @@ export class KnowledgeBaseEngine {
               ]
             : [teamId, options?.limit || 10],
         );
-
-        span.end();
-        return result.rows;
       } else {
-        const result = await this.pool.query(
+        result = await this.pool.query(
           `SELECT *, ts_rank(search_vector, plainto_tsquery('english', $1)) AS rank
            FROM knowledge_base
            WHERE team_id = $2 AND is_published = true AND is_archived = false
@@ -173,12 +171,23 @@ export class KnowledgeBaseEngine {
            LIMIT $3`,
           [query, teamId, options?.limit || 10],
         );
-
-        span.end();
-        return result.rows;
       }
+
+      span.end();
+      // Record search metric
+      const searchAttrs: Record<string, any> = { teamId };
+      if (options?.category) searchAttrs.category = options.category;
+      recordMetric(METRIC_NAMES.KNOWLEDGE_BASE_SEARCHED, 1, searchAttrs);
+      return result.rows;
     } catch (error) {
       span.end(error as Error);
+      // Record error metric
+      const errorAttrs: Record<string, any> = {
+        error_type: 'kb.search',
+        message: String(error),
+      };
+      if (teamId) errorAttrs.teamId = teamId;
+      recordMetric(METRIC_NAMES.ERRORS_COUNT, 1, errorAttrs);
       throw error;
     }
   }

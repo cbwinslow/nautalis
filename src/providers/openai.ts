@@ -48,13 +48,13 @@ export class OpenAIProvider extends BaseProvider {
       throw new Error(`OpenAI API key not found. Set apiKey or env var ${this.config.apiKeyEnv || 'OPENAI_API_KEY'}`);
     }
 
-    return new OpenAI({
-      baseUrl,
-      apiKey,
-      model,
-      organization: this.config.organization,
-      project: this.config.project,
-      ...overrides,
-    });
+     return new OpenAI({
+       baseUrl,
+       apiKey,
+       model,
+       organization: this.config.organization,
+       project: this.config.project,
+       ...overrides,
+     } as any);
   }
 }

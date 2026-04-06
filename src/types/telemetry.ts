@@ -57,4 +57,7 @@ export const METRIC_NAMES = {
   ACTIVE_SESSIONS: 'nautalis.sessions.active',
   KNOWLEDGE_BASE_CREATED: 'nautalis.knowledge_base.created',
   KNOWLEDGE_BASE_SEARCHED: 'nautalis.knowledge_base.searched',
+  OPERATION_LATENCY_MS: 'nautalis.operation.latency_ms',
+  ERRORS_COUNT: 'nautalis.errors',
+  RAG_SYNTHESES: 'nautalis.rag.syntheses',
 } as const;

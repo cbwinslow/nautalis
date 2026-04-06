@@ -319,36 +319,32 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 ### 7. Observability (OpenTelemetry)
 
 **Design:** Complete — OTel SDK integrated, metrics defined  
-**Implementation:** ~35% — SDK initialized, but little instrumentation  
-**Status:** 🟨 Partial
+**Implementation:** ~80% — SDK initialized, instrumentation added to core operations, collector integrated  
+**Status:** 🟨 Near Complete
 
-| Aspect                                           | Status      | Notes                                                                             |
-| ------------------------------------------------ | ----------- | --------------------------------------------------------------------------------- |
-| OTel SDK initialization                          | ✅ Complete | `telemetry/provider.ts` sets up traces, metrics, logs                             |
-| `createSpan()`, `recordMetric()`, `logMessage()` | ✅ Complete | Convenience API in `telemetry/api.ts`                                             |
-| - Spans in code                                  | 🟨 Partial  | Used in some places (store operations, memoryEngine) but **not comprehensive**    |
-| Metrics recording                                | 🟨 Partial  | Metrics defined (`METRIC_NAMES`), some recorded, but incomplete                   |
-| Benchmarking utility                             | ✅ Complete | `benchmarkOperation()` exists in `telemetry/benchmark.ts`                         |
-| Telemetry hypertable                             | ✅ Complete | TimescaleDB table created                                                         |
-| OTel Collector setup                             | ❌ Not done | No Docker compose with collector; must set `OTEL_EXPORTER_OTLP_ENDPOINT` manually |
-| Jaeger/Grafana dashboards                        | ❌ Not done | No configuration provided                                                         |
+| Aspect                                           | Status      | Notes                                                                               |
+| ------------------------------------------------ | ----------- | ----------------------------------------------------------------------------------- |
+| OTel SDK initialization                          | ✅ Complete | `telemetry/provider.ts` sets up traces, metrics (logs optional)                     |
+| `createSpan()`, `recordMetric()`, `logMessage()` | ✅ Complete | Convenience API; DB fallback when OTel disabled                                    |
+| Spans in core operations                         | ✅ Complete | Event ingestion, memory enrichment, store CRUD, RAG query/synthesize, KB search   |
+| Metrics recording                                | ✅ Complete | Counts and latency for embeddings, memory ops, RAG ops, errors, DB telemetry table|
+| Benchmarking utility                             | ✅ Complete | `benchmarkOperation()` exists in `telemetry/benchmark.ts`                          |
+| Telemetry hypertable                             | ✅ Complete | TimescaleDB table with continuous aggregates for latency analysis                  |
+| OTel Collector setup                             | ✅ Complete | Docker Compose includes otel-collector service                                      |
+| Jaeger/Grafana dashboards                        | ✅ Complete | Services defined; Jaeger for traces, Grafana for metrics (connect to TimescaleDB)  |
 
-**Missing Spans/Metrics:**
+**Remaining Gaps:**
 
-- CLI command execution
-- Connector operations (ingest, setup, health)
-- All RAG operations (query, synthesize)
-- Context injection
-- HTTP requests (if any)
-- Database query execution (already in PostgresStore? Check)
+- CLI command execution spans (low priority)
+- Connector operation instrumentation (watch, health)
+- HTTP request telemetry (if applicable)
+- Grafana dashboard pre-built panels (users can create custom from TimescaleDB)
 
-**To Complete:**
+**Implementation Notes:**
 
-- Audit codebase to identify all operations needing instrumentation
-- Add `createSpan()` to all major functions
-- Add `recordMetric()` for key counts and durations
-- Provide sample OTel Collector configuration (Docker)
-- Create Grafana dashboard JSON
+- Metrics are stored in TimescaleDB `telemetry` table when OTel is disabled (fallback)
+- When OTel collector is available (default in Docker Compose), spans and metrics are exported to collector
+- Collector configured to export traces to Jaeger and metrics to Prometheus endpoint (Grafana can query TimescaleDB directly)
 
 **Related Issues:** #22
 
@@ -379,43 +375,7 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 
 ---
 
-### 9. Observability (OpenTelemetry)
 
-**Design:** Complete — OTel SDK integrated, metrics defined  
-**Implementation:** ~35% — SDK initialized, but instrumentation incomplete  
-**Status:** 🟨 Partial
-
-| Aspect                                           | Status      | Notes                                                                             |
-| ------------------------------------------------ | ----------- | --------------------------------------------------------------------------------- |
-| OTel SDK initialization                          | ✅ Complete | `telemetry/provider.ts` sets up traces, metrics, logs                             |
-| `createSpan()`, `recordMetric()`, `logMessage()` | ✅ Complete | Convenience API in `telemetry/api.ts`                                             |
-| - Spans in code                                  | 🟨 Partial  | Used in some places (store operations, memoryEngine) but **not comprehensive**    |
-| Metrics recording                                | 🟨 Partial  | Metrics defined (`METRIC_NAMES`), some recorded, but incomplete                   |
-| Benchmarking utility                             | ✅ Complete | `benchmarkOperation()` exists in `telemetry/benchmark.ts`                         |
-| Telemetry hypertable                             | ✅ Complete | TimescaleDB table created                                                         |
-| OTel Collector setup                             | ❌ Not done | No Docker compose with collector; must set `OTEL_EXPORTER_OTLP_ENDPOINT` manually |
-| Jaeger/Grafana dashboards                        | ❌ Not done | No configuration provided                                                         |
-
-**Missing Spans/Metrics:**
-
-- CLI command execution
-- Connector operations (ingest, setup, health)
-- All RAG operations (query, synthesize)
-- Context injection
-- HTTP requests (if any)
-- Database query execution (already in PostgresStore? Check)
-
-**To Complete:**
-
-- Audit codebase to identify all operations needing instrumentation
-- Add `createSpan()` to all major functions
-- Add `recordMetric()` for key counts and durations
-- Provide sample OTel Collector configuration (Docker)
-- Create Grafana dashboard JSON
-
-**Related Issues:** #22
-
----
 
 ### 10. Test Infrastructure
 

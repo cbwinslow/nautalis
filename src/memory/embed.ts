@@ -1,5 +1,5 @@
-import { logMessage, createSpan } from '../telemetry/api.js';
-import { SPAN_NAMES } from '../types/telemetry.js';
+import { logMessage, createSpan, recordMetric } from '../telemetry/api.js';
+import { SPAN_NAMES, METRIC_NAMES } from '../types/telemetry.js';
 import { withRetry, CircuitBreaker, DEFAULT_CIRCUIT_BREAKER_CONFIG, RetryConfig, CircuitBreakerConfig } from '../utils/resilience.js';
 
 export interface EmbeddingResult {
@@ -52,13 +52,14 @@ export class EmbeddingService {
     };
   }
 
-  async embed(text: string): Promise<EmbeddingResult> {
-    return this.circuitBreaker.execute(() =>
-      withRetry(() => this.doEmbed(text), this.retryConfig)
-    );
-  }
+   async embed(text: string, options?: { teamId?: string }): Promise<EmbeddingResult> {
+     return this.circuitBreaker.execute(() =>
+       withRetry(() => this.doEmbed(text, options), this.retryConfig)
+     );
+   }
 
-  private async doEmbed(text: string): Promise<EmbeddingResult> {
+  private async doEmbed(text: string, options?: { teamId?: string }): Promise<EmbeddingResult> {
+    const startTime = Date.now();
     const span = createSpan(SPAN_NAMES.EMBED_TEXT, {
       'embedding.model': this.model,
       'embedding.text_length': text.length,
@@ -67,7 +68,24 @@ export class EmbeddingService {
     try {
       const embedding = await this.performRequest(text);
 
+      const durationMs = Date.now() - startTime;
       span.end();
+
+      // Record metrics
+      const countAttrs: Record<string, any> = {
+        model: this.model,
+        dimensions: embedding.length,
+      };
+      if (options?.teamId) countAttrs.teamId = options.teamId;
+      recordMetric(METRIC_NAMES.EMBEDDINGS_GENERATED, 1, countAttrs);
+
+      const latencyAttrs: Record<string, any> = {
+        operation: 'embedding',
+        model: this.model,
+      };
+      if (options?.teamId) latencyAttrs.teamId = options.teamId;
+      recordMetric(METRIC_NAMES.OPERATION_LATENCY_MS, durationMs, latencyAttrs);
+
       return {
         embedding,
         model: this.model,
@@ -76,6 +94,14 @@ export class EmbeddingService {
     } catch (error) {
       span.end(error as Error);
       logMessage('error', `Embedding failed: ${error}`);
+      // Record error metric
+      const errorAttrs: Record<string, any> = {
+        error_type: 'embedding_failed',
+        model: this.model,
+        message: String(error),
+      };
+      if (options?.teamId) errorAttrs.teamId = options.teamId;
+      recordMetric(METRIC_NAMES.ERRORS_COUNT, 1, errorAttrs);
       throw error;
     }
   }

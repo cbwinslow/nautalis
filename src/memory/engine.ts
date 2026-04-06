@@ -65,7 +65,9 @@ export class MemoryEngine {
       'event.tool': event.toolName || 'unknown',
     });
 
-    try {
+     let teamId: string | undefined;
+     const startTime = Date.now();
+     try {
       // Validate incoming event
       const validatedEvent = NautalisEventSchema.parse(event);
 
@@ -74,13 +76,13 @@ export class MemoryEngine {
       // Classify the event
       const classification = this.classifier.classify(validatedEvent);
 
-      // Generate embedding for the event summary
-      const summary = this.generateSummary(validatedEvent);
-      const embeddingResult = await this.embeddingService.embed(summary);
+       // Generate embedding for the event summary
+       const summary = this.generateSummary(validatedEvent);
+       const embeddingResult = await this.embeddingService.embed(summary);
 
-      // Ensure teamId is set: use event context or fall back to config
-      const teamId = validatedEvent.context.teamId || this.config.general.teamId;
-      if (!teamId) {
+       // Ensure teamId is set: use event context or fall back to config
+       teamId = validatedEvent.context.teamId || this.config.general.teamId;
+       if (!teamId) {
         throw new Error(
           'teamId is required for memory processing. Set in config or event context.',
         );
@@ -154,16 +156,27 @@ export class MemoryEngine {
           userId: mem.agentIdentity.userId,
           teamId: mem.context.teamId,
         });
-      }
+       }
 
-      span.end();
-      recordMetric(METRIC_NAMES.MEMORIES_STORED, memories.length);
+       const durationMs = Date.now() - startTime;
+       // Record count with teamId
+       const countAttrs: Record<string, any> = {};
+       if (teamId) countAttrs.teamId = teamId;
+       recordMetric(METRIC_NAMES.MEMORIES_STORED, memories.length, countAttrs);
+       // Record latency
+       const latencyAttrs: Record<string, any> = { operation: 'memory.processEvent' };
+       if (teamId) latencyAttrs.teamId = teamId;
+       recordMetric(METRIC_NAMES.OPERATION_LATENCY_MS, durationMs, latencyAttrs);
 
-      return memories;
-    } catch (error) {
-      span.end(error as Error);
-      throw error;
-    }
+       span.end();
+       return memories;
+     } catch (error) {
+       span.end(error as Error);
+       const errorAttrs: Record<string, any> = { error_type: 'memory.processEvent', message: String(error) };
+       if (teamId) errorAttrs.teamId = teamId;
+       recordMetric(METRIC_NAMES.ERRORS_COUNT, 1, errorAttrs);
+       throw error;
+     }
   }
 
 

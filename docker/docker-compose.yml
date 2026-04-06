@@ -1,4 +1,4 @@
-# Default deployment — PostgreSQL + TimescaleDB + pgvector
+# Default deployment — PostgreSQL + TimescaleDB + pgvector + Observability
 services:
   nautalis:
     build:
@@ -10,10 +10,12 @@ services:
       - DATABASE_URL=postgresql://nautalis:nautalis@postgres:5432/nautalis
       - NAUTALIS_DB_DRIVER=postgres
       - NAUTALIS_EMBED_PROVIDER=ollama
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
     depends_on:
       postgres:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     restart: unless-stopped
 
   postgres:
@@ -34,5 +36,34 @@ services:
       retries: 5
     restart: unless-stopped
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"  # UI
+      - "4317:14317"   # OTLP gRPC
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+
 volumes:
   postgres-data:
+  grafana-data:

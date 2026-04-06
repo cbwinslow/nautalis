@@ -700,10 +700,16 @@ export class PostgresStore implements Store {
       );
 
       span.end();
-      recordMetric(METRIC_NAMES.EVENTS_INGESTED, 1, { tool: event.source.toolName });
+      const eventAttrs: Record<string, any> = { tool: event.source.toolName };
+      if (event.context.teamId) eventAttrs.teamId = event.context.teamId;
+      recordMetric(METRIC_NAMES.EVENTS_INGESTED, 1, eventAttrs);
       return id;
     } catch (error) {
       span.end(error as Error);
+      // Record error metric
+      const errAttrs: Record<string, any> = { error_type: 'store.insertEvent', message: String(error) };
+      if (event.context.teamId) errAttrs.teamId = event.context.teamId;
+      recordMetric(METRIC_NAMES.ERRORS_COUNT, 1, errAttrs);
       throw error;
     }
   }
@@ -732,94 +738,120 @@ export class PostgresStore implements Store {
      return result.rows.map(this.rowToEvent);
    }
 
-   // Memories
-   async insertMemory(memory: Memory, options?: { userId?: string; teamId?: string }): Promise<string> {
-     const span = createSpan(SPAN_NAMES.STORE_MEMORY, {
-       'memory.type': memory.classification.memoryType,
-     });
+    // Memories
+    async insertMemory(memory: Memory, options?: { userId?: string; teamId?: string }): Promise<string> {
+      const span = createSpan(SPAN_NAMES.STORE_MEMORY, {
+        'memory.type': memory.classification.memoryType,
+      });
 
-     // Determine userId and teamId for permission check
-     const effectiveUserId = options?.userId || memory.agentIdentity.userId;
-     const effectiveTeamId = options?.teamId || memory.context.teamId;
+      // Determine userId and teamId for permission check
+      const effectiveUserId = options?.userId || memory.agentIdentity.userId;
+      const effectiveTeamId = options?.teamId || memory.context.teamId;
 
-      if (!effectiveTeamId) {
-        throw new Error('teamId is required for insertMemory');
-      }
-      if (!effectiveUserId) {
-        throw new Error('userId is required for insertMemory');
-      }
+       if (!effectiveTeamId) {
+         throw new Error('teamId is required for insertMemory');
+       }
+       if (!effectiveUserId) {
+         throw new Error('userId is required for insertMemory');
+       }
 
-      // Validate memory object
-      MemorySchema.parse(memory);
+       // Validate memory object
+       MemorySchema.parse(memory);
 
-      return await this.withTeamContext<string>(
-       effectiveTeamId,
-       effectiveUserId,
-       'memory',
-       'write', // insert counts as write
-       async (client) => {
-         const id = memory.id || uuidv4();
+       const startTime = Date.now();
+       try {
+         const id = await this.withTeamContext<string>(
+          effectiveTeamId,
+          effectiveUserId,
+          'memory',
+          'write', // insert counts as write
+          async (client) => {
+            const memId = memory.id || uuidv4();
 
-         await client.query(
-           `INSERT INTO memories (
-             id, team_id, agent_id, session_id, project_id, user_id,
-             memory_type, block_label, topics, confidence, importance, sensitivity,
-             summary, detail, files_involved, commands_exec, errors_seen, code_snippets,
-             parent_memory_id, supersedes, contradicts, supports, tags,
-             ttl, decay_rate, is_stale,
-             repo_path, repo_url, branch, cwd
-           ) VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
-             $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
-           )`,
-           [
-             id,
-             effectiveTeamId,
-             null,
-             memory.agentIdentity.sessionId || null,
-             memory.context.projectId || null,
-             effectiveUserId,
-             memory.classification.memoryType,
-             memory.classification.blockLabel || null,
-             memory.classification.topics,
-             memory.classification.confidence,
-             memory.classification.importance,
-             memory.classification.sensitivity,
-             memory.content.summary,
-             memory.content.detail || null,
-             memory.content.filesInvolved,
-             memory.content.commandsExec,
-             memory.content.errorsSeen,
-             memory.content.codeSnippets,
-             memory.relationships.parentMemoryId || null,
-             memory.relationships.supersedes,
-             memory.relationships.contradicts,
-             memory.relationships.supports,
-             memory.relationships.tags,
-             memory.lifecycle.ttl || null,
-             memory.lifecycle.decayRate,
-             memory.lifecycle.isStale,
-             memory.context.repoPath || null,
-             memory.context.repoUrl || null,
-             memory.context.branch || null,
-             memory.context.cwd,
-           ]
-         );
+            await client.query(
+              `INSERT INTO memories (
+                id, team_id, agent_id, session_id, project_id, user_id,
+                memory_type, block_label, topics, confidence, importance, sensitivity,
+                summary, detail, files_involved, commands_exec, errors_seen, code_snippets,
+                parent_memory_id, supersedes, contradicts, supports, tags,
+                ttl, decay_rate, is_stale,
+                repo_path, repo_url, branch, cwd
+              ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+                $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
+              )`,
+              [
+                memId,
+                effectiveTeamId,
+                null,
+                memory.agentIdentity.sessionId || null,
+                memory.context.projectId || null,
+                effectiveUserId,
+                memory.classification.memoryType,
+                memory.classification.blockLabel || null,
+                memory.classification.topics,
+                memory.classification.confidence,
+                memory.classification.importance,
+                memory.classification.sensitivity,
+                memory.content.summary,
+                memory.content.detail || null,
+                memory.content.filesInvolved,
+                memory.content.commandsExec,
+                memory.content.errorsSeen,
+                memory.content.codeSnippets,
+                memory.relationships.parentMemoryId || null,
+                memory.relationships.supersedes,
+                memory.relationships.contradicts,
+                memory.relationships.supports,
+                memory.relationships.tags,
+                memory.lifecycle.ttl || null,
+                memory.lifecycle.decayRate,
+                memory.lifecycle.isStale,
+                memory.context.repoPath || null,
+                memory.context.repoUrl || null,
+                memory.context.branch || null,
+                memory.context.cwd,
+              ]
+            );
 
-         if (memory.embedding) {
-           await client.query(
-             `INSERT INTO memory_embeddings (memory_id, embedding) VALUES ($1, $2::vector)
-              ON CONFLICT (memory_id) DO UPDATE SET embedding = $2::vector`,
-             [id, `[${memory.embedding.join(',')}]`]
-           );
-         }
+            if (memory.embedding) {
+              await client.query(
+                `INSERT INTO memory_embeddings (memory_id, embedding) VALUES ($1, $2::vector)
+                 ON CONFLICT (memory_id) DO UPDATE SET embedding = $2::vector`,
+                [memId, `[${memory.embedding.join(',')}]`]
+              );
+            }
 
-         recordMetric(METRIC_NAMES.MEMORIES_STORED, 1);
-         span.end();
+            const durationMs = Date.now() - startTime;
+            // Record metrics
+            const countAttrs: Record<string, any> = {};
+            if (effectiveTeamId) countAttrs.teamId = effectiveTeamId;
+            recordMetric(METRIC_NAMES.MEMORIES_STORED, 1, countAttrs);
+
+            const latencyAttrs: Record<string, any> = {
+              operation: 'store.insertMemory',
+              memory_type: memory.classification.memoryType,
+            };
+            if (effectiveTeamId) latencyAttrs.teamId = effectiveTeamId;
+            recordMetric(METRIC_NAMES.OPERATION_LATENCY_MS, durationMs, latencyAttrs);
+
+            span.end();
+            return memId;
+          },
+        );
          return id;
-       },
-     );
-   }
+       } catch (error) {
+         span.end(error as Error);
+         // Record error metric
+         const errAttrs: Record<string, any> = {
+           error_type: 'store.insertMemory',
+           message: String(error),
+         };
+         if (effectiveTeamId) errAttrs.teamId = effectiveTeamId;
+         recordMetric(METRIC_NAMES.ERRORS_COUNT, 1, errAttrs);
+         throw error;
+       }
+    }
 
    async getMemory(id: string, options?: { userId?: string; teamId?: string }) {
      if (!options?.teamId) {
@@ -852,55 +884,80 @@ export class PostgresStore implements Store {
      );
    }
 
-   async queryMemories(query: MemoryQuery & { teamId?: string; userId?: string }): Promise<MemoryQueryResult[]> {
-     const span = createSpan(SPAN_NAMES.QUERY_MEMORY, {
-       'query.text': query.query,
-     });
+    async queryMemories(query: MemoryQuery & { teamId?: string; userId?: string }): Promise<MemoryQueryResult[]> {
+      const span = createSpan(SPAN_NAMES.QUERY_MEMORY, {
+        'query.text': query.query,
+      });
 
-     if (!query.teamId) {
-       throw new Error('teamId is required for queryMemories');
-     }
-     if (!query.userId) {
-       throw new Error('userId is required for queryMemories');
-     }
+      if (!query.teamId) {
+        throw new Error('teamId is required for queryMemories');
+      }
+      if (!query.userId) {
+        throw new Error('userId is required for queryMemories');
+      }
 
-     try {
-       return await this.withTeamContext<MemoryQueryResult[]>(
-         query.teamId,
-         query.userId,
-         'memory',
-         'read',
-         async (client) => {
-           let sql = `SELECT * FROM memories WHERE team_id = $1`;
-           const params: any[] = [query.teamId];
-           let idx = 2;
+      const startTime = Date.now();
+      try {
+        const results = await this.withTeamContext<MemoryQueryResult[]>(
+          query.teamId,
+          query.userId,
+          'memory',
+          'read',
+          async (client) => {
+            let sql = `SELECT * FROM memories WHERE team_id = $1`;
+            const params: any[] = [query.teamId];
+            let idx = 2;
 
-           if (query.projectId) { sql += ` AND project_id = $${idx++}`; params.push(query.projectId); }
-           if (query.memoryType) { sql += ` AND memory_type = $${idx++}`; params.push(query.memoryType); }
-           if (query.minImportance !== undefined) { sql += ` AND importance >= $${idx++}`; params.push(query.minImportance); }
-           if (query.dateFrom) { sql += ` AND created_at >= $${idx++}`; params.push(query.dateFrom); }
-           if (query.dateTo) { sql += ` AND created_at <= $${idx++}`; params.push(query.dateTo); }
+            if (query.projectId) { sql += ` AND project_id = $${idx++}`; params.push(query.projectId); }
+            if (query.memoryType) { sql += ` AND memory_type = $${idx++}`; params.push(query.memoryType); }
+            if (query.minImportance !== undefined) { sql += ` AND importance >= $${idx++}`; params.push(query.minImportance); }
+            if (query.dateFrom) { sql += ` AND created_at >= $${idx++}`; params.push(query.dateFrom); }
+            if (query.dateTo) { sql += ` AND created_at <= $${idx++}`; params.push(query.dateTo); }
 
-           sql += ` ORDER BY importance DESC, created_at DESC LIMIT $${idx++}`;
-           params.push(query.limit || 20);
+            sql += ` ORDER BY importance DESC, created_at DESC LIMIT $${idx++}`;
+            params.push(query.limit || 20);
 
-           const result = await client.query(sql, params);
-           const results = result.rows.map((row: any) => ({
-             memory: this.rowToMemory(row),
-             score: 1.0,
-             matchedTopics: [],
-             matchedFiles: [],
-           }));
+            const result = await client.query(sql, params);
+            const queryResults = result.rows.map((row: any) => ({
+              memory: this.rowToMemory(row),
+              score: 1.0,
+              matchedTopics: [],
+              matchedFiles: [],
+            }));
 
-           span.end();
-           return results;
-         },
-       );
-     } catch (error) {
-       span.end(error as Error);
-       throw error;
-     }
-   }
+            // Record metrics after successful query
+            const durationMs = Date.now() - startTime;
+            const countAttrs: Record<string, any> = {
+              teamId: query.teamId,
+              projectId: query.projectId,
+              memoryType: query.memoryType,
+            };
+            recordMetric(METRIC_NAMES.MEMORIES_QUERIED, queryResults.length, countAttrs);
+            const latencyAttrs: Record<string, any> = {
+              operation: 'store.queryMemories',
+              teamId: query.teamId,
+              projectId: query.projectId,
+              memoryType: query.memoryType,
+            };
+            recordMetric(METRIC_NAMES.OPERATION_LATENCY_MS, durationMs, latencyAttrs);
+
+            span.end();
+            return queryResults;
+          },
+        );
+        return results;
+      } catch (error) {
+        span.end(error as Error);
+        // Record error metric
+        const errAttrs: Record<string, any> = {
+          error_type: 'store.queryMemories',
+          teamId: query.teamId,
+          message: String(error),
+        };
+        recordMetric(METRIC_NAMES.ERRORS_COUNT, 1, errAttrs);
+        throw error;
+      }
+    }
 
     async updateMemory(id: string, updates: Partial<Memory>, options?: { userId?: string; teamId?: string }) {
       if (!options?.teamId) {

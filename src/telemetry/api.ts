@@ -1,6 +1,7 @@
-// @ts-nocheck - Telemetry API; provider is stub, types not enforced
+// @ts-nocheck - Telemetry convenience API
 import { trace, context, SpanStatusCode, SpanKind } from '@opentelemetry/api';
-import { getTracer, getMeter, getLogger } from './provider.js';
+import { getTracer, getMeter, getLogger, isEnabled } from './provider.js';
+import { getStore } from '../store/factory.js';
 
 /**
  * Create a telemetry span.
@@ -34,15 +35,37 @@ export function createSpan(name: string, attributes?: Record<string, string | nu
 
 /**
  * Record a metric.
+ * Uses OTel if enabled; otherwise falls back to database telemetry insert.
  */
-export function recordMetric(
+export async function recordMetric(
   name: string,
   value: number,
-  attributes?: Record<string, string | number | boolean>,
-) {
-  const meterInstance = getMeter();
-  const counter = meterInstance.createCounter(name);
-  counter.add(value, attributes as any);
+  attributes?: Record<string, string | number | boolean>
+): Promise<void> {
+  if (isEnabled()) {
+    const meter = getMeter();
+    meter.createCounter(name).add(value, attributes as any);
+    return;
+  }
+
+  // DB fallback when OTel is not enabled
+  try {
+    // Lazy import to avoid circular deps
+    const { getStore } = require('../store/factory.js');
+    const store = await getStore();
+    if (store && store.insertTelemetry) {
+      await store.insertTelemetry({
+        teamId: (attributes?.teamId as string) || '00000000-0000-0000-0000-000000000000',
+        signalType: 'metric',
+        name,
+        attributes,
+        value,
+        startTime: new Date(),
+      });
+    }
+  } catch {
+    // Silently ignore - no telemetry persistence available
+  }
 }
 
 /**
@@ -69,6 +92,7 @@ export function logMessage(
           }
         : {}),
     },
+    timestamp: new Date().toISOString(),
   });
 }
 

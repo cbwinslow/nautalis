@@ -236,9 +236,11 @@ export class RAGEngine {
         'query.text': queryText,
         'query.project': options?.projectId || 'all',
       });
+      const startTime = Date.now();
+      let teamId: string | undefined;
 
       try {
-       const teamId = options?.teamId || this.config.general.teamId;
+        teamId = options?.teamId || this.config.general.teamId;
        if (!teamId) {
          throw new Error('teamId is required for query. Set in config or pass to query().');
        }
@@ -334,9 +336,18 @@ export class RAGEngine {
            ? limited.filter(r => r.memory.context.projectId === options.projectId)
            : limited;
 
-         span.end();
-         recordMetric(METRIC_NAMES.MEMORIES_QUERIED, finalResults.length, { query_type: 'hybrid' });
-         return finalResults;
+          span.end();
+          const durationMs = Date.now() - startTime;
+          recordMetric(METRIC_NAMES.MEMORIES_QUERIED, finalResults.length, {
+            query_type: 'hybrid',
+            teamId: teamId,
+          });
+          recordMetric(METRIC_NAMES.OPERATION_LATENCY_MS, durationMs, {
+            operation: 'rag.query',
+            query_type: 'hybrid',
+            teamId: teamId,
+          });
+          return finalResults;
        }
 
        // Otherwise, return pure vector results
@@ -344,19 +355,37 @@ export class RAGEngine {
          vectorResults = vectorResults.filter(r => r.memory.context.projectId === options.projectId);
        }
 
-       span.end();
-       recordMetric(METRIC_NAMES.MEMORIES_QUERIED, vectorResults.length, { query_type: options?.useHybrid ? 'hybrid' : 'vector_only' });
-       return vectorResults;
-     } catch (error) {
-       span.end(error as Error);
-       throw error;
-     }
+        span.end();
+        const durationMs = Date.now() - startTime;
+        const queryType = options?.useHybrid ? 'hybrid' : 'vector_only';
+        recordMetric(METRIC_NAMES.MEMORIES_QUERIED, vectorResults.length, {
+          query_type: queryType,
+          teamId: teamId,
+        });
+        recordMetric(METRIC_NAMES.OPERATION_LATENCY_MS, durationMs, {
+          operation: 'rag.query',
+          query_type: queryType,
+          teamId: teamId,
+        });
+        return vectorResults;
+      } catch (error) {
+        span.end(error as Error);
+        const errorAttrs: Record<string, any> = {
+          error_type: 'rag.query',
+          message: String(error),
+        };
+        if (teamId) errorAttrs.teamId = teamId;
+        recordMetric(METRIC_NAMES.ERRORS_COUNT, 1, errorAttrs);
+        throw error;
+      }
    }
 
-  async synthesize(query: string, context: string[]): Promise<string> {
-    const span = createSpan(SPAN_NAMES.RAG_SYNTHESIZE);
+   async synthesize(query: string, context: string[]): Promise<string> {
+     const span = createSpan(SPAN_NAMES.RAG_SYNTHESIZE);
+     const startTime = Date.now();
+     const teamId = this.config.general.teamId;
 
-    try {
+     try {
       // Use LLM to synthesize answer from context
       const llm = (Settings as any).llm;
       if (!llm) {
@@ -383,12 +412,26 @@ Answer:`;
           ? response
           : (response as any)?.text || JSON.stringify(response);
 
-      span.end();
-      return answer.trim();
-     } catch (error) {
-       span.end(error as Error);
-       throw error;
-     }
+       span.end();
+       const durationMs = Date.now() - startTime;
+       const synthesisAttrs: Record<string, any> = {};
+       if (teamId) synthesisAttrs.teamId = teamId;
+       recordMetric(METRIC_NAMES.RAG_SYNTHESES, 1, synthesisAttrs);
+
+       const latencyAttrs: Record<string, any> = { operation: 'rag.synthesize' };
+       if (teamId) latencyAttrs.teamId = teamId;
+       recordMetric(METRIC_NAMES.OPERATION_LATENCY_MS, durationMs, latencyAttrs);
+       return answer.trim();
+      } catch (error) {
+        span.end(error as Error);
+        const errorAttrs: Record<string, any> = {
+          error_type: 'rag.synthesize',
+          message: String(error),
+        };
+        if (teamId) errorAttrs.teamId = teamId;
+        recordMetric(METRIC_NAMES.ERRORS_COUNT, 1, errorAttrs);
+        throw error;
+      }
    }
 
    /**

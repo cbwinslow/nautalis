@@ -22,14 +22,14 @@ export class OllamaProvider extends BaseProvider {
     });
   }
 
-  createLLM(overrides?: Partial<any>): any {
-    const baseUrl = this.config.url || this.config.baseUrl || 'http://localhost:11434';
-    const model = this.config.model || 'qwen2.5:3b';
+   createLLM(overrides?: Partial<any>): any {
+     const baseUrl = this.config.url || this.config.baseUrl || 'http://localhost:11434';
+     const model = this.config.model || 'qwen2.5:3b';
 
-    return new Ollama({
-      baseUrl,
-      model,
-      ...overrides,
-    });
-  }
+     return new Ollama({
+       baseUrl,
+       model,
+       ...overrides,
+     } as any);
+   }
 }

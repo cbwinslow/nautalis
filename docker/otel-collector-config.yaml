@@ -1,0 +1,106 @@
+# OpenTelemetry Collector configuration
+# Serves traces, metrics, logs and exports to:
+# - Jaeger (traces)
+# - Grafana Cloud / Prometheus (metrics)
+# - Loki (logs) or PostgreSQL (logs)
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 10s
+    sendbatch_size: 1024
+
+  memory_limiter:
+    check_interval: 1s
+    limit_memory: 512Mi
+    spike_limit_memory: 128Mi
+
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: local
+        action: upsert
+
+  transform:
+    traces:
+      statements:
+        - context: span
+          statements:
+            - set(attributes["db.system"], "postgresql")
+            - set(attributes["db.name"], "nautalis")
+            - set(attributes["service.name"], resource.service.name)
+
+exporters:
+  # Logging for debugging
+  logging:
+    loglevel: info
+
+  # Traces to Jaeger
+  jaeger:
+    endpoint: jaeger:14268
+    tls:
+      insecure: true
+
+  # Metrics to Prometheus (or Grafana)
+  prometheus:
+    endpoint: 0.0.0.0:8888
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # Logs to Loki (optional, requires Loki)
+  # loki:
+  #   endpoint: http://loki:3100/loki/api/v1/push
+  #   labels:
+  #     resource:
+  #       - service.name
+  #       - deployment.environment
+  #     attributes:
+  #       - log.level
+  #   tenant_id: ""
+  #   batch_wait: 1s
+  #   max_backoff: 5s
+  #   timeout: 5s
+
+  # Metrics/Logs to PostgreSQL (TimescaleDB) – Alternative to Loki
+  postgresql:
+    driver: "postgresql"
+    datasource: "postgres://nautalis:nautalis@postgres:5432/nautalis?sslmode=disable"
+    ttl: 30d
+    scheduled_delete:
+      enabled: true
+      interval: 1h
+      iform expects: "DELETE FROM telemetry WHERE timestamp < NOW() - INTERVAL '30 days'"
+    # Note: This exporter requires extra setup; see notes below.
+
+service:
+  telemetry:
+    logs:
+      level: info
+      encoding: json
+      output_paths: ["stdout"]
+      local_timestamp: true
+
+  extensions: []
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [logging, jaeger]
+
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [logging, prometheus]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [logging]  # Add loki or postgresql if configured

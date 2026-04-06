@@ -10,18 +10,18 @@ export class AnthropicProvider extends BaseProvider {
     super();
   }
 
-  createLLM(overrides?: Partial<any>): any {
-    const baseUrl = this.config.baseUrl || 'https://api.anthropic.com';
-    const model = this.config.model || 'claude-3-5-sonnet-20241022';
-    const apiKey = this.getApiKey();
+   createLLM(overrides?: Partial<any>): any {
+     const baseUrl = this.config.baseUrl || 'https://api.anthropic.com';
+     const model = this.config.model || 'claude-3-5-sonnet-20241022';
+     const apiKey = this.getApiKey();
 
-    return new Anthropic({
-      baseUrl,
-      model,
-      apiKey,
-      ...overrides,
-    });
-  }
+     return new Anthropic({
+       baseUrl,
+       model,
+       apiKey,
+       ...overrides,
+     } as any);
+   }
 
   createEmbeddingService(overrides?: Partial<any>): never {
     throw new Error('AnthropicProvider does not support embeddings. Use a different provider for embeddings.');

@@ -29,8 +29,15 @@ export const defaultConfig: NautalisConfig = {
     secretDetection: true,
     maxContextLines: 100,
     minRelevanceScore: 0.7,
+    // telemetry: true, // moved to top-level observability
   },
   rules: [],
-  // Deployment mode: 'local' (baremetal), 'docker' (compose), 'baremetal' (alias for local)
+  // Deployment mode: 'local' (baremetal), 'docker' (compose network), 'baremetal' (alias for local)
   deployment: 'local',
+  // Observability: OpenTelemetry configuration
+  observability: {
+    enabled: true,
+    otlpEndpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || '',
+    debug: false,
+  },
 };

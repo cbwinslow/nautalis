@@ -229,6 +229,37 @@ Ensure PostgreSQL is running: `sudo systemctl status postgresql`. Check `pg_hba.
 
 ---
 
+## Observability
+
+The Docker Compose deployment includes an optional observability stack:
+
+- **OpenTelemetry Collector** listens on ports `4317` (gRPC) and `4318` (HTTP) to receive telemetry from Nautalis.
+- **Jaeger** provides trace visualization at http://localhost:16686
+- **Grafana** provides dashboards at http://localhost:3000 (default admin password: `admin` or set `GRAFANA_PASSWORD`)
+
+Metrics are also stored directly in the TimescaleDB `telemetry` hypertable as a fallback when the collector is unavailable.
+
+### Accessing Components
+
+- **Jaeger UI**: Open http://localhost:16686 to search traces.
+- **Grafana**: Open http://localhost:3000. You can add data sources:
+  - Prometheus (if configured) for metrics
+  - Jaeger for traces
+  - PostgreSQL (TimescaleDB) for querying the `telemetry` table (custom dashboards)
+
+### Enabling Full Observability
+
+The collector is enabled by default in Docker Compose. To use it:
+
+1. Ensure `OTEL_EXPORTER_OTLP_ENDPOINT` is set to `http://otel-collector:4318` (already set in the compose file).
+2. Start the stack: `docker compose -f docker/docker-compose.yml up -d`
+3. Open Jaeger/Grafana in your browser.
+
+If you do not wish to use the collector, you can remove the `otel-collector`, `jaeger`, and `grafana` services from the compose file and set `OTEL_EXPORTER_OTLP_ENDPOINT` empty; metrics will continue to be stored in TimescaleDB.
+
+---
+
+
 ## Next Steps
 
 After deployment:
