@@ -45,12 +45,12 @@ The project has exceptional architectural foundations and most core features are
 ### Largest Gaps by Component
 
 - **RAG/Search:** 85% complete — Indexes (HNSW, FTS) functional, LlamaIndex integration complete, hybrid search implemented
-- **Context Injection:** 30% complete — Daemon uses recency; semantic injection not yet implemented
+ - **Context Injection:** 60% complete — Semantic injection implemented in CLI and daemon (configurable via rag.useSemanticInject); recency fallback available
 - **Connectors:** 60% complete — Claude Code hook conversion validated, Kilo parser exists, FileSystem stub; real-world testing needed
 - **Security:** 40% complete — PII detection done, input validation incomplete, audit logging partial
 - **CLI:** 90% complete — All 16 commands registered and functional
 - **Test Suite:** 20% complete — Unit tests present, integration tests in progress; target 80%+
-- **Observability:** 85% complete — Full OTel instrumentation, DB fallback, collector, Jaeger, Grafana; dashboards optional
+- **Observability:** 90% complete — Full OTel instrumentation, DB fallback, collector, Jaeger, Grafana with provisioning; health checks
 - **Team Features:** 80% complete — permissions enforced for all core resources (memories, KB, teams, projects, agents, sessions)
 
 ### Critical Success Factors

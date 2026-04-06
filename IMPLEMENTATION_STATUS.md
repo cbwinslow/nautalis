@@ -319,32 +319,34 @@ Remaining gaps: Resource sharing (`resource_shares`) not implemented.
 ### 7. Observability (OpenTelemetry)
 
 **Design:** Complete — OTel SDK integrated, metrics defined  
-**Implementation:** ~80% — SDK initialized, instrumentation added to core operations, collector integrated  
-**Status:** 🟨 Near Complete
+**Implementation:** ~90% — SDK initialized, comprehensive instrumentation, collector integrated, health checks, Grafana dashboard  
+**Status:** 🟩 Near Complete
 
 | Aspect                                           | Status      | Notes                                                                               |
 | ------------------------------------------------ | ----------- | ----------------------------------------------------------------------------------- |
 | OTel SDK initialization                          | ✅ Complete | `telemetry/provider.ts` sets up traces, metrics (logs optional)                     |
-| `createSpan()`, `recordMetric()`, `logMessage()` | ✅ Complete | Convenience API; DB fallback when OTel disabled                                    |
+| `createSpan()`, `recordMetric()`, `logMessage()` | ✅ Complete | Convenience API; DB fallback when OTel disabled; `withSpan()` helper added         |
 | Spans in core operations                         | ✅ Complete | Event ingestion, memory enrichment, store CRUD, RAG query/synthesize, KB search   |
 | Metrics recording                                | ✅ Complete | Counts and latency for embeddings, memory ops, RAG ops, errors, DB telemetry table|
 | Benchmarking utility                             | ✅ Complete | `benchmarkOperation()` exists in `telemetry/benchmark.ts`                          |
 | Telemetry hypertable                             | ✅ Complete | TimescaleDB table with continuous aggregates for latency analysis                  |
 | OTel Collector setup                             | ✅ Complete | Docker Compose includes otel-collector service                                      |
-| Jaeger/Grafana dashboards                        | ✅ Complete | Services defined; Jaeger for traces, Grafana for metrics (connect to TimescaleDB)  |
+| Jaeger/Grafana dashboards                        | ✅ Complete | Services defined; Grafana auto-provisioned with Nautalis dashboard                 |
+| Health checks                                    | ✅ Complete | Daemon exposes GET /health; Docker Compose defines healthchecks                    |
 
 **Remaining Gaps:**
 
-- CLI command execution spans (low priority)
+- CLI command execution spans for remaining commands (timeline, status, hooks, team, permissions, inject, etc.)
 - Connector operation instrumentation (watch, health)
 - HTTP request telemetry (if applicable)
-- Grafana dashboard pre-built panels (users can create custom from TimescaleDB)
+- End-to-end integration test with OTel collector (verify traces in Jaeger)
 
 **Implementation Notes:**
 
 - Metrics are stored in TimescaleDB `telemetry` table when OTel is disabled (fallback)
 - When OTel collector is available (default in Docker Compose), spans and metrics are exported to collector
 - Collector configured to export traces to Jaeger and metrics to Prometheus endpoint (Grafana can query TimescaleDB directly)
+- Sample Grafana dashboard located at `docker/grafana/nautalis-dashboard.json`
 
 **Related Issues:** #22
 
