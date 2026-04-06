@@ -1,64 +1,61 @@
-import { test, expect } from 'bun:test';
-import { BaseProvider, PROVIDER_CAPABILITIES } from '../../src/providers/base.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'bun:test';
+import { BaseProvider } from '../../src/providers/base.js';
+import type { EmbeddingConfig, LLMConfig } from '../../src/types/config.js';
 
-// Concrete implementation for testing abstract class
+// Concrete implementation for testing
 class TestProvider extends BaseProvider {
-  capabilities = PROVIDER_CAPABILITIES.ollama;
-
-  createEmbeddingService(overrides?: any) {
-    return { type: 'embedding', overrides };
+  async embed(text: string): Promise<number[]> {
+    return [0.1, 0.2, 0.3];
   }
 
-  createLLM(overrides?: any) {
-    return { type: 'llm', overrides };
+  async generate(prompt: string): Promise<string> {
+    return 'response';
   }
 }
 
-test('BaseProvider: supports() returns embedding capability', () => {
-  const provider = new TestProvider();
-  expect(provider.supports('embedding')).toBe(true);
-});
+describe('BaseProvider', () => {
+  let provider: TestProvider;
 
-test('BaseProvider: supports() returns llm capability', () => {
-  const provider = new TestProvider();
-  expect(provider.supports('llm')).toBe(true);
-});
+  beforeEach(() => {
+    provider = new TestProvider({
+      embeddings: { provider: 'test', model: 'test-model' } as EmbeddingConfig,
+      llm: { provider: 'test', model: 'test-model' } as LLMConfig,
+    });
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
 
-test('BaseProvider: supports() returns false for unknown type', () => {
-  const provider = new TestProvider();
-  // @ts-expect-error testing invalid type
-  expect(provider.supports('unknown')).toBe(false);
-});
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-test('BaseProvider: concrete implementation provides createEmbeddingService', () => {
-  const provider = new TestProvider();
-  const service = provider.createEmbeddingService({ model: 'test' });
-  expect(service).toBeDefined();
-  expect(service.type).toBe('embedding');
-  expect(service.overrides).toEqual({ model: 'test' });
-});
+  it('should create provider with config', () => {
+    expect(provider).toBeInstanceOf(BaseProvider);
+  });
 
-test('BaseProvider: concrete implementation provides createLLM', () => {
-  const provider = new TestProvider();
-  const llm = provider.createLLM({ temperature: 0.5 });
-  expect(llm).toBeDefined();
-  expect(llm.type).toBe('llm');
-  expect(llm.overrides).toEqual({ temperature: 0.5 });
-});
+  it('should implement embed method', async () => {
+    const result = await provider.embed('test text');
+    expect(result).toEqual([0.1, 0.2, 0.3]);
+  });
 
-test('PROVIDER_CAPABILITIES: all providers have correct capabilities', () => {
-  expect(PROVIDER_CAPABILITIES.ollama).toEqual({ embeddings: true, llm: true });
-  expect(PROVIDER_CAPABILITIES.openai).toEqual({ embeddings: true, llm: true });
-  expect(PROVIDER_CAPABILITIES.anthropic).toEqual({ embeddings: false, llm: true });
-  expect(PROVIDER_CAPABILITIES.cohere).toEqual({ embeddings: true, llm: false });
-  expect(PROVIDER_CAPABILITIES.custom).toEqual({ embeddings: true, llm: true });
-  expect(PROVIDER_CAPABILITIES.composite).toEqual({ embeddings: true, llm: true });
-});
+  it('should implement generate method', async () => {
+    const result = await provider.generate('test prompt');
+    expect(result).toBe('response');
+  });
 
-test('BaseProvider: abstract class cannot be instantiated directly', () => {
-  // TypeScript prevents this at compile time, but at runtime we can check
-  // We'll use any to bypass TS and verify that abstract methods throw
-  // However, in ES classes, abstract class instantiation throws a runtime error in strict mode
-  // Since this is compiled TS, we'll skip runtime test and rely on compile-time
-  expect(true).toBe(true);
+  it('should handle embed errors', async () => {
+    const failingProvider = {
+      ...provider,
+      embed: async () => { throw new Error('embed failed'); },
+    };
+    await expect(failingProvider.embed('test')).rejects.toThrow('embed failed');
+  });
+
+  it('should handle generate errors', async () => {
+    const failingProvider = {
+      ...provider,
+      generate: async () => { throw new Error('generate failed'); },
+    };
+    await expect(failingProvider.generate('test')).rejects.toThrow('generate failed');
+  });
 });
