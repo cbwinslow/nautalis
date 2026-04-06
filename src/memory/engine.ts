@@ -73,15 +73,20 @@ export class MemoryEngine {
 
       const memories: Memory[] = [];
 
-      // Classify the event
-      const classification = this.classifier.classify(validatedEvent);
+       // Classify the event
+       const classification = this.classifier.classify(validatedEvent);
 
-       // Generate embedding for the event summary
-       const summary = this.generateSummary(validatedEvent);
-       const embeddingResult = await this.embeddingService.embed(summary);
+        // Determine teamId early for telemetry
+        teamId = validatedEvent.context.teamId || this.config.general.teamId;
+        if (!teamId) {
+          throw new Error(
+            'teamId is required for memory processing. Set in config or event context.',
+          );
+        }
 
-       // Ensure teamId is set: use event context or fall back to config
-       teamId = validatedEvent.context.teamId || this.config.general.teamId;
+        // Generate embedding for the event summary (pass teamId for telemetry)
+        const summary = this.generateSummary(validatedEvent);
+        const embeddingResult = await this.embeddingService.embed(summary, { teamId });
        if (!teamId) {
         throw new Error(
           'teamId is required for memory processing. Set in config or event context.',
