@@ -34,11 +34,24 @@ export function registerDaemonCommand(program: Command): void {
 
         const port = parseInt(opts.port);
 
-        server = http.createServer(async (req, res) => {
-          try {
-            const url = new URL(req.url || '/', `http://${req.headers.host}`);
-            // POST /api/events
-            if (url.pathname === '/api/events' && req.method === 'POST') {
+         server = http.createServer(async (req, res) => {
+           try {
+             const url = new URL(req.url || '/', `http://${req.headers.host}`);
+
+             // GET /health - health check endpoint
+             if (url.pathname === '/health' && req.method === 'GET') {
+               const health = {
+                 status: 'ok',
+                 timestamp: new Date().toISOString(),
+                 uptime: process.uptime(),
+               };
+               res.writeHead(200, { 'Content-Type': 'application/json' });
+               res.end(JSON.stringify(health));
+               return;
+             }
+
+             // POST /api/events
+             if (url.pathname === '/api/events' && req.method === 'POST') {
               let body = '';
               for await (const chunk of req) {
                 body += chunk;

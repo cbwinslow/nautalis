@@ -1,22 +1,28 @@
 # Default deployment — PostgreSQL + TimescaleDB + pgvector + Observability
 services:
-  nautalis:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    ports:
-      - "3001:3001"
-    environment:
-      - DATABASE_URL=postgresql://nautalis:nautalis@postgres:5432/nautalis
-      - NAUTALIS_DB_DRIVER=postgres
-      - NAUTALIS_EMBED_PROVIDER=ollama
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-    depends_on:
-      postgres:
-        condition: service_healthy
-      otel-collector:
-        condition: service_started
-    restart: unless-stopped
+   nautalis:
+     build:
+       context: ..
+       dockerfile: docker/Dockerfile
+     ports:
+       - "3001:3001"
+     environment:
+       - DATABASE_URL=postgresql://nautalis:nautalis@postgres:5432/nautalis
+       - NAUTALIS_DB_DRIVER=postgres
+       - NAUTALIS_EMBED_PROVIDER=ollama
+       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+     depends_on:
+       postgres:
+         condition: service_healthy
+       otel-collector:
+         condition: service_started
+     healthcheck:
+       test: ["CMD", "bun", "-e", "try { const res = await (await fetch('http://localhost:3001/health')).ok; process.exit(res ? 0 : 1) } catch (e) { process.exit(1) }"]
+       interval: 30s
+       timeout: 10s
+       retries: 3
+       start_period: 5s
+     restart: unless-stopped
 
   postgres:
     image: timescale/timescaledb-ha:pg16
