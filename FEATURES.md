@@ -38,7 +38,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **RAG Synthesis**     | ✅ 85% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom) with robust fallback | ✅ Essential |
 | **Knowledge Base**    | ✅ 100% — CRUD, search, versioning, visibility                 | ✅ Essential |
 | **CLI Commands**      | ✅ 95% — All 17 commands registered and functional             | ✅ Essential |
-| **Observability**     | 🟨 60% — Structured logging via OTel SDK; pino integration; Jaeger/Grafana pending | ✅ Basic |
+| **Observability**     | 🟩 85% — Full OTel instrumentation, DB fallback, collector, Jaeger, Grafana; pre-built dashboards optional | ✅ Basic |
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
 | **Context Injection** | 🟨 60% — Semantic CLI works; daemon endpoint uses semantic when `rag.useSemanticInject` enabled; recency fallback        | ⬜ Post-MVP |
@@ -76,8 +76,9 @@ The MVP must deliver a **working system** that can be deployed by a small team a
      - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`, `system`, `providers`
   - Team management with permission enforcement
   - Configurable Claude Code hooks via `NAUTALIS_SERVER_URL`
-  - Remote endpoint support for all services (Tailscale-ready)
-  - **Configuration validation**: Zod schemas for config and events, validated at startup and ingest points
+   - Remote endpoint support for all services (Tailscale-ready)
+   - **OpenTelemetry observability**: comprehensive spans and metrics; DB fallback; Docker Compose includes otel-collector, Jaeger, Grafana
+   - **Configuration validation**: Zod schemas for config and events, validated at startup and ingest points
   - **Error resilience**: Retry with exponential backoff + circuit breaker for embedding API, LLM API, and database operations
   - **RAG-to-Store integration**: LlamaIndex index used automatically for semantic search (falls back to pgvector if not built)
   - **PII detection**: Automatic redaction of emails, phones, credit cards, API keys, and passwords from events

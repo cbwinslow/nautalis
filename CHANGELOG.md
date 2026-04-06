@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2026-04-06)
+
+- **Observability Instrumentation** — Extensive telemetry spans and metrics added across core components:
+  - `EmbeddingService`: counts (`embeddings_generated`) and latency (`operation.latency_ms`) per embedding call
+  - `RAGEngine`: query/synthesis counts and latency; error metrics
+  - `KnowledgeBaseEngine`: `knowledge_base.searched` count per search
+  - `Store`: enhanced `insertEvent`, `insertMemory`, `queryMemories` with teamId attributes, operation latency, and error counts
+  - `MemoryEngine`: enriched `processEvent` with total latency and error tracking
+- **OpenTelemetry Full Integration** — OTel SDK now initializes based on configuration; when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (or `observability.otlpEndpoint`), traces and metrics are exported. When disabled, recordings fall back to TimescaleDB `telemetry` table.
+- **Docker Observability Stack** — Default `docker-compose.yml` now includes `otel-collector`, `jaeger`, and `grafana` services. Collector configured to export traces to Jaeger and metrics to Prometheus endpoint. Grafana available for dashboards.
+- **Database-Backed Metrics Fallback** — `recordMetric()` now uses OTel when enabled, otherwise writes directly to TimescaleDB `telemetry` hypertable for persistent metrics even without collector.
+- **Provider Type Safety** — Added explicit `as any` casts in provider implementations (Anthropic, Ollama, OpenAI) to satisfy TypeScript until LlamaIndex types are updated.
+- **Telemetry Constants** — Added `OPERATION_LATENCY_MS`, `ERRORS_COUNT`, and `RAG_SYNTHESES` metric names for consistency.
+
 ### Added (2026-04-05)
 
 - **TimescaleDB Integration** — Hypertables for events, audit_log, and telemetry with compression (30d) and retention policies (365d/730d/90d). Continuous aggregates for daily event stats and hourly telemetry latency. Requires PostgreSQL preload `shared_preload_libraries = 'timescaleedb'`.
