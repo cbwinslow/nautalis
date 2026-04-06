@@ -383,7 +383,7 @@ Claude Code hooks are installed by writing to `~/.claude/settings.json`. The hoo
 - **SessionEnd** → `nautalis finalize-session` (finalizes session data)
 - **SessionStart** → `nautalis inject-context` (injects relevant context into new session)
 
-**Note:** The hook scripts read `NAUTALIS_SERVER_URL` environment variable to determine where to send requests. Set this to your Nautalis server address (e.g., `http://100.x.y.z:3001`) for remote deployments. Default is `http://localhost:3001`.
+**Note:** The hook scripts read `NAUTALIS_SERVER_URL` environment variable to determine where to send requests. Set this to your Nautalis server address (e.g., `http://100.x.y.z:3002`) for remote deployments. Default is `http://localhost:3002` when using Docker Compose, or `http://localhost:3001` for native runs.
 
 ---
 
@@ -694,15 +694,15 @@ Nautalis requires a PostgreSQL 16+ database with TimescaleDB and pgvector extens
    ```bash
    docker exec docker-nautalis-1 bun run dist/cli.js init
    ```
-5. Access services:
-   - Nautalis daemon: http://localhost:3001
-   - Jaeger UI: http://localhost:16686
-   - Grafana: http://localhost:3000 (admin/admin)
-   - OTel Collector endpoints: http://localhost:4317 (gRPC), http://localhost:4318 (HTTP)
+ 5. Access services:
+    - Nautalis daemon: http://localhost:3002
+    - Jaeger UI: http://localhost:16686
+    - Grafana: http://localhost:4000 (admin/admin)
+    - OTel Collector endpoints: http://localhost:4317 (gRPC), http://localhost:4318 (HTTP)
 
 ### Notes
 
-- The `docker-compose.yml` uses `network_mode: host` for nautalis so it can reach the host's PostgreSQL via `localhost`.
+- The `docker-compose.yml` maps container port 3001 to host port 3002 and uses `extra_hosts` to reach the host's PostgreSQL at `host.docker.internal`.
 - If you need to run everything in Docker (including PostgreSQL), use `docker-compose.team.yml` or `docker-compose.enterprise.yml` which include database services. Those are for team/enterprise deployments and self-contained testing.
 - Always run `bun run typecheck` and `bun test` before committing.
 - Current test coverage: >80% (192 passing tests).
