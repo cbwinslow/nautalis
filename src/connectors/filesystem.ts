@@ -17,52 +17,100 @@ export class FileSystemConnector extends BaseConnector {
     supportedFeatures: ['file_monitoring', 'custom_parsing'],
     requiredTools: [],
   };
+
+  private eventsIngested = 0;
+  private lastIngest: Date | null = null;
+  private watchedFiles = new Map<string, number>(); // filePath -> mtime
+  private abortController: AbortController | null = null;
   
-  async ingest(config: ConnectorConfig): Promise<NautalisEvent[]> {
-    const events: NautalisEvent[] = [];
-    
-    for (const sourceDir of config.sourceDirs) {
-      const expandedDir = sourceDir.replace(/^~/, os.homedir());
-      
-      if (!fsSync.existsSync(expandedDir)) {
-        logMessage('warn', `Source directory not found: ${expandedDir}`);
-        continue;
-      }
-      
-      const files = await this.findFiles(expandedDir, config.filePattern || '*');
-      
-      for (const file of files) {
-        const content = await fs.readFile(file, 'utf-8');
-        
-        if (config.parser === 'jsonl') {
-          const lines = content.trim().split('\n').filter(Boolean);
-          for (const line of lines) {
-            try {
-              const data = JSON.parse(line);
-              events.push(this.createEvent(data, file));
-            } catch {
-              // Skip malformed lines
-            }
-          }
-        } else if (config.parser === 'json') {
-          try {
-            const data = JSON.parse(content);
-            events.push(this.createEvent(data, file));
-          } catch {
-            // Skip malformed files
-          }
-        } else if (config.parser === 'custom' && config.customParserCmd) {
-          logMessage('warn', 'Custom parser not yet implemented');
-        }
-      }
-    }
-    
-    return events;
-  }
+   async ingest(config: ConnectorConfig): Promise<NautalisEvent[]> {
+     const events: NautalisEvent[] = [];
+     
+     for (const sourceDir of config.sourceDirs) {
+       const expandedDir = sourceDir.replace(/^~/, os.homedir());
+       
+       if (!fsSync.existsSync(expandedDir)) {
+         logMessage('warn', `Source directory not found: ${expandedDir}`);
+         continue;
+       }
+       
+       const files = await this.findFiles(expandedDir, config.filePattern || '*');
+       
+       for (const file of files) {
+         // Skip if file hasn't changed since last ingest
+         try {
+           const stat = await fs.stat(file);
+           const lastMtime = this.watchedFiles.get(file);
+           if (lastMtime && stat.mtimeMs <= lastMtime) {
+             continue; // unchanged
+           }
+           this.watchedFiles.set(file, stat.mtimeMs);
+         } catch {
+           // If we can't stat, still try to process (maybe new file)
+         }
+
+         const content = await fs.readFile(file, 'utf-8');
+         
+         if (config.parser === 'jsonl') {
+           const lines = content.trim().split('\n').filter(Boolean);
+           for (const line of lines) {
+             try {
+               const data = JSON.parse(line);
+               events.push(this.createEvent(data, file));
+             } catch {
+               // Skip malformed lines
+             }
+           }
+         } else if (config.parser === 'json') {
+           try {
+             const data = JSON.parse(content);
+             events.push(this.createEvent(data, file));
+           } catch {
+             // Skip malformed files
+           }
+         } else if (config.parser === 'custom' && config.customParserCmd) {
+           logMessage('warn', 'Custom parser not yet implemented');
+         }
+       }
+     }
+     
+     this.eventsIngested += events.length;
+     this.lastIngest = new Date();
+     
+     return events;
+   }
   
-  async *watch(config: ConnectorConfig): AsyncGenerator<NautalisEvent> {
-    logMessage('warn', 'File watching not yet implemented');
-  }
+   async *watch(config: ConnectorConfig): AsyncGenerator<NautalisEvent> {
+     logMessage('info', 'FileSystemConnector watch started');
+     const pollInterval = config.pollIntervalMs || 5000;
+     this.abortController = new AbortController();
+
+     while (true) {
+       try {
+         const events = await this.ingest(config);
+         for (const event of events) {
+           yield event;
+         }
+       } catch (error) {
+         logMessage('error', `Watch ingest error: ${error}`);
+       }
+
+       // Wait for interval or abort
+       await new Promise(resolve => {
+         const timeout = setTimeout(resolve, pollInterval);
+         this.abortController?.signal.addEventListener('abort', () => {
+           clearTimeout(timeout);
+           resolve(undefined);
+         }, { once: true });
+       });
+
+       if (this.abortController?.signal.aborted) {
+         break;
+       }
+     }
+
+     logMessage('info', 'FileSystemConnector watch stopped');
+   }
   
   private async findFiles(dir: string, pattern: string): Promise<string[]> {
     const files: string[] = [];
@@ -87,7 +135,17 @@ export class FileSystemConnector extends BaseConnector {
     return files;
   }
   
-  private createEvent(data: Record<string, unknown>, sourceFile: string): NautalisEvent {
+   async health(): Promise<ConnectorHealth> {
+     return {
+       status: 'healthy',
+       lastCheck: new Date(),
+       lastIngest: this.lastIngest,
+       eventsIngested: this.eventsIngested,
+       errors: [],
+     };
+   }
+
+   private createEvent(data: Record<string, unknown>, sourceFile: string): NautalisEvent {
     return {
       eventId: uuidv4(),
       timestamp: new Date((data.timestamp as string) || Date.now()),

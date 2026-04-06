@@ -48,9 +48,19 @@ export class KiloCodeConnector extends BaseConnector {
     return events;
   }
   
-  async inject(context: AgentContext): Promise<void> {
-    logMessage('info', 'Context injection not supported for Kilo Code');
-  }
+   async inject(context: AgentContext): Promise<void> {
+     logMessage('info', 'Context injection not supported for Kilo Code');
+   }
+
+   async health(): Promise<ConnectorHealth> {
+     return {
+       status: 'healthy',
+       lastCheck: new Date(),
+       lastIngest: this.lastIngest,
+       eventsIngested: this.eventsIngested,
+       errors: [],
+     };
+   }
   
   private async parseSessionFile(filePath: string): Promise<NautalisEvent[]> {
     logMessage('warn', `Kilo Code session parsing not fully implemented: ${filePath}`);
