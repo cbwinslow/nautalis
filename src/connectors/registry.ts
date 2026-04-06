@@ -1,7 +1,8 @@
 import type { Connector, ConnectorConfig } from '../types/connector.js';
 import type { NautalisConfig } from '../types/config.js';
 import type { NautalisEvent } from '../types/event.js';
-import { logMessage } from '../telemetry/api.js';
+import { logMessage, createSpan, recordMetric } from '../telemetry/api.js';
+import { METRIC_NAMES } from '../types/telemetry.js';
 
 class ConnectorRegistry {
   private connectors = new Map<string, Connector>();
@@ -49,35 +50,48 @@ class ConnectorRegistry {
     return result;
   }
 
-  async setupAll(configs: NautalisConfig['connectors']): Promise<void> {
-    const enabled = this.getEnabled(configs);
+   async setupAll(configs: NautalisConfig['connectors']): Promise<void> {
+     const enabled = this.getEnabled(configs);
+     const span = createSpan('nautalis.connector.setup_all', { connector_count: enabled.length });
 
-    for (const { connector, config } of enabled) {
-      try {
-        await connector.setup(config);
-        logMessage('info', `Setup complete for connector: ${connector.metadata.name}`);
-      } catch (error) {
-        logMessage('error', `Failed to setup connector ${connector.metadata.name}: ${error}`);
-      }
-    }
-  }
+     try {
+       for (const { connector, config } of enabled) {
+         try {
+           await connector.setup(config);
+           logMessage('info', `Setup complete for connector: ${connector.metadata.name}`);
+         } catch (error) {
+           logMessage('error', `Failed to setup connector ${connector.metadata.name}: ${error}`);
+         }
+       }
+     } finally {
+       span.end();
+     }
+   }
 
-  async ingestAll(configs: NautalisConfig['connectors']): Promise<NautalisEvent[]> {
-    const enabled = this.getEnabled(configs);
-    const allEvents: NautalisEvent[] = [];
+   async ingestAll(configs: NautalisConfig['connectors']): Promise<NautalisEvent[]> {
+     const enabled = this.getEnabled(configs);
+     const span = createSpan('nautalis.connector.ingest_all', { connector_count: enabled.length });
+     const allEvents: NautalisEvent[] = [];
 
-    for (const { connector, config } of enabled) {
-      try {
-        const events = await connector.ingest(config);
-        allEvents.push(...events);
-        logMessage('info', `Ingested ${events.length} events from ${connector.metadata.name}`);
-      } catch (error) {
-        logMessage('error', `Failed to ingest from ${connector.metadata.name}: ${error}`);
-      }
-    }
+     try {
+       for (const { connector, config } of enabled) {
+         try {
+           const events = await connector.ingest(config);
+           allEvents.push(...events);
+           logMessage('info', `Ingested ${events.length} events from ${connector.metadata.name}`);
+         } catch (error) {
+           logMessage('error', `Failed to ingest from ${connector.metadata.name}: ${error}`);
+         }
+       }
+     } finally {
+       span.end();
+     }
 
-    return allEvents;
-  }
+     // Record total events ingested metric (also recorded per event later)
+     recordMetric(METRIC_NAMES.EVENTS_INGESTED, allEvents.length, { source: 'connectors' });
+
+     return allEvents;
+   }
 
   async watchAll(configs: NautalisConfig['connectors']): Promise<AsyncGenerator<NautalisEvent>> {
     const enabled = this.getEnabled(configs);
