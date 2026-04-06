@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { loadConfig } from '../config/loader.js';
 import { getStore } from '../store/factory.js';
-import { initTelemetry } from '../telemetry/provider.js';
+import { initTelemetry, createSpan } from '../telemetry/provider.js';
 import chalk from 'chalk';
 import ora from 'ora';
 
@@ -15,10 +15,15 @@ export function registerMemoryCommand(program: Command): void {
     .option('--project <id>', 'Filter by project')
     .option('--limit <n>', 'Maximum results', '20')
     .action(async (opts) => {
+      initTelemetry();
+      const span = createSpan('nautalis.command.memory.list', {
+        type: opts.type || 'all',
+        project: opts.project || 'all',
+        limit: parseInt(opts.limit),
+      });
       const spinner = ora('Loading memories...').start();
 
       try {
-        initTelemetry();
         const config = await loadConfig();
         const store = await getStore(config);
         await store.init();
@@ -27,12 +32,12 @@ export function registerMemoryCommand(program: Command): void {
           throw new Error('Team ID required. Use --team flag or set teamId in config.');
         }
 
-         const memories = await store.listMemories(config.general.teamId, {
-           projectId: opts.project,
-           memoryType: opts.type,
-           limit: parseInt(opts.limit),
-           userId: config.general.userId,
-         });
+        const memories = await store.listMemories(config.general.teamId, {
+          projectId: opts.project,
+          memoryType: opts.type,
+          limit: parseInt(opts.limit),
+          userId: config.general.userId,
+        });
 
         spinner.stop();
         console.log(chalk.cyan(`\n  Memories (${memories.length}):\n`));
@@ -47,8 +52,10 @@ export function registerMemoryCommand(program: Command): void {
           );
           console.log('');
         }
+        span.end();
       } catch (error) {
         spinner.fail(chalk.red(`Failed: ${error}`));
+        span.end(error as Error);
         process.exit(1);
       }
     });
@@ -58,18 +65,21 @@ export function registerMemoryCommand(program: Command): void {
     .description('Delete a memory')
     .argument('<id>', 'Memory ID')
     .action(async (id) => {
+      initTelemetry();
+      const span = createSpan('nautalis.command.memory.delete', { memoryId: id });
       const spinner = ora(`Deleting memory ${id}...`).start();
 
       try {
-        initTelemetry();
         const config = await loadConfig();
         const store = await getStore(config);
         await store.init();
 
-         await store.deleteMemory(id, { userId: config.general.userId, teamId: config.general.teamId });
+        await store.deleteMemory(id, { userId: config.general.userId, teamId: config.general.teamId });
         spinner.succeed(chalk.green('Memory deleted'));
+        span.end();
       } catch (error) {
         spinner.fail(chalk.red(`Failed: ${error}`));
+        span.end(error as Error);
         process.exit(1);
       }
     });

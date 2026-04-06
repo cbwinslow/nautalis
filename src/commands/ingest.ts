@@ -4,7 +4,7 @@ import { getStore } from '../store/factory.js';
 import { connectorRegistry, setupConnectors } from '../connectors/registry.js';
 import { ClaudeCodeConnector, KiloCodeConnector, FileSystemConnector } from '../connectors/index.js';
 import { MemoryEngine } from '../memory/engine.js';
-import { initTelemetry } from '../telemetry/provider.js';
+import { initTelemetry, createSpan } from '../telemetry/provider.js';
 import chalk from 'chalk';
 import ora from 'ora';
 
@@ -16,10 +16,11 @@ export function registerIngestCommand(program: Command): void {
     .option('--async', 'Run asynchronously')
     .option('--connector <name>', 'Specific connector to use')
     .action(async (source, opts) => {
+      initTelemetry();
+      const span = createSpan('nautalis.command.ingest', { source: source || 'all', async: opts.async });
       const spinner = ora('Ingesting events...').start();
       
       try {
-        initTelemetry();
         const config = await loadConfig();
         
         // Register connectors
@@ -38,6 +39,7 @@ export function registerIngestCommand(program: Command): void {
         
         if (events.length === 0) {
           spinner.info(chalk.yellow('No new events to ingest'));
+          span.end();
           return;
         }
         
@@ -45,8 +47,10 @@ export function registerIngestCommand(program: Command): void {
         const memoryCount = await memoryEngine.ingestEvents(events);
         
         spinner.succeed(chalk.green(`Ingested ${events.length} events → ${memoryCount} memories`));
+        span.end();
       } catch (error) {
         spinner.fail(chalk.red(`Ingestion failed: ${error}`));
+        span.end(error as Error);
         process.exit(1);
       }
     });

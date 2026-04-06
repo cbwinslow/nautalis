@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { loadConfig } from '../config/loader.js';
 import { getStore } from '../store/factory.js';
 import { MemoryEngine } from '../memory/engine.js';
-import { initTelemetry } from '../telemetry/provider.js';
+import { initTelemetry, createSpan } from '../telemetry/provider.js';
 import chalk from 'chalk';
 import ora from 'ora';
 import { formatDistanceToNow } from 'date-fns';
@@ -17,10 +17,11 @@ export function registerSearchCommand(program: Command): void {
     .option('--limit <n>', 'Maximum results', '20')
     .option('--json', 'Output as JSON')
     .action(async (query, opts) => {
+      initTelemetry();
+      const span = createSpan('nautalis.command.search', { query, project: opts.project || 'all' });
       const spinner = ora(`Searching for "${query}"...`).start();
       
       try {
-        initTelemetry();
         const config = await loadConfig();
         const store = await getStore(config);
         await store.init();
@@ -35,11 +36,13 @@ export function registerSearchCommand(program: Command): void {
         
         if (opts.json) {
           console.log(JSON.stringify(results, null, 2));
+          span.end();
           return;
         }
         
         if (results.length === 0) {
           console.log(chalk.yellow('No results found'));
+          span.end();
           return;
         }
         
@@ -55,8 +58,10 @@ export function registerSearchCommand(program: Command): void {
           console.log(chalk.gray(`  │ ${formatDistanceToNow(memory.createdAt)} ago`));
           console.log(chalk.bold(`  └─\n`));
         }
+        span.end();
       } catch (error) {
         spinner.fail(chalk.red(`Search failed: ${error}`));
+        span.end(error as Error);
         process.exit(1);
       }
     });
