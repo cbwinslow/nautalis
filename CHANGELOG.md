@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added (2026-04-06)
 
 - **Observability Instrumentation** — Extensive telemetry spans and metrics added across core components:
-  - `EmbeddingService`: counts (`embeddings_generated`) and latency (`operation.latency_ms`) per embedding call
+  - `EmbeddingService`: counts (`embeddings_generated`) and latency (`operation.latency_ms`) per embedding call, includes teamId attribute
   - `RAGEngine`: query/synthesis counts and latency; error metrics
   - `KnowledgeBaseEngine`: `knowledge_base.searched` count per search
   - `Store`: enhanced `insertEvent`, `insertMemory`, `queryMemories` with teamId attributes, operation latency, and error counts
@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OpenTelemetry Full Integration** — OTel SDK now initializes based on configuration; when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (or `observability.otlpEndpoint`), traces and metrics are exported. When disabled, recordings fall back to TimescaleDB `telemetry` table.
 - **Docker Observability Stack** — Default `docker-compose.yml` now includes `otel-collector`, `jaeger`, and `grafana` services. Collector configured to export traces to Jaeger and metrics to Prometheus endpoint. Grafana available for dashboards.
 - **Database-Backed Metrics Fallback** — `recordMetric()` now uses OTel when enabled, otherwise writes directly to TimescaleDB `telemetry` hypertable for persistent metrics even without collector.
+- **CLI Telemetry** — Major CLI commands (`search`, `ask`, `ingest`, `memory`) now emit OpenTelemetry spans for end-to-end request tracing.
 - **Provider Type Safety** — Added explicit `as any` casts in provider implementations (Anthropic, Ollama, OpenAI) to satisfy TypeScript until LlamaIndex types are updated.
 - **Telemetry Constants** — Added `OPERATION_LATENCY_MS`, `ERRORS_COUNT`, and `RAG_SYNTHESES` metric names for consistency.
 
