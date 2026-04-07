@@ -56,7 +56,18 @@ describe('E2E: Full Pipeline', () => {
     );
     testProjectId = projectResult;
 
-    engine = new MemoryEngine(store, config);
+     engine = new MemoryEngine(store, config);
+
+     // In CI, replace embedding service with a dummy to avoid needing real Ollama
+     if (process.env.CI) {
+       (engine as any).embeddingService = {
+         embed: async (text: string, options?: any) => ({
+           embedding: Array(768).fill(0),
+           model: 'dummy',
+           dimensions: 768,
+         }),
+       };
+     }
 
     // Create an agent for these sessions (use 'opencode' as valid agent_tool enum)
     const agentId = await store.upsertAgent({
