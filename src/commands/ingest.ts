@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { loadConfig } from '../config/loader.js';
 import { getStore } from '../store/factory.js';
 import { connectorRegistry, setupConnectors } from '../connectors/registry.js';
-import { ClaudeCodeConnector, KiloCodeConnector, FileSystemConnector } from '../connectors/index.js';
+import { ClaudeCodeConnector, KiloCodeConnector, CursorConnector, FileSystemConnector } from '../connectors/index.js';
 import { MemoryEngine } from '../memory/engine.js';
 import { initTelemetry, createSpan } from '../telemetry/provider.js';
 import chalk from 'chalk';
@@ -23,10 +23,11 @@ export function registerIngestCommand(program: Command): void {
       try {
         const config = await loadConfig();
         
-        // Register connectors
-        connectorRegistry.register(new ClaudeCodeConnector());
-        connectorRegistry.register(new KiloCodeConnector());
-        connectorRegistry.register(new FileSystemConnector());
+         // Register connectors
+         connectorRegistry.register(new ClaudeCodeConnector());
+         connectorRegistry.register(new KiloCodeConnector());
+         connectorRegistry.register(new CursorConnector());
+         connectorRegistry.register(new FileSystemConnector());
         
         await setupConnectors(config);
         const store = await getStore(config);

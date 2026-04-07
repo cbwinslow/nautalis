@@ -1,0 +1,6 @@
+{"type":"session_start","session_id":"sess_123","timestamp":"2025-04-07T10:00:00Z","cwd":"/home/user/project"}
+{"type":"tool_call","session_id":"sess_123","timestamp":"2025-04-07T10:00:05Z","tool_name":"ReadFile","input":{"path":"/home/user/project/README.md"},"output":{"content":"# My Project\nThis is a test."}}
+{"type":"file_edit","session_id":"sess_123","timestamp":"2025-04-07T10:00:15Z","file_path":"/home/user/project/README.md","old_content":"# My Project\nThis is a test.","new_content":"# My Project\nThis is an updated test."}
+{"type":"command","session_id":"sess_123","timestamp":"2025-04-07T10:01:00Z","command":"git status","exit_code":0,"stdout":"On branch main\nnothing to commit, working tree clean","stderr":""}
+{"type":"lesson","session_id":"sess_123","timestamp":"2025-04-07T10:02:00Z","title":"Use functions for reuse","content":"When code is duplicated, extract into a function to improve maintainability."}
+{"type":"session_end","session_id":"sess_123","timestamp":"2025-04-07T10:30:00Z","summary":"Completed README update"}

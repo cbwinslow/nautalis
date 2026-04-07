@@ -9,13 +9,13 @@ import * as os from 'os';
 import * as fsSync from 'fs';
 import { logMessage } from '../telemetry/api.js';
 
-export class KiloCodeConnector extends BaseConnector {
+export class CursorConnector extends BaseConnector {
   metadata: ConnectorMetadata = {
-    name: 'kilo_code',
-    description: 'Kilo Code — AI coding assistant',
+    name: 'cursor',
+    description: 'Cursor — IDE-integrated AI pair programmer',
     version: '1.0.0',
-    supportedFeatures: ['sessions'],
-    requiredTools: ['kilocode'],
+    supportedFeatures: ['sessions', 'completions'],
+    requiredTools: ['cursor'],
   };
 
   private eventsIngested = 0;
@@ -28,7 +28,7 @@ export class KiloCodeConnector extends BaseConnector {
       const expandedDir = sourceDir.replace(/^~/, os.homedir());
 
       if (!fsSync.existsSync(expandedDir)) {
-        logMessage('warn', `Kilo Code session directory not found: ${expandedDir}`);
+        logMessage('warn', `Cursor session directory not found: ${expandedDir}`);
         continue;
       }
 
@@ -50,7 +50,7 @@ export class KiloCodeConnector extends BaseConnector {
   }
 
   async inject(context: AgentContext): Promise<void> {
-    logMessage('info', 'Context injection not supported for Kilo Code');
+    logMessage('info', 'Context injection not supported for Cursor');
   }
 
   async health(): Promise<ConnectorHealth> {
@@ -77,11 +77,11 @@ export class KiloCodeConnector extends BaseConnector {
             events.push(event);
           }
         } catch (parseError) {
-          logMessage('warn', `Failed to parse Kilo Code session line in ${filePath}: ${parseError}`);
+          logMessage('warn', `Failed to parse Cursor session line in ${filePath}: ${parseError}`);
         }
       }
     } catch (error) {
-      logMessage('error', `Failed to read Kilo Code session file ${filePath}: ${error}`);
+      logMessage('error', `Failed to read Cursor session file ${filePath}: ${error}`);
     }
 
     return events;
@@ -90,14 +90,13 @@ export class KiloCodeConnector extends BaseConnector {
   private transformEvent(data: any, sourceFile: string): NautalisEvent | null {
     const type = data.type;
     if (!type) {
-      logMessage('warn', 'Kilo Code event missing type field');
+      logMessage('warn', 'Cursor event missing type field');
       return null;
     }
 
     const sessionId = data.session_id || '';
     const cwd = data.cwd || process.cwd();
 
-    // Map Kilo event types to Nautalis EventType
     let eventType: EventType;
     let toolName: string | undefined;
     let toolInput: any = undefined;
@@ -105,22 +104,26 @@ export class KiloCodeConnector extends BaseConnector {
     let filesInvolved: string[] = [];
     let extractedDecisions: string[] = [];
 
+    // Cursor event types (assumed similar to Kilo for simplicity)
     switch (type) {
-      case 'tool_call':
+      case 'completion':
         eventType = 'tool_use';
-        toolName = data.tool_name || 'unknown_tool';
-        toolInput = data.input || {};
-        toolOutput = data.output || {};
+        toolName = 'completion';
+        toolInput = { prompt: data.prompt };
+        toolOutput = { completion: data.completion };
         break;
-      case 'file_edit':
-      case 'file_create':
-      case 'file_delete':
-        eventType = type as 'file_edit' | 'file_create' | 'file_delete';
-        toolName = type; // e.g., 'file_edit'
+      case 'chat':
+        eventType = 'conversation';
+        toolName = 'chat';
+        toolInput = { message: data.message };
+        toolOutput = { response: data.response };
+        break;
+      case 'edit':
+        eventType = 'file_edit';
+        toolName = 'edit';
         if (data.file_path) {
           filesInvolved = [data.file_path];
         }
-        // Store file operation details in toolInput/toolOutput
         toolInput = { file_path: data.file_path, old_content: data.old_content, new_content: data.new_content };
         toolOutput = { diff: data.diff };
         break;
@@ -129,15 +132,6 @@ export class KiloCodeConnector extends BaseConnector {
         toolName = 'shell';
         toolInput = { command: data.command };
         toolOutput = { exitCode: data.exit_code, stdout: data.stdout, stderr: data.stderr };
-        break;
-      case 'lesson':
-        eventType = 'decision'; // map lesson to decision event
-        toolName = 'lesson';
-        // Extract decision from title
-        if (data.title) {
-          extractedDecisions = [data.title];
-        }
-        // Store full lesson content in raw (extracted.decisions only holds title)
         break;
       case 'session_start':
         eventType = 'session_start';
@@ -148,8 +142,11 @@ export class KiloCodeConnector extends BaseConnector {
         toolName = 'session';
         break;
       default:
-        logMessage('warn', `Unknown Kilo Code event type: ${type}`);
-        return null;
+        // Treat unknown as conversation
+        eventType = 'conversation';
+        toolName = 'cursor';
+        toolInput = { raw: data };
+        break;
     }
 
     const now = new Date();
@@ -159,11 +156,11 @@ export class KiloCodeConnector extends BaseConnector {
       eventId: data.event_id || uuidv4(),
       timestamp,
       source: {
-        toolName: 'kilo_code',
-        toolVersion: data.tool_version || '1.0.0',
+        toolName: 'cursor',
+        toolVersion: data.tool_version || '0.45.0',
         instanceId: sourceFile,
         sessionId,
-        agentName: 'Kilo Code',
+        agentName: 'Cursor',
         userId: process.env.USER || 'anonymous',
       },
       project: {

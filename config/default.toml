@@ -33,6 +33,11 @@ type = "kilo_code"
 enabled = true
 source_dirs = ["~/.kilocode/sessions"]
 
+[[connectors]]
+type = "cursor"
+enabled = false
+source_dirs = ["~/.cursor/sessions"]
+
 [guardrails]
 pii_detection = true
 secret_detection = true
@@ -43,3 +48,17 @@ min_relevance_score = 0.7
 enabled = true
 max_requests = 100
 window_ms = 60000
+
+# Example: Define additional providers (OpenRouter, OpenAI, etc.)
+# Then set embeddings.provider = "openrouter" or llm.provider = "openrouter"
+[providers.openrouter]
+type = "openai"
+baseUrl = "https://openrouter.ai/api/v1"
+model = "anthropic/claude-3-opus"
+# apiKeyEnv = "OPENROUTER_API_KEY"  # set env variable
+
+[providers.my-openai]
+type = "openai"
+baseUrl = "https://api.openai.com/v1"
+model = "gpt-4-turbo"
+# apiKeyEnv = "OPENAI_API_KEY"

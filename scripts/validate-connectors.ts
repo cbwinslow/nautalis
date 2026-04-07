@@ -24,7 +24,7 @@ async function validate() {
     fixturePath = join(process.cwd(), 'test', 'fixtures', 'claude-transcript.jsonl');
   } else if (connectorName === 'kilo') {
     connector = new KiloCodeConnector();
-    fixturePath = join(process.cwd(), 'test', 'fixtures', 'kilo-session.jsonl'); // placeholder
+    fixturePath = join(process.cwd(), 'test', 'fixtures', 'kilo-session.jsonl');
   } else if (connectorName === 'filesystem') {
     connector = new FileSystemConnector();
     // FileSystem watch does not have a direct parse method; skip for now
@@ -36,8 +36,9 @@ async function validate() {
   }
 
   try {
-    // Directly call the private parseTranscript method for validation
-    const events = await (connector as any).parseTranscript(fixturePath);
+    // Call the appropriate private parse method
+    const parseMethod = connectorName === 'claude' ? 'parseTranscript' : 'parseSessionFile';
+    const events = await (connector as any)[parseMethod](fixturePath);
     console.log(`✅ Parsed ${events.length} events from ${fixturePath}`);
 
     // Validate each event has required fields
