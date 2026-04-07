@@ -17,7 +17,7 @@ Nautalis supports two deployment modes:
 
 ## Option 1: Docker Compose (Recommended)
 
-The fastest way to get started.
+The fastest way to get started. **Note:** This deployment assumes you already have PostgreSQL 16+ with required extensions running on the host system. The Nautalis container connects to the external database.
 
 ```bash
 # From the project root
@@ -25,21 +25,22 @@ docker compose -f docker/docker-compose.yml up -d
 ```
 
 This starts:
-- `nautalis` application on http://localhost:3001
-- `postgres` database on localhost:5432 (database `nautalis`, user `nautalis`, password `nautalis`)
-- Migrations are applied automatically on first startup
+- `nautalis` application on http://localhost:3002 (maps container port 3001 → host 3002)
+- `otel-collector` on ports 4317 (gRPC) and 4318 (HTTP)
+- `jaeger` UI on http://localhost:16686
+- `grafana` UI on http://localhost:4000
+- **PostgreSQL is NOT included** — Nautalis connects to your existing database via `host.docker.internal`
 
-The application will use the environment variables defined in the compose file:
-
+Before starting, ensure your `.env` file (or environment) defines `DATABASE_URL` pointing to your PostgreSQL instance. The compose file defaults to:
 ```yaml
 environment:
-  - DATABASE_URL=postgresql://nautalis:nautalis@postgres:5432/nautalis
-  - NAUTALIS_DB_DRIVER=postgres
-  - NAUTALIS_EMBED_PROVIDER=ollama
+  - DATABASE_URL=${DATABASE_URL:-postgresql://nautalis:nautalis@host.docker.internal:5432/nautalis}
 ```
+This uses `host.docker.internal` to reach the host's localhost:5432.
+
+Migrations are applied automatically on first startup when you run `nautalis init`.
 
 To stop:
-
 ```bash
 docker compose -f docker/docker-compose.yml down
 ```
@@ -221,10 +222,12 @@ Ensure PostgreSQL is running: `sudo systemctl status postgresql`. Check `pg_hba.
 | Feature | Docker Compose | Bare Metal |
 |---------|---------------|------------|
 | Setup time | ~5 minutes | ~30 minutes (if PostgreSQL already installed) |
-| Extensions | Pre-installed | Must install manually |
+| Database | External (host) | Native PostgreSQL |
+| Extensions | Host's extensions | Must install manually |
 | Isolation | Complete (container) | Shared system PostgreSQL |
-| Persistence | Docker volume | Native PGDATA |
-| Port conflicts | Uses internal network | Uses host port 5432 |
+| Persistence | Host's PGDATA | Native PGDATA |
+| Port conflicts | Uses host network via `host.docker.internal` | Uses host port 5432 |
+| Observability stack | Included (OTel, Jaeger, Grafana) | Must set up separately |
 | Production ready | Yes (with config) | Yes (requires hardening) |
 
 ---
@@ -248,10 +251,10 @@ Metrics are also stored directly in the TimescaleDB `telemetry` hypertable as a 
 
 Grafana is provisioned with a dashboard that queries the `telemetry` table (for metrics) and `events_daily_stats` view (for event counts). To ensure queries work, add a PostgreSQL data source in Grafana pointing to the Nautalis database:
 
-- Host: `postgres` (Docker network) or `localhost` (if running locally)
+- Host: `host.docker.internal` (from Grafana container to host's PostgreSQL) or the actual host IP/DNS if remote
 - Database: `nautalis`
-- User: `nautalis`
-- Password: `nautalis`
+- User: `nautalis` (or your configured user)
+- Password: `nautalis` (or your configured password)
 
 The dashboard uses this data source to display:
 

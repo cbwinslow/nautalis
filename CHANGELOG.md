@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2026-04-07)
+
+- **Interactive Setup Wizard** — `nautalis setup` now guides users through configuration with prompts for database, embeddings, LLM, and connectors; writes `.nautalisrc.json`.
+- **Provider Management Improvement** — `nautalis providers` command now shows availability status; plan for add/remove commands (partial).
+
 ### Added (2026-04-06)
 
 - **Observability Instrumentation** — Extensive telemetry spans and metrics added across core components:
