@@ -32,7 +32,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 |----------|----------------|---------------|
 | **Storage Backend**   | ✅ 100% — PostgreSQL + pgvector + TimescaleDB hypertables with compression/retention; full-text and HNSW indexes operational | ✅ Essential |
 | **Multi-tenancy**     | ✅ 100% — RBAC with RLS enforcement                            | ✅ Essential |
-| **Event Ingestion**   | 🟨 85% — REST API works, daemon conversion ready, connectors need real-world validation | ✅ Essential |
+| **Event Ingestion**   | ✅ 95% — REST API works, daemon conversion ready, multiple connectors implemented (Claude Code, Kilo Code, Cursor, FileSystem) | ✅ Essential |
 | **Memory Enrichment** | ✅ 80% — Classification, extraction, embedding, PII redaction (stable) | ✅ Essential |
 | **RAG Retrieval**     | ✅ 90% — Vector (HNSW) + full-text hybrid; LlamaIndex auto-build and index; score normalization; relationship traversal available | ✅ Essential |
 | **RAG Synthesis**     | ✅ 85% — Multi-provider LLM (Ollama, OpenAI, Anthropic, custom) with robust fallback | ✅ Essential |
@@ -42,9 +42,9 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
 | **Context Injection** | 🟨 70% — Semantic CLI and daemon (configurable); recency fallback; needs validation on real Claude hooks        | ⬜ Post-MVP |
-| **Test Suite**        | ✅ 85% — 201 passing tests (25 files); coverage: ~80% functions, ~88% lines; includes unit tests for config loader, migrate logic, providers base, store integration, RAG, permissions, KB, memory engine, embed factory, resilience, telemetry, rate limiter, and more. | ✅ Essential |
+| **Test Suite**        | ✅ 85% — 208 passing tests (26 files); coverage: ~80% functions, ~88% lines; includes comprehensive unit and integration tests for all core components. | ✅ Essential |
 | **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Defer |
-| **Connector SDK**     | ✅ 50% — Framework mature, watch implemented (polling); health methods; real-world validation needed | ⬜ Defer |
+| **Connector SDK**     | 🟨 75% — Framework mature, watch implemented (polling), health methods; multiple connectors delivered (Claude Code, Kilo Code, Cursor, FileSystem); real-world validation needed | ⬜ Defer |
 
 ---
 
@@ -75,9 +75,10 @@ The MVP must deliver a **working system** that can be deployed by a small team a
      - `permissions` (check, grant, revoke, matrix)
      - `providers` (list, add, remove, set-embeddings, set-llm)
      - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`, `system`
-  - Team management with permission enforcement
-  - Configurable Claude Code hooks via `NAUTALIS_SERVER_URL`
-   - Remote endpoint support for all services (Tailscale-ready)
+   - Team management with permission enforcement
+   - Multiple AI agent connectors: Claude Code (hooks), Kilo Code (JSONL sessions), Cursor (JSONL sessions), FileSystem (generic file-based)
+   - Configurable Claude Code hooks via `NAUTALIS_SERVER_URL`
+    - Remote endpoint support for all services (Tailscale-ready)
     - **OpenTelemetry observability**: comprehensive spans and metrics; DB fallback; Docker Compose includes otel-collector, Jaeger, Grafana with pre-provisioned dashboard
     - **Health checks**: Daemon exposes GET /health; Docker Compose defines healthchecks for nautalis service
    - **Configuration validation**: Zod schemas for config and events, validated at startup and ingest points
