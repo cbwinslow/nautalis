@@ -814,15 +814,19 @@ export class PostgresStore implements Store {
               ]
             );
 
-            if (memory.embedding) {
-              await client.query(
-                `INSERT INTO memory_embeddings (memory_id, embedding) VALUES ($1, $2::vector)
-                 ON CONFLICT (memory_id) DO UPDATE SET embedding = $2::vector`,
-                [memId, `[${memory.embedding.join(',')}]`]
-              );
-            }
+             if (memory.embedding) {
+               await client.query(
+                 `INSERT INTO memory_embeddings (memory_id, embedding) VALUES ($1, $2::vector)
+                  ON CONFLICT (memory_id) DO UPDATE SET embedding = $2::vector`,
+                 [memId, `[${memory.embedding.join(',')}]`]
+               );
+             }
 
-            const durationMs = Date.now() - startTime;
+             // Audit log for memory creation
+             const newMemory = { ...memory, id: memId, created_by: effectiveUserId };
+             await this.logAudit(effectiveTeamId, effectiveUserId, 'create', 'memory', memId, { newValues: newMemory }, client);
+
+             const durationMs = Date.now() - startTime;
             // Record metrics
             const countAttrs: Record<string, any> = {};
             if (effectiveTeamId) countAttrs.teamId = effectiveTeamId;

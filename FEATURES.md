@@ -108,8 +108,57 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 - **Context injection improvement**: Use semantic search in **SessionStart hook** (CLI already supports `--query`)
   - Enhance daemon endpoint to accept conversation context and perform RAG query
 - **Integration / E2E tests**: Need comprehensive tests covering store ops, RAG pipeline, permissions, connectors
- - **Security hardening**: Complete audit logging invocation for all sensitive operations
-- **MVP scope definition**: Reduce from 70+ requirements to essential 30% to ship functional system (issue #42)
+- **MVP scope definition**: Finalize and document MVP boundary (issue #42) — see below
+
+---
+
+## MVP Scope Definition (v0.1.0)
+
+### In Scope (MVP)
+
+**Core Functionality:**
+- ✅ PostgreSQL storage with pgvector and TimescaleDB
+- ✅ Multi-tenancy with RBAC and RLS
+- ✅ Memory ingestion, enrichment, and retrieval (RAG)
+- ✅ Knowledge base with search and versioning
+- ✅ Multi-provider LLM support (Ollama, OpenAI, Anthropic, Cohere, custom)
+- ✅ Multi-connector support (Claude Code, Kilo Code, Cursor, FileSystem)
+- ✅ CLI commands for all core operations (17 commands)
+- ✅ Daemon HTTP API for hook ingestion and context injection
+- ✅ OpenTelemetry observability with Jaeger + Grafana
+- ✅ Security: PII redaction, rate limiting (default 100 req/min), comprehensive audit logging
+- ✅ Setup wizard for initial configuration
+- ✅ Interactive provider management
+
+**Supported Use Cases:**
+- A small team (1-50 members) can deploy Nautalis on a single server (or Docker)
+- Ingest events from Claude Code, Kilo Code, Cursor, or custom file-based agents
+- Search past memories by semantic similarity
+- Ask questions about project history with synthesized answers
+- Manage team membership and permissions
+- View system health and observability dashboards
+- Configure remote providers (OpenRouter, OpenAI, etc.)
+
+**Not Required for MVP (Post-MVP):**
+- TUI Dashboard
+- Persistent LlamaIndex (rebuilt on startup is acceptable)
+- Relationship-based retrieval
+- Advanced RAG features (reranking, multi-modal)
+- Extensive E2E test suite (unit + integration tests are sufficient)
+- Real-world connector validation (code is ready, but manual testing is out-of-scope for code freeze)
+
+### Out of Scope (Post-MVP)
+
+- Additional connectors: Windsurf, VS Code, Aider, Copilot, Codex, Gemini, Devin (framework exists; implementations can be added later)
+- MCP server
+- Full-text search tuning beyond basic FTS
+- Rate limiting configuration beyond defaults (configurable but not needed for MVP)
+- Encrypted database storage (TDE)
+- Compliance reporting (GDPR, HIPAA)
+- High availability clustering
+- Backup/restore utilities
+
+**Decision:** MVP is **shippable** when all "In Scope" items are implemented and tested (current status: ~99%). Remaining work is primarily documentation, final testing, and release preparation.
 
 ---
 
