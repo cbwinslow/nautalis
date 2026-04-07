@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { PermissionManager } from './permissions.js';
 import { KnowledgeBaseEngine } from './knowledge-base.js';
 import { NautalisEventSchema, MemorySchema } from '../../validation/schemas.js';
-import { withRetry, RetryConfig, DEFAULT_RETRY_CONFIG } from '../../utils/resilience.js';
+import { RetryConfig, DEFAULT_RETRY_CONFIG } from '../../utils/resilience.js';
 
 const { Pool } = pg;
 
@@ -1236,7 +1236,7 @@ export class PostgresStore implements Store {
               queryParams = [memoryId, options.teamId];
               break;
             default:
-              const _exhaustive: never = relationType;
+              // Unknown relation type - return empty result
               return [];
           }
 
@@ -1597,7 +1597,7 @@ export class PostgresStore implements Store {
 
     private rowToEvent(row: any): NautalisEvent {
     // Parse tool output and incorporate exit_code
-    let toolOutput: any = row.tool_output ? JSON.parse(row.tool_output) : {};
+    const toolOutput: any = row.tool_output ? JSON.parse(row.tool_output) : {};
     if (row.exit_code !== null && row.exit_code !== undefined) {
       toolOutput.exitCode = row.exit_code;
     }

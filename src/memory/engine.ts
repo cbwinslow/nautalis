@@ -189,7 +189,7 @@ export class MemoryEngine {
   async ingestEvents(events: NautalisEvent[]): Promise<number> {
     const allMemories: Memory[] = [];
 
-    for (let event of events) {
+    for (const event of events) {
       // Validate incoming event
       let validatedEvent = NautalisEventSchema.parse(event);
 

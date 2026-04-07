@@ -42,7 +42,7 @@ export class SupabaseStore extends PostgresStore {
     });
   }
 
-  subscribeToTeamActivity(teamId: string, callback: (payload: any) => void) {
+  subscribeToTeamActivity(_teamId: string, _callback: (payload: any) => void) {
     logMessage('warn', 'Realtime subscriptions not yet implemented');
     return { unsubscribe: () => {} };
   }

@@ -49,7 +49,7 @@ export class KiloCodeConnector extends BaseConnector {
     return events;
   }
 
-  async inject(context: AgentContext): Promise<void> {
+  async inject(_context: AgentContext): Promise<void> {
     logMessage('info', 'Context injection not supported for Kilo Code');
   }
 

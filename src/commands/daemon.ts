@@ -207,15 +207,16 @@ export function registerDaemonCommand(program: Command): void {
                 return;
               }
 
-              // POST /api/context/inject
-              if (url.pathname === '/api/context/inject' && req.method === 'POST') {
-                let body = '';
-                for await (const chunk of req) {
-                  body += chunk;
-                }
-                const { session_id, cwd } = body ? JSON.parse(body) : {};
+               // POST /api/context/inject
+               if (url.pathname === '/api/context/inject' && req.method === 'POST') {
+                  // Drain request body (consume stream without storing)
+                  await new Promise<void>((resolve, reject) => {
+                    req.on('error', reject);
+                    req.on('end', () => resolve());
+                    req.resume();
+                  });
 
-                if (!config.general.teamId) {
+                 if (!config.general.teamId) {
                   res.writeHead(400, { 'Content-Type': 'application/json' });
                   res.end(JSON.stringify({ error: 'Team ID required' }));
                   return;

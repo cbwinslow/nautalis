@@ -49,7 +49,7 @@ export class CursorConnector extends BaseConnector {
     return events;
   }
 
-  async inject(context: AgentContext): Promise<void> {
+  async inject(_context: AgentContext): Promise<void> {
     logMessage('info', 'Context injection not supported for Cursor');
   }
 
@@ -102,7 +102,7 @@ export class CursorConnector extends BaseConnector {
     let toolInput: any = undefined;
     let toolOutput: any = undefined;
     let filesInvolved: string[] = [];
-    let extractedDecisions: string[] = [];
+     const extractedDecisions: string[] = [];
 
     // Cursor event types (assumed similar to Kilo for simplicity)
     switch (type) {

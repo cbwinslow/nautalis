@@ -52,20 +52,21 @@
     "uuid": "^11.0.0",
     "zod": "^3.23.8"
   },
-  "devDependencies": {
-    "@types/react": "^18.3.12",
-    "@types/uuid": "^10.0.0",
-    "@types/fs-extra": "^11.0.4",
-    "@types/pg": "^8.11.10",
-    "@typescript-eslint/eslint-plugin": "^8.15.0",
-    "@typescript-eslint/parser": "^8.15.0",
-    "eslint": "^9.15.0",
-    "eslint-config-prettier": "^9.1.0",
-    "prettier": "^3.4.0",
-    "typescript": "^5.7.0",
-    "tsx": "^4.19.0",
-    "bun-types": "^1.1.38"
-  },
+   "devDependencies": {
+     "@types/react": "^18.3.12",
+     "@types/uuid": "^10.0.0",
+     "@types/fs-extra": "^11.0.4",
+     "@types/pg": "^8.11.10",
+     "@typescript-eslint/eslint-plugin": "^8.15.0",
+     "@typescript-eslint/parser": "^8.15.0",
+     "eslint": "^9.15.0",
+     "eslint-config-prettier": "^9.1.0",
+     "prettier": "^3.4.0",
+     "typescript": "^5.7.0",
+     "tsx": "^4.19.0",
+     "bun-types": "^1.1.38",
+     "typescript-eslint": "^8.15.0"
+   },
   "peerDependencies": {
     "react": "^18.3.1"
   }

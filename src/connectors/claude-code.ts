@@ -21,7 +21,7 @@ export class ClaudeCodeConnector extends BaseConnector {
   private eventsIngested = 0;
   private lastIngest: Date | null = null;
   
-  async setup(config: ConnectorConfig): Promise<void> {
+  async setup(_config: ConnectorConfig): Promise<void> {
     const claudeSettingsPath = path.join(os.homedir(), '.claude', 'settings.json');
     
     const hooks = {
