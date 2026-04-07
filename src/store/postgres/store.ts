@@ -610,20 +610,20 @@ export class PostgresStore implements Store {
        throw new Error('userId is required for createSession (provide as option or session.userId)');
      }
 
-     return await this.withTeamContext<void>(
-       session.teamId,
-       actingUserId,
-       'session',
-       'write',
-       async (client) => {
-         await client.query(
-           `INSERT INTO sessions (id, agent_id, team_id, project_id, user_id, branch, started_at)
-            VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-           [session.id, session.agentId, session.teamId, session.projectId || null, session.userId || null, session.branch || null]
-         );
-       },
-     );
-   }
+      return await this.withTeamContext<void>(
+        session.teamId,
+        actingUserId,
+        'agent',
+        'write',
+        async (client) => {
+          await client.query(
+            `INSERT INTO sessions (id, agent_id, team_id, project_id, user_id, branch, started_at)
+             VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+            [session.id, session.agentId, session.teamId, session.projectId || null, session.userId || null, session.branch || null]
+          );
+        },
+      );
+    }
 
    async updateSession(id: string, updates: { endedAt?: Date; summary?: string; status?: string; eventCount?: number }, options?: { userId?: string; teamId?: string }) {
      if (!options?.userId) {
@@ -633,15 +633,15 @@ export class PostgresStore implements Store {
        throw new Error('teamId is required for updateSession');
      }
 
-     return await this.withTeamContext<void>(
-       options.teamId,
-       options.userId,
-       'session',
-       'write',
-       async (client) => {
-         const parts: string[] = [];
-         const params: any[] = [];
-         let idx = 1;
+      return await this.withTeamContext<void>(
+        options.teamId,
+        options.userId,
+        'agent',
+        'write',
+        async (client) => {
+          const parts: string[] = [];
+          const params: any[] = [];
+          let idx = 1;
 
          if (updates.endedAt) { parts.push(`ended_at = $${idx++}`); params.push(updates.endedAt); }
          if (updates.summary) { parts.push(`summary = $${idx++}`); params.push(updates.summary); }
