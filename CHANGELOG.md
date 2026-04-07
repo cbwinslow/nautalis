@@ -9,8 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added (2026-04-07)
 
-- **Interactive Setup Wizard** — `nautalis setup` now guides users through configuration with prompts for database, embeddings, LLM, and connectors; writes `.nautalisrc.json`.
-- **Provider Management Improvement** — `nautalis providers` command now shows availability status; plan for add/remove commands (partial).
+- **Interactive Setup Wizard** — `nautalis setup` guides users through initial configuration with prompts for database, embeddings, LLM, and connectors; writes `.nautalisrc.json`.
+- **Provider Management** — `providers` subcommands: `add <name> <type>`, `remove <name>`, `set-embeddings <name>`, `set-llm <name>` for full programmatic control.
+- **Rate Limiting** — Daemon HTTP API now includes configurable rate limiting to prevent abuse. Enabled by default (100 requests/min per IP), configurable via `ratelimit` section in config. Skipped for health endpoints.
+- **Connector Validation Script** — `scripts/validate-connectors.ts` tests parsing of fixtures and validates event structure.
 
 ### Added (2026-04-06)
 

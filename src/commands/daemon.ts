@@ -10,8 +10,10 @@ import { createSpan, recordMetric, withSpan } from '../telemetry/api.js';
 import { formatDistanceToNow } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { healthConnectors } from '../connectors/registry.js';
+import { RateLimiter } from '../middleware/rate-limiter.js';
 
 let server: http.Server | null = null;
+let rateLimiter: any = null;
 
 export function registerDaemonCommand(program: Command): void {
   const daemonCmd = program
@@ -34,11 +36,40 @@ export function registerDaemonCommand(program: Command): void {
 
           const memoryEngine = new MemoryEngine(store, config);
 
+          // Initialize rate limiter if enabled
+          rateLimiter = null;
+          if (config.ratelimit?.enabled !== false) {
+            const maxRequests = config.ratelimit?.maxRequests || 100;
+            const windowMs = config.ratelimit?.windowMs || 60000;
+            rateLimiter = new RateLimiter(maxRequests, windowMs);
+            recordMetric('rate.limiter.started', 1, { maxRequests, windowMs });
+          }
+
           const port = parseInt(opts.port);
 
           server = http.createServer(async (req, res) => {
             try {
               const url = new URL(req.url || '/', `http://${req.headers.host}`);
+
+              // Rate limiting check (skip health endpoints)
+              if (rateLimiter && !url.pathname.startsWith('/health') && !url.pathname.startsWith('/api/health')) {
+                let clientIp: string = '127.0.0.1';
+                const xForwarded = req.headers['x-forwarded-for'] as string | undefined;
+                if (xForwarded) {
+                  clientIp = xForwarded.split(',')[0].trim();
+                } else if ((req.socket as any)?.remoteAddress) {
+                  clientIp = (req.socket as any).remoteAddress;
+                }
+
+                const allowed = await rateLimiter.check(clientIp);
+                if (!allowed) {
+                  recordMetric('rate.limit.rejected', 1, { ip: clientIp });
+                  const retryAfter = Math.ceil((config.ratelimit?.windowMs || 60000) / 1000);
+                  res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) });
+                  res.end(JSON.stringify({ error: 'Too Many Requests' }));
+                  return;
+                }
+              }
 
               // GET /health - health check endpoint
               if (url.pathname === '/health' && req.method === 'GET') {
@@ -347,5 +378,9 @@ async function stopDaemon(): Promise<void> {
     console.log(chalk.green('Daemon stopped'));
   } else {
     console.log(chalk.yellow('Daemon was not running'));
+  }
+  if (rateLimiter) {
+    rateLimiter.stop();
+    console.log(chalk.gray('Rate limiter stopped'));
   }
 }

@@ -38,3 +38,8 @@ pii_detection = true
 secret_detection = true
 max_context_lines = 100
 min_relevance_score = 0.7
+
+[ratelimit]
+enabled = true
+max_requests = 100
+window_ms = 60000

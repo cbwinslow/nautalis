@@ -1,7 +1,7 @@
 # Nautalis — Feature Goals & MVP Definition
 
-**Last Updated:** 2026-04-06 (Observability Complete)  
-**Implementation Status:** ~96% complete  
+**Last Updated:** 2026-04-07 (Rate Limiting, Setup Wizard)  
+**Implementation Status:** ~98% complete  
 **Target MVP:** Minimal viable system for single-team deployment
 
 ---
@@ -42,7 +42,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
 | **Context Injection** | 🟨 70% — Semantic CLI and daemon (configurable); recency fallback; needs validation on real Claude hooks        | ⬜ Post-MVP |
-| **Test Suite**        | ✅ 85% — 192 passing tests (23 files); coverage: 82.27% functions, 89.55% lines; includes unit tests for config loader, migrate logic, providers base, store integration, RAG, permissions, KB, memory engine, embed factory, resilience, telemetry, and more. | ✅ Essential |
+| **Test Suite**        | ✅ 85% — 201 passing tests (25 files); coverage: ~80% functions, ~88% lines; includes unit tests for config loader, migrate logic, providers base, store integration, RAG, permissions, KB, memory engine, embed factory, resilience, telemetry, rate limiter, and more. | ✅ Essential |
 | **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Defer |
 | **Connector SDK**     | ✅ 50% — Framework mature, watch implemented (polling); health methods; real-world validation needed | ⬜ Defer |
 
@@ -67,13 +67,14 @@ The MVP must deliver a **working system** that can be deployed by a small team a
   - Vector retrieval via `findSimilarMemories`
   - Multi-provider LLM synthesis (Ollama, OpenAI, Anthropic, custom)
   - `buildIndex()` to load memories into LlamaIndex (foundation for advanced search)
-  - CLI commands (all working):
-    - `nautalis init`, `ingest`, `search`, `ask`
-    - `memory` (list, get, delete)
-    - `knowledge-base` (create, get, list, search, delete)
-    - `team` (create, use, list, info, invite, role, remove)
-    - `permissions` (check, grant, revoke, matrix)
-     - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`, `system`, `providers`
+   - CLI commands (all working):
+     - `nautalis init`, `ingest`, `search`, `ask`
+     - `memory` (list, get, delete)
+     - `knowledge-base` (create, get, list, search, delete)
+     - `team` (create, use, list, info, invite, role, remove)
+     - `permissions` (check, grant, revoke, matrix)
+     - `providers` (list, add, remove, set-embeddings, set-llm)
+     - `status`, `hooks`, `connectors`, `setup`, `daemon`, `inject`, `timeline`, `system`
   - Team management with permission enforcement
   - Configurable Claude Code hooks via `NAUTALIS_SERVER_URL`
    - Remote endpoint support for all services (Tailscale-ready)
@@ -83,36 +84,31 @@ The MVP must deliver a **working system** that can be deployed by a small team a
   - **Error resilience**: Retry with exponential backoff + circuit breaker for embedding API, LLM API, and database operations
   - **RAG-to-Store integration**: LlamaIndex index used automatically for semantic search (falls back to pgvector if not built)
   - **PII detection**: Automatic redaction of emails, phones, credit cards, API keys, and passwords from events
-  - **Event audit trail**: Raw events stored during ingestion for replay and compliance
-  - **Semantic injection**: `nautalis inject --query` performs RAG-based context retrieval
-  - **Comprehensive audit logging**: Captured for memory changes, permission updates, team management, and knowledge base edits
-  - **Relationship traversal**: `getRelatedMemories` method in Store for navigating memory relationships
-  - **System user setup**: `nautalis system create-user` creates a dedicated non-root user for running the daemon (Linux only)
-  - **Deployment assets**: Example systemd service file (`deploy/nautalis.service`) and environment configuration (`deploy/nautalis.env`) provided
+   - **Event audit trail**: Raw events stored during ingestion for replay and compliance
+   - **Semantic injection**: `nautalis inject --query` performs RAG-based context retrieval
+   - **Comprehensive audit logging**: Captured for memory changes, permission updates, team management, and knowledge base edits
+   - **Relationship traversal**: `getRelatedMemories` method in Store for navigating memory relationships
+   - **System user setup**: `nautalis system create-user` creates a dedicated non-root user for running the daemon (Linux only)
+   - **Deployment assets**: Example systemd service file (`deploy/nautalis.service`) and environment configuration (`deploy/nautalis.env`) provided
+    - **Interactive setup wizard**: `nautalis setup` guides users through initial configuration with prompts, writing `.nautalisrc.json`
+    - **Provider management**: CLI commands to add (`providers add`), remove (`providers remove`), and set default providers (`providers set-embeddings`, `providers set-llm`)
+    - **Connector validation test script**: `scripts/validate-connectors.ts` verifies parser correctness using fixtures
+    - **Rate limiting**: Daemon HTTP API includes configurable per-IP rate limiting (default 100 req/min), exempting health endpoints; metrics recorded
 
 ### ⬜ Needs Completion for MVP
 
 - **Connector validation**: Actually install and test Claude Code hooks on real project
   - Verify `record-event.js`, `summarize-session.js`, `inject-context.js` work end-to-end
   - Test real-time ingestion and session lifecycle
-  - Test script available: `scripts/test-claude-parser.ts` to validate transcript parsing
   - Issue: #12, #14
- - **RAG advanced features** (index is working, need these to match design):
-   - Hybrid search (vector + BM25/Full-text)
-   - Relationship extraction & integration into retrieval (traversal implemented but not used)
-   - Persistent index across restarts (currently rebuilt each session)
- - **Context injection improvement**: Use semantic search in **SessionStart hook** (CLI already supports `--query`)
-   - Enhance daemon endpoint to accept conversation context and perform RAG query
- - **Integration / E2E tests**: Need comprehensive tests covering store ops, RAG pipeline, permissions, connectors
- - **MVP scope definition**: Reduce from 70+ requirements to essential 30% to ship functional system (issue #42)
- - **Performance tuning**: Benchmark embedding latency, search latency, synthesis latency; optimize queries and add missing indexes
-   - Ensure search <500ms p95, embedding <200ms p95
-   - Issue: #45
- - **Test infrastructure expansion**: Add integration and E2E tests; aim for 80%+ coverage
-   - Issue: #34
- - **Setup wizard**: Interactive onboarding to lower barrier
-   - Issue: #46
- - **Audit logging**: Call `logAudit()` for all sensitive operations (memory changes, KB edits, permission changes, team changes)
+- **RAG advanced features** (index is working, need these to match design):
+  - Relationship extraction & integration into retrieval (traversal implemented but not used)
+  - Persistent index across restarts (currently rebuilt each session)
+- **Context injection improvement**: Use semantic search in **SessionStart hook** (CLI already supports `--query`)
+  - Enhance daemon endpoint to accept conversation context and perform RAG query
+- **Integration / E2E tests**: Need comprehensive tests covering store ops, RAG pipeline, permissions, connectors
+ - **Security hardening**: Complete audit logging invocation for all sensitive operations
+- **MVP scope definition**: Reduce from 70+ requirements to essential 30% to ship functional system (issue #42)
 
 ---
 

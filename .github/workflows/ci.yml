@@ -73,6 +73,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://nautalis:nautalis@localhost:5432/nautalis_test
         run: bun run test --coverage
+      - name: Validate connectors
+        env:
+          DATABASE_URL: postgresql://nautalis:nautalis@localhost:5432/nautalis_test
+        run: bun run scripts/validate-connectors.ts claude
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         if: always()

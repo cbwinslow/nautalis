@@ -109,13 +109,19 @@ export interface NautalisConfig {
   providers?: ProvidersConfig;
   // New: deployment mode for environment-specific defaults (local, docker, baremetal)
   deployment?: DeploymentMode;
-  // New: observability configuration
-  observability?: {
-    enabled?: boolean;
-    otlpEndpoint?: string;
-    debug?: boolean;
-  };
-}
+   // New: observability configuration
+   observability?: {
+     enabled?: boolean;
+     otlpEndpoint?: string;
+     debug?: boolean;
+   };
+   // New: rate limiting for daemon HTTP API
+   ratelimit?: {
+     enabled?: boolean;
+     maxRequests?: number;
+     windowMs?: number;
+   };
+ }
 
 export interface RuleConfig {
   name: string;
