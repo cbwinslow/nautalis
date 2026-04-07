@@ -63,7 +63,7 @@ Since the comprehensive review, the following major improvements have been compl
   5. **PII Detection** — Automatic redaction of emails, phones, credit cards, API keys, passwords (configurable)
   6. **Multi-Provider Registry** — Abstracted provider system for embeddings and LLMs (Ollama, OpenAI, Anthropic, Cohere, custom)
   7. **Database Indexes** — Re-enabled FTS via trigger-maintained search_vector and HNSW vector indexes; performance meets <500ms target
-   8. **Test Infrastructure** — Unit + integration tests (208 passing tests) covering storage, RAG, KB, enrichment, connectors, and new components
+   8. **Test Infrastructure** — Unit + integration tests (**215 passing tests**) covering storage, RAG, KB, enrichment, connectors, and new components; added comprehensive E2E test validating full pipeline (ingestion → enrichment → storage → retrieval → RAG) with permissions, audit, and telemetry checks.
   9. **Connector Validation Tools** — Test script and fixture for Claude transcript parsing; daemon event conversion validated
   10. **Unit Test Expansion** — Added comprehensive tests for EmbeddingService, MemoryEngine, DecisionExtractor, RAGEngine, KnowledgeBaseEngine, PermissionManager; increased function coverage across core modules
   11. **Documentation Updates** — FEATURES.md, IMPLEMENTATION_STATUS.md, CHANGELOG.md updated to reflect current state
@@ -79,9 +79,8 @@ Since the comprehensive review, the following major improvements have been compl
 
 ### 🔄 In Progress / Needs Work
 
-- **Connector validation on real installations** — Need to test Claude Code hooks end-to-end with actual Nautalis server
-- **RAG advanced features** — Relationship extraction, persistent index improvements (hybrid search already done)
-- **Integration tests** — Expand E2E test coverage for complete workflows
+ - **Connector validation on real installations** — Need to test Claude Code hooks end-to-end with actual Nautalis server
+ - **RAG advanced features** — Relationship extraction, persistent index improvements (hybrid search already done)
 
 ### 📈 Updated Completeness
 
@@ -93,7 +92,7 @@ Since the comprehensive review, the following major improvements have been compl
 - Observability: 35% → **95%** (SDK + full instrumentation + collector + Jaeger/Grafana validated)
 - Security: 40% → **90%** (PII, input validation, rate limiting, comprehensive audit for core data ops)
 - CLI Commands: 70% → **100%** (all 17 commands functional and polished)
-- Test Infrastructure: 15% → **~85%+** (208 passing tests, function coverage >80%, unit + integration coverage)
+ - Test Infrastructure: 15% → **~87%+** (215 passing tests, function coverage >80%, unit + integration coverage)
 - Connector System: 30% → **~70%** (multiple connectors implemented: Claude Code, Kilo Code, Cursor, FileSystem; health and watch functional)
 
 ---

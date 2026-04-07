@@ -16,7 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OpenRouter Configuration Example** — Added example provider configuration for OpenRouter in default.toml (using OpenAI-compatible endpoint).
 - **Rate Limiting** — Daemon HTTP API includes configurable per-IP rate limiting (default 100 req/min), exempting health endpoints, with metrics recording.
 - **Audit Logging Completion** — Added audit log entry for memory creation (insertMemory); all core data modifications now audited (memories, knowledge base, teams, permissions, agents).
-- **Connector Validation Script** — `scripts/validate-connectors.ts` tests parsing of fixtures and validates event structure.
+ - **Connector Validation Script** — `scripts/validate-connectors.ts` tests parsing of fixtures and validates event structure.
+
+### Fixed (2026-04-07)
+
+ - **Session Permission Scope** — `createSession` and `updateSession` now use `agent` permission scope instead of invalid `session`, resolving database enum errors during E2E tests.
+ - **E2E Integration Test** — Added comprehensive end-to-end test (`test/integration/e2e-pipeline.test.ts`) that validates full pipeline including ingestion, enrichment, storage, retrieval, RAG, permissions, audit logging, and telemetry. Uses polling and direct DB checks for reliable verification.
 
 ### Added (2026-04-06)
 

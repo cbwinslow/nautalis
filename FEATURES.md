@@ -1,7 +1,7 @@
 # Nautalis — Feature Goals & MVP Definition
 
 **Last Updated:** 2026-04-07 (Rate Limiting, Setup Wizard)  
-**Implementation Status:** ~98% complete  
+**Implementation Status:** ~99% complete  
 **Target MVP:** Minimal viable system for single-team deployment
 
 ---
@@ -42,7 +42,7 @@ The MVP must deliver a **working system** that can be deployed by a small team a
 | **Error Resilience**  | ✅ 100% — Retry, circuit breakers, graceful degradation        | ✅ Essential |
 | **PII Detection**     | ✅ 100% — Redaction of sensitive data (fixed Date corruption)  | ✅ Essential |
 | **Context Injection** | 🟨 70% — Semantic CLI and daemon (configurable); recency fallback; needs validation on real Claude hooks        | ⬜ Post-MVP |
-| **Test Suite**        | ✅ 85% — 208 passing tests (26 files); coverage: ~80% functions, ~88% lines; includes comprehensive unit and integration tests for all core components. | ✅ Essential |
+| **Test Suite**        | ✅ 87% — 215 passing tests (27 files); coverage: ~80% functions, ~88% lines; includes comprehensive unit and integration tests for all core components, including E2E pipeline validation. | ✅ Essential |
 | **TUI / Dashboard**   | ❌ 0% — Components stubbed, not integrated                     | ⬜ Defer |
 | **Connector SDK**     | 🟨 75% — Framework mature, watch implemented (polling), health methods; multiple connectors delivered (Claude Code, Kilo Code, Cursor, FileSystem); real-world validation needed | ⬜ Defer |
 
