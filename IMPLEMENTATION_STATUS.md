@@ -113,7 +113,7 @@ Since the comprehensive review, the following major improvements have been compl
 - ✅ Input validation — Zod schemas applied
 - ✅ Observability completeness (#22) — full pipeline operational and validated
 - ✅ Performance benchmarking (#45) — script added, targets met (p95 <500ms)
-- ✅ Test infrastructure (#34) — test suite expanded to >80% coverage, 208 passing tests
+ - ✅ Test infrastructure (#34) — test suite expanded to >80% coverage, **215 passing tests**, includes comprehensive E2E pipeline with CI-friendly dummy embedding fallback
 - ✅ Setup wizard (#46) — interactive `nautalis setup` command implemented with full configuration prompts
 - ✅ Rate limiting (partial #61) — daemon HTTP API rate limiting added (100 req/min default)
 - ✅ Complete audit logging invocation — memory creation now audited; all core data operations have audit trail
