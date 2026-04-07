@@ -1,18 +1,11 @@
 import { Command } from 'commander';
-import { loadConfig } from '../config/loader.js';
-import { getStore } from '../store/factory.js';
 import { initTelemetry } from '../telemetry/provider.js';
 import { withSpan } from '../telemetry/api.js';
 import chalk from 'chalk';
-import ora from 'ora';
 import { createInterface } from 'readline/promises';
 import { stdin, stdout } from 'process';
 import { join } from 'path';
 import { writeFile } from 'fs/promises';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export function registerSetupCommand(program: Command): void {
   program
@@ -23,7 +16,7 @@ export function registerSetupCommand(program: Command): void {
       const rl = createInterface({ input: stdin, output: stdout });
 
       try {
-        await withSpan('nautalis.command.setup', {}, async () => {
+         await withSpan('nautalis.command.setup', {}, async () => {
           console.log(chalk.cyan('\n  🐙 Nautalis Setup Wizard\n'));
           console.log(chalk.gray('  This wizard will create a configuration file.\n'));
 

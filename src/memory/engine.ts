@@ -9,7 +9,7 @@ import { EmbeddingService } from './embed.js';
 import { createEmbeddingService } from './embed-factory.js';
  import { RAGEngine } from './rag.js';
  import { v4 as uuidv4 } from 'uuid';
- import { createSpan, recordMetric, logMessage, benchmarkOperation } from '../telemetry/api.js';
+ import { createSpan, recordMetric, logMessage } from '../telemetry/api.js';
  import { SPAN_NAMES, METRIC_NAMES } from '../types/telemetry.js';
  import { NautalisEventSchema } from '../validation/schemas.js';
  import { redactSensitiveData } from '../utils/pii-detector.js';

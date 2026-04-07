@@ -3,7 +3,7 @@ import { loadConfig } from '../config/loader.js';
 import { getStore } from '../store/factory.js';
 import { initTelemetry } from '../telemetry/provider.js';
 import { withSpan } from '../telemetry/api.js';
-import type { KnowledgeBaseEntry, KbVisibility, KbContentType } from '../types/knowledge-base.js';
+import type { KnowledgeBaseEntry, KbVisibility } from '../types/knowledge-base.js';
 import type { KBEntry } from '../store/postgres/knowledge-base.js';
 import chalk from 'chalk';
 import ora from 'ora';

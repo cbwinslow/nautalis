@@ -1,7 +1,6 @@
 import { BaseConnector } from './base.js';
 import type { ConnectorConfig, ConnectorHealth, ConnectorMetadata } from '../types/connector.js';
 import type { NautalisEvent } from '../types/event.js';
-import type { AgentContext } from '../types/context.js';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs/promises';
 import * as path from 'path';

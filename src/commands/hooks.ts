@@ -1,6 +1,5 @@
 import { Command } from 'commander';
 import { loadConfig } from '../config/loader.js';
-import { setupConnectors } from '../connectors/registry.js';
 import { ClaudeCodeConnector } from '../connectors/claude-code.js';
 import { initTelemetry } from '../telemetry/provider.js';
 import { withSpan } from '../telemetry/api.js';
@@ -22,7 +21,7 @@ export function registerHooksCommand(program: Command): void {
       
       try {
         await withSpan('nautalis.command.hooks.install', { agent: agent || 'all' }, async () => {
-          const config = await loadConfig();
+           await loadConfig();
           
           if (agent === 'claude' || agent === 'all' || !agent) {
             const connector = new ClaudeCodeConnector();

@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import { loadConfig } from '../config/loader.js';
 import { ProviderRegistry } from '../providers/registry.js';
-import { initTelemetry } from '../telemetry/provider.js';
 import { withSpan } from '../telemetry/api.js';
 import { logMessage } from '../telemetry/api.js';
 import chalk from 'chalk';
@@ -27,7 +26,7 @@ function createListCommand(): Command {
   return new Command('list')
     .description('List all configured providers and their status')
     .action(async () => {
-      await withSpan('nautalis.command.providers.list', {}, async () => {
+        await withSpan('nautalis.command.providers.list', {}, async () => {
         try {
           const config: any = await loadConfig();
           const registry = new ProviderRegistry(config.providers);
@@ -71,7 +70,7 @@ function createAddCommand(): Command {
     .option('--model <model>', 'Model name')
     .option('--api-key-env <envVar>', 'Environment variable name for API key')
     .action(async (name: string, type: string, options: { url?: string; model?: string; 'api-key-env'?: string }) => {
-      await withSpan('nautalis.command.providers.add', { name, type }, async () => {
+       await withSpan('nautalis.command.providers.add', { name, type }, async () => {
         const config: any = await loadConfig();
         if (!config.providers) config.providers = {};
 
