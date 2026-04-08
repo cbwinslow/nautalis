@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Rate Limiting** — Daemon HTTP API includes configurable per-IP rate limiting (default 100 req/min), exempting health endpoints, with metrics recording.
 - **Audit Logging Completion** — Added audit log entry for memory creation (insertMemory); all core data modifications now audited (memories, knowledge base, teams, permissions, agents).
  - **Connector Validation Script** — `scripts/validate-connectors.ts` tests parsing of fixtures and validates event structure.
+ - **Free Provider Examples** — Added comprehensive free tier examples to `config/default.toml` and documentation: OpenRouter free models (including qwen3-coder, llama-3.3, gemma3, nemotron, step-3.5), OpenCode Zen, KiloCode Gateway, OpenClaude. Updated `.env.example` with OpenRouter environment setup and created `docs/guides/installation/FREE_PROVIDERS.md` guide. Enables zero-cost LLM inference for development.
 
 ### Fixed (2026-04-07)
 
