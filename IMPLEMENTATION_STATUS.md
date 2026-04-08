@@ -73,7 +73,7 @@ Since the comprehensive review, the following major improvements have been compl
    15. **Interactive Setup Wizard** — `nautalis setup` now guides users through configuration with prompts for database, embeddings, LLM, and connectors; writes `.nautalisrc.json`.
    16. **Rate Limiting** — Daemon HTTP API includes configurable per-IP rate limiting (default 100 req/min), with health endpoints exempt; metrics recorded.
    17. **Audit Logging Completion** — Added audit log for memory creation (store.insertMemory); now all core data-modifying operations are audited: memories (create, update, delete), knowledge base (create, update, delete), teams (create, update), team members (add, remove, role change), permissions (grant, revoke, share).
-   17. **Killo Code Connector** — Implemented full JSONL session parser for Kilo Code, handling tool calls, file edits, commands, lessons, and session start/end. Includes test fixture and unit tests.
+    17. **Kilo Code Connector** — Implemented full JSONL session parser for Kilo Code, handling tool calls, file edits, commands, lessons, and session start/end. Includes test fixture and unit tests.
    18. **Cursor Connector** — Added basic connector for Cursor IDE with JSONL session parsing and event mapping.
    19. **Multi-Provider Examples** — Added OpenRouter example in default config to demonstrate OpenAI-compatible provider usage.
 
