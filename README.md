@@ -1,6 +1,6 @@
 # 🐙 Nautalis
 
-[![CI](https://github.com/cbwinslow/nautalis/actions/workflows/ci.yml/badge.svg)](https://github.com/cbwinslow/nautalis/actions/workflows/ci.yml)
+[![CI](https://github.com/cbwinslow/nautalis/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/cbwinslow/nautalis/actions/workflows/ci.yml)
 [**Documentation**](./FEATURES.md) • [**Status**](./IMPLEMENTATION_STATUS.md) • [**AGENTS**](./AGENTS.md)
 
 **Universal AI Agent Memory & Orchestration Platform**
