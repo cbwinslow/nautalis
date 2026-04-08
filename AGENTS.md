@@ -69,7 +69,7 @@ The project has exceptional architectural foundations and is nearly complete. Mo
 - **Test coverage** — Without tests, refactoring is risky
 - **MVP clarity** — Ruthlessly cut scope to ship functional system
 
-**DO NOT** start work on non-MVP features until MVP scope is defined and approved. Refer to [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for detailed component-wise completeness.
+**DO NOT** start work on non-MVP features until MVP scope is defined and approved. Refer to [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) for detailed component-wise completeness.
 
 ---
 
