@@ -77,13 +77,6 @@ export function isEnabled(): boolean {
 }
 
 /**
- * Check if telemetry is enabled (OTel SDK initialized).
- */
-export function isEnabled(): boolean {
-  return !!sdk;
-}
-
-/**
  * Shutdown telemetry SDK gracefully.
  */
 export async function shutdownTelemetry(): Promise<void> {
