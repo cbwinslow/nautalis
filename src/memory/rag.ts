@@ -66,25 +66,27 @@ export class RAGEngine {
              model,
            });
 
-         case 'openai':
-           const openaiKey = process.env[this.config.llm.openai?.apiKeyEnv || 'OPENAI_API_KEY'];
-           if (!openaiKey) {
-             throw new Error(`OpenAI API key not found in env var: ${this.config.llm.openai?.apiKeyEnv || 'OPENAI_API_KEY'}`);
-           }
-           return new OpenAI({
-             apiKey: openaiKey,
-             model: this.config.llm.openai?.model || model,
-           });
+          case 'openai':
+            const openaiKey = process.env[this.config.llm.openai?.apiKeyEnv || 'OPENAI_API_KEY'];
+            if (!openaiKey) {
+              throw new Error(`OpenAI API key not found in env var: ${this.config.llm.openai?.apiKeyEnv || 'OPENAI_API_KEY'}`);
+            }
+            return new OpenAI({
+              apiKey: openaiKey,
+              model: this.config.llm.openai?.model || model,
+              baseURL: this.config.llm.openai?.baseUrl,
+            });
 
-         case 'anthropic':
-           const anthropicKey = process.env[this.config.llm.anthropic?.apiKeyEnv || 'ANTHROPIC_API_KEY'];
-           if (!anthropicKey) {
-             throw new Error(`Anthropic API key not found in env var: ${this.config.llm.anthropic?.apiKeyEnv || 'ANTHROPIC_API_KEY'}`);
-           }
-           return new Anthropic({
-             apiKey: anthropicKey,
-             model: this.config.llm.anthropic?.model || model,
-           });
+          case 'anthropic':
+            const anthropicKey = process.env[this.config.llm.anthropic?.apiKeyEnv || 'ANTHROPIC_API_KEY'];
+            if (!anthropicKey) {
+              throw new Error(`Anthropic API key not found in env var: ${this.config.llm.anthropic?.apiKeyEnv || 'ANTHROPIC_API_KEY'}`);
+            }
+            return new Anthropic({
+              apiKey: anthropicKey,
+              model: this.config.llm.anthropic?.model || model,
+              baseURL: this.config.llm.anthropic?.baseUrl,
+            });
 
          case 'custom':
            if (!this.config.llm.custom?.baseUrl) {
@@ -120,15 +122,16 @@ export class RAGEngine {
              baseUrl: ollama?.url || 'http://localhost:11434',
              model,
            });
-         case 'openai':
-           const openaiKey = process.env[openai?.apiKeyEnv || 'OPENAI_API_KEY'];
-           if (!openaiKey) {
-             throw new Error(`OpenAI API key not found for embedding provider (env: ${openai?.apiKeyEnv || 'OPENAI_API_KEY'})`);
-           }
-           return new LlamaIndex.OpenAIEmbedding({
-             apiKey: openaiKey,
-             model: openai?.model || model,
-           });
+          case 'openai':
+            const openaiKey = process.env[openai?.apiKeyEnv || 'OPENAI_API_KEY'];
+            if (!openaiKey) {
+              throw new Error(`OpenAI API key not found for embedding provider (env: ${openai?.apiKeyEnv || 'OPENAI_API_KEY'})`);
+            }
+            return new LlamaIndex.OpenAIEmbedding({
+              apiKey: openaiKey,
+              model: openai?.model || model,
+              baseURL: openai?.baseUrl,
+            });
          case 'cohere':
            const cohereKey = process.env[cohere?.apiKeyEnv || 'COHERE_API_KEY'];
            if (!cohereKey) {

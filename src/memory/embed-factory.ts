@@ -15,28 +15,28 @@ export function createEmbeddingService(config: NautalisConfig): EmbeddingService
          model,
        });
 
-     case 'openai': {
-       const openaiKey = process.env[config.embeddings.openai?.apiKeyEnv || 'OPENAI_API_KEY'];
-       if (!openaiKey) {
-         throw new Error(`OpenAI API key not found in env var: ${config.embeddings.openai?.apiKeyEnv || 'OPENAI_API_KEY'}`);
-       }
-       return new EmbeddingService({
-         baseUrl: 'https://api.openai.com/v1',
-         model: config.embeddings.openai?.model || model,
-         apiKey: openaiKey,
-         headers: {
-           'Authorization': `Bearer ${openaiKey}`,
-         },
-         endpointPath: '/embeddings',
-         requestTransform: (body) => ({
-           model: body.model,
-           input: body.prompt,
-         }),
-         responseTransform: (data) => ({
-           embedding: data.data?.[0]?.embedding || data.embedding,
-         }),
-       });
-     }
+      case 'openai': {
+        const openaiKey = process.env[config.embeddings.openai?.apiKeyEnv || 'OPENAI_API_KEY'];
+        if (!openaiKey) {
+          throw new Error(`OpenAI API key not found in env var: ${config.embeddings.openai?.apiKeyEnv || 'OPENAI_API_KEY'}`);
+        }
+        return new EmbeddingService({
+          baseUrl: config.embeddings.openai?.baseUrl || 'https://api.openai.com/v1',
+          model: config.embeddings.openai?.model || model,
+          apiKey: openaiKey,
+          headers: {
+            'Authorization': `Bearer ${openaiKey}`,
+          },
+          endpointPath: '/embeddings',
+          requestTransform: (body) => ({
+            model: body.model,
+            input: body.prompt,
+          }),
+          responseTransform: (data) => ({
+            embedding: data.data?.[0]?.embedding || data.embedding,
+          }),
+        });
+      }
 
      case 'cohere': {
        const cohereKey = process.env[config.embeddings.cohere?.apiKeyEnv || 'COHERE_API_KEY'];

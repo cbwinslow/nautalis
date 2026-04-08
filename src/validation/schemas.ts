@@ -20,35 +20,35 @@ export const DatabaseConfigSchema = z.object({
   }).optional(),
 });
 
-// Embedding configuration
-export const EmbeddingConfigSchema = z.object({
-  provider: z.enum(['ollama', 'openai', 'cohere', 'custom']),
-  model: z.string().min(1),
-  ollama: z.object({ url: z.string().url() }).optional(),
-  openai: z.object({ apiKeyEnv: z.string(), model: z.string().optional() }).optional(),
-  cohere: z.object({ apiKeyEnv: z.string(), model: z.string().optional() }).optional(),
-  custom: z.object({
-    baseUrl: z.string().url(),
-    model: z.string(),
-    apiKeyEnv: z.string().optional(),
-    headers: z.record(z.string()).optional(),
-  }).optional(),
-});
+ // Embedding configuration
+ export const EmbeddingConfigSchema = z.object({
+   provider: z.enum(['ollama', 'openai', 'cohere', 'custom']),
+   model: z.string().min(1),
+   ollama: z.object({ url: z.string().url() }).optional(),
+   openai: z.object({ apiKeyEnv: z.string(), baseUrl: z.string().url().optional(), model: z.string().optional() }).optional(),
+   cohere: z.object({ apiKeyEnv: z.string(), model: z.string().optional() }).optional(),
+   custom: z.object({
+     baseUrl: z.string().url(),
+     model: z.string(),
+     apiKeyEnv: z.string().optional(),
+     headers: z.record(z.string()).optional(),
+   }).optional(),
+ });
 
-// LLM configuration
-export const LLMConfigSchema = z.object({
-  provider: z.enum(['ollama', 'openai', 'anthropic', 'custom']),
-  model: z.string().min(1),
-  ollama: z.object({ url: z.string().url() }).optional(),
-  openai: z.object({ apiKeyEnv: z.string(), model: z.string().optional() }).optional(),
-  anthropic: z.object({ apiKeyEnv: z.string(), model: z.string().optional() }).optional(),
-  custom: z.object({
-    baseUrl: z.string().url(),
-    model: z.string(),
-    apiKeyEnv: z.string().optional(),
-    headers: z.record(z.string()).optional(),
-  }).optional(),
-});
+ // LLM configuration
+ export const LLMConfigSchema = z.object({
+   provider: z.enum(['ollama', 'openai', 'anthropic', 'custom']),
+   model: z.string().min(1),
+   ollama: z.object({ url: z.string().url() }).optional(),
+   openai: z.object({ apiKeyEnv: z.string(), baseUrl: z.string().url().optional(), model: z.string().optional() }).optional(),
+   anthropic: z.object({ apiKeyEnv: z.string(), baseUrl: z.string().url().optional(), model: z.string().optional() }).optional(),
+   custom: z.object({
+     baseUrl: z.string().url(),
+     model: z.string(),
+     apiKeyEnv: z.string().optional(),
+     headers: z.record(z.string()).optional(),
+   }).optional(),
+ });
 
 // Guardrails configuration
 export const GuardrailsConfigSchema = z.object({
