@@ -75,8 +75,6 @@ The project has exceptional architectural foundations and is nearly complete. Mo
 
 ## 2. Critical Architecture Decisions
 
-## 2. Critical Architecture Decisions
-
 ### 2.1 TypeScript, Not Go
 
 - **Decision:** Primary language is TypeScript, not Go
@@ -128,7 +126,7 @@ The project has exceptional architectural foundations and is nearly complete. Mo
 - **Decision:** Dedicated knowledge base table that AI agents can pull from
 - **Why:** User wants a centralized knowledge repository — not just raw memories, but curated, versioned, categorized knowledge entries with visibility controls.
 - **Features:** Vector + full-text search, versioning with edit history, visibility levels (public/team/project/private), view tracking
-- **AI access:** Agents query via MCP server or REST API
+ - **AI access:** Agents query via REST API (`knowledge-base` CLI and daemon endpoints)
 
 ---
 
