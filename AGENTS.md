@@ -184,50 +184,79 @@ The `ProviderRegistry` resolves the named provider and instantiates the appropri
 
 For development and testing, several free (or freemium) providers can be used:
 
-**OpenRouter Free Tier** (`openrouter-free`):
+**OpenRouter Free Tier** — OpenRouter offers many free models with a single API key. Get your key at https://openrouter.ai (no credit card required).
+
 ```toml
+# Auto-selects among available free models (good for experimentation)
 [providers.openrouter-free]
 type = "openai"
 baseUrl = "https://openrouter.ai/api/v1"
-model = "anthropic/claude-3-haiku"
-# apiKeyEnv = "OPENROUTER_API_KEY"
+model = "openrouter/free"
+apiKeyEnv = "OPENROUTER_API_KEY"
 ```
-- Requires free API key from openrouter.ai
-- Rate-limited but sufficient for low-volume usage
-- Supports many models (Claude Haiku, Llama 2, Mixtral, etc.)
 
-**OpenCode Zen** (`opencode-zen`):
+Popular specific free models (all require `OPENROUTER_API_KEY`):
+
+- `qwen/qwen3-coder:free` — Best free coding model (262K context)
+- `meta-llama/llama-3.3-70b-instruct:free` — Strong general-purpose (66K context)
+- `google/gemma-3-27b-it:free` — Google's free instruct model (131K context)
+- `nvidia/nemotron-3-super-120b-a12b:free` — High-quality NVIDIA model (262K context)
+- `stepfun/step-3.5-flash:free` — Fast Step model (256K context)
+
+Example configuration for a specific model:
+
+```toml
+[providers.qwen3-coder]
+type = "openai"
+baseUrl = "https://openrouter.ai/api/v1"
+model = "qwen/qwen3-coder:free"
+apiKeyEnv = "OPENROUTER_API_KEY"
+```
+
+Rate limits: typically 20 requests/minute, 200 requests/day. Sufficient for low-volume development.
+
+**OpenCode Zen** — Free coding-focused OpenAI-compatible endpoint:
 ```toml
 [providers.opencode-zen]
 type = "openai"
 baseUrl = "https://api.opencode.dev/zen/v1"
 model = "gpt-4o-mini"
-# apiKeyEnv = "OPENCODE_API_KEY"
+apiKeyEnv = "OPENCODE_API_KEY"
 ```
-- OpenAI-compatible endpoint; may require free API key
 
-**KilloCode Gateway** (`kilocode-gateway`):
+**KilloCode Gateway** — Free LLM gateway (OpenAI-compatible):
 ```toml
 [providers.kilocode-gateway]
 type = "openai"
 baseUrl = "https://gateway.kilocode.dev/v1"
 model = "claude-3-haiku"
-# apiKeyEnv = "KILOCODE_API_KEY"
+apiKeyEnv = "KILOCODE_API_KEY"
 ```
-- OpenAI-compatible gateway offering free Haiku-tier
 
-**OpenClaude** (`openclaude`):
+**OpenClaude** — Anthropic-compatible free hosting:
 ```toml
 [providers.openclaude]
 type = "anthropic"
 baseUrl = "https://api.openclaude.ai/v1"
-# model = "claude-3-haiku"
-# apiKeyEnv = "ANTHROPIC_API_KEY"  # or OpenClaude-specific key
+model = "claude-3-haiku"
+apiKeyEnv = "ANTHROPIC_API_KEY"  # or provider-specific key
 ```
-- Anthropic-compatible free hosting; may use Anthropic API keys or separate key
-- Useful for testing Claude models without paid subscription
 
-To use any of these, set `llm.provider = "<provider-name>"` in your config. Embeddings still need a separate provider (e.g., Ollama or OpenAI-compatible with embedding support). For free embeddings, continue using Ollama's `nomic-embed-text` or OpenAI-compatible endpoints that offer embedding APIs.
+**Embeddings with Free Options**:
+- **Ollama** (local) — `nomic-embed-text` (768-dim) — truly free, unlimited
+- **OpenRouter** — `openai/text-embedding-3-small` (rate-limited but free) — requires `OPENROUTER_API_KEY`
+- Example:
+  ```toml
+  [providers.openrouter-embed]
+  type = "openai"
+  baseUrl = "https://openrouter.ai/api/v1"
+  model = "openai/text-embedding-3-small"
+  apiKeyEnv = "OPENROUTER_API_KEY"
+  ```
+
+To use any of these, set `llm.provider = "<provider-name>"` or `embeddings.provider = "<provider-name>"` in your config. You can mix and match (e.g., OpenRouter for LLM + Ollama for embeddings).
+
+See `.env.example` for environment variable setup.
 
 ---
 

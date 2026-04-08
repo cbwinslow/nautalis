@@ -57,14 +57,47 @@ window_ms = 60000
  model = "anthropic/claude-3-opus"
  # apiKeyEnv = "OPENROUTER_API_KEY"  # set env variable
  
- # Free tier models on OpenRouter (rate-limited):
+ # Free tier models on OpenRouter (rate-limited: 20 req/min, 200 req/day):
+ # See: https://openrouter.ai/collections/free-models
  [providers.openrouter-free]
  type = "openai"
  baseUrl = "https://openrouter.ai/api/v1"
- model = "anthropic/claude-3-haiku"
+ model = "openrouter/free"  # auto-selects among available free models
+ # apiKeyEnv = "OPENROUTER_API_KEY"
+ 
+ # Specific free models (uncomment and set provider to use):
+ # [providers.qwen3-coder]
+ # type = "openai"
+ # baseUrl = "https://openrouter.ai/api/v1"
+ # model = "qwen/qwen3-coder:free"
+ # apiKeyEnv = "OPENROUTER_API_KEY"
+ #
+ # [providers.llama-3-3]
+ # type = "openai"
+ # baseUrl = "https://openrouter.ai/api/v1"
+ # model = "meta-llama/llama-3.3-70b-instruct:free"
+ # apiKeyEnv = "OPENROUTER_API_KEY"
+ #
+ # [providers.step-3.5-flash]
+ # type = "openai"
+ # baseUrl = "https://openrouter.ai/api/v1"
+ # model = "stepfun/step-3.5-flash:free"
+ # apiKeyEnv = "OPENROUTER_API_KEY"
+ #
+ # [providers.gemma3-27b]
+ # type = "openai"
+ # baseUrl = "https://openrouter.ai/api/v1"
+ # model = "google/gemma-3-27b-it:free"
+ # apiKeyEnv = "OPENROUTER_API_KEY"
+ #
+ # [providers.nemotron-super]
+ # type = "openai"
+ # baseUrl = "https://openrouter.ai/api/v1"
+ # model = "nvidia/nemotron-3-super-120b-a12b:free"
  # apiKeyEnv = "OPENROUTER_API_KEY"
  
  # OpenCode Zen (free coding-focused LLM endpoint, OpenAI-compatible)
+ # https://api.opencode.dev/zen
  [providers.opencode-zen]
  type = "openai"
  baseUrl = "https://api.opencode.dev/zen/v1"
@@ -72,6 +105,7 @@ window_ms = 60000
  # apiKeyEnv = "OPENCODE_API_KEY"
  
  # KiloCode Gateway (free LLM gateway, OpenAI-compatible)
+ # https://gateway.kilocode.dev
  [providers.kilocode-gateway]
  type = "openai"
  baseUrl = "https://gateway.kilocode.dev/v1"
@@ -79,16 +113,19 @@ window_ms = 60000
  # apiKeyEnv = "KILOCODE_API_KEY"
  
  # OpenClaude (free Anthropic-compatible hosting)
+ # https://api.openclaude.ai/v1
  [providers.openclaude]
  type = "anthropic"
  baseUrl = "https://api.openclaude.ai/v1"
  # model = "claude-3-haiku"
- # apiKeyEnv = "ANTHROPIC_API_KEY"  # or provider-specific key
+ # apiKeyEnv = "ANTHROPIC_API_KEY"  # or OpenClaude-specific key
  
  # To use any of these as your LLM, set e.g.:
  # llm.provider = "openclaude"
  # or
  # llm.provider = "openrouter-free"
+ # or
+ # llm.provider = "qwen3-coder"
 
 [providers.my-openai]
 type = "openai"
