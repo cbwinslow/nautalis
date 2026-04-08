@@ -49,13 +49,22 @@ enabled = true
 max_requests = 100
 window_ms = 60000
 
-# Example: Define additional providers (OpenRouter, OpenAI, etc.)
-# Then set embeddings.provider = "openrouter" or llm.provider = "openrouter"
-[providers.openrouter]
-type = "openai"
-baseUrl = "https://openrouter.ai/api/v1"
-model = "anthropic/claude-3-opus"
-# apiKeyEnv = "OPENROUTER_API_KEY"  # set env variable
+ # Example: Define additional providers (OpenRouter, OpenAI, Anthropic Claude, etc.)
+ # Then set embeddings.provider or llm.provider to the provider name
+ [providers.openrouter]
+ type = "openai"
+ baseUrl = "https://openrouter.ai/api/v1"
+ model = "anthropic/claude-3-opus"
+ # apiKeyEnv = "OPENROUTER_API_KEY"  # set env variable
+ 
+ # Example: Use Anthropic Claude directly (OpenClaude)
+ [providers.openclaude]
+ type = "anthropic"
+ # model = "claude-3-opus"
+ # apiKeyEnv = "ANTHROPIC_API_KEY"
+ 
+ # To use Claude as your LLM, set:
+ # llm.provider = "openclaude"
 
 [providers.my-openai]
 type = "openai"
