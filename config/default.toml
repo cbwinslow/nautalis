@@ -49,7 +49,7 @@ enabled = true
 max_requests = 100
 window_ms = 60000
 
- # Example: Define additional providers (OpenRouter, OpenAI, Anthropic Claude, etc.)
+ # Example: Define additional providers (OpenRouter, OpenAI, Anthropic Claude, OpenCode Zen, KiloCode Gateway, etc.)
  # Then set embeddings.provider or llm.provider to the provider name
  [providers.openrouter]
  type = "openai"
@@ -57,14 +57,38 @@ window_ms = 60000
  model = "anthropic/claude-3-opus"
  # apiKeyEnv = "OPENROUTER_API_KEY"  # set env variable
  
- # Example: Use Anthropic Claude directly (OpenClaude)
+ # Free tier models on OpenRouter (rate-limited):
+ [providers.openrouter-free]
+ type = "openai"
+ baseUrl = "https://openrouter.ai/api/v1"
+ model = "anthropic/claude-3-haiku"
+ # apiKeyEnv = "OPENROUTER_API_KEY"
+ 
+ # OpenCode Zen (free coding-focused LLM endpoint, OpenAI-compatible)
+ [providers.opencode-zen]
+ type = "openai"
+ baseUrl = "https://api.opencode.dev/zen/v1"
+ model = "gpt-4o-mini"
+ # apiKeyEnv = "OPENCODE_API_KEY"
+ 
+ # KiloCode Gateway (free LLM gateway, OpenAI-compatible)
+ [providers.kilocode-gateway]
+ type = "openai"
+ baseUrl = "https://gateway.kilocode.dev/v1"
+ model = "claude-3-haiku"
+ # apiKeyEnv = "KILOCODE_API_KEY"
+ 
+ # OpenClaude (free Anthropic-compatible hosting)
  [providers.openclaude]
  type = "anthropic"
- # model = "claude-3-opus"
- # apiKeyEnv = "ANTHROPIC_API_KEY"
+ baseUrl = "https://api.openclaude.ai/v1"
+ # model = "claude-3-haiku"
+ # apiKeyEnv = "ANTHROPIC_API_KEY"  # or provider-specific key
  
- # To use Claude as your LLM, set:
+ # To use any of these as your LLM, set e.g.:
  # llm.provider = "openclaude"
+ # or
+ # llm.provider = "openrouter-free"
 
 [providers.my-openai]
 type = "openai"

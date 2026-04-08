@@ -180,6 +180,55 @@ The `ProviderRegistry` resolves the named provider and instantiates the appropri
 - Each provider can define `baseUrl`, `model`, `apiKeyEnv`, `apiKey`, and provider-specific options.
 - Capabilities vary: Anthropic does not provide embeddings; Cohere only provides embeddings. The registry enforces capabilities.
 
+#### Free Provider Examples
+
+For development and testing, several free (or freemium) providers can be used:
+
+**OpenRouter Free Tier** (`openrouter-free`):
+```toml
+[providers.openrouter-free]
+type = "openai"
+baseUrl = "https://openrouter.ai/api/v1"
+model = "anthropic/claude-3-haiku"
+# apiKeyEnv = "OPENROUTER_API_KEY"
+```
+- Requires free API key from openrouter.ai
+- Rate-limited but sufficient for low-volume usage
+- Supports many models (Claude Haiku, Llama 2, Mixtral, etc.)
+
+**OpenCode Zen** (`opencode-zen`):
+```toml
+[providers.opencode-zen]
+type = "openai"
+baseUrl = "https://api.opencode.dev/zen/v1"
+model = "gpt-4o-mini"
+# apiKeyEnv = "OPENCODE_API_KEY"
+```
+- OpenAI-compatible endpoint; may require free API key
+
+**KilloCode Gateway** (`kilocode-gateway`):
+```toml
+[providers.kilocode-gateway]
+type = "openai"
+baseUrl = "https://gateway.kilocode.dev/v1"
+model = "claude-3-haiku"
+# apiKeyEnv = "KILOCODE_API_KEY"
+```
+- OpenAI-compatible gateway offering free Haiku-tier
+
+**OpenClaude** (`openclaude`):
+```toml
+[providers.openclaude]
+type = "anthropic"
+baseUrl = "https://api.openclaude.ai/v1"
+# model = "claude-3-haiku"
+# apiKeyEnv = "ANTHROPIC_API_KEY"  # or OpenClaude-specific key
+```
+- Anthropic-compatible free hosting; may use Anthropic API keys or separate key
+- Useful for testing Claude models without paid subscription
+
+To use any of these, set `llm.provider = "<provider-name>"` in your config. Embeddings still need a separate provider (e.g., Ollama or OpenAI-compatible with embedding support). For free embeddings, continue using Ollama's `nomic-embed-text` or OpenAI-compatible endpoints that offer embedding APIs.
+
 ---
 
  ## 4. Project Structure
