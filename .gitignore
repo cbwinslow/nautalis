@@ -4,6 +4,7 @@ node_modules/
 # Build outputs
 dist/
 build/
+tsconfig.tsbuildinfo
 
 # Environment and local config (keep .env.example)
 .env
