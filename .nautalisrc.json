@@ -1,12 +1,54 @@
 {
+  "general": {
+    "userId": "777d6b8c-54e8-415c-b9e4-c572b12fba9a",
+    "teamId": "44887f07-0858-4907-9e96-a783bcc3e65a"
+  },
   "database": {
     "driver": "postgres",
     "postgres": {
-      "url": "postgresql://nautalis:123qweasd@localhost:5432/nautalis"
+      "url": "postgresql://nautalis:nautalis@localhost:5432/nautalis"
     }
   },
-  "general": {
-    "userId": "37d60786-b6f0-404f-9b9b-55ef819de42e",
-    "teamId": "ab185128-6326-41ba-a697-5ff38d102150"
+  "embeddings": {
+    "provider": "ollama",
+    "model": "nomic-embed-text",
+    "ollama": {
+      "url": "http://localhost:11434"
+    }
+  },
+  "llm": {
+    "provider": "openai",
+    "model": "openrouter/free",
+    "openai": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY"
+    }
+  },
+  "connectors": [
+    {
+      "type": "opencode",
+      "enabled": true,
+      "source_dirs": ["~/.opencode/sessions", "~/.kilocode/sessions"]
+    },
+    {
+      "type": "binary_wrapper",
+      "enabled": true,
+      "binaries": ["opencode", "kilo", "codex", "gemini-cli"]
+    },
+    {
+      "type": "kilo_code",
+      "enabled": true,
+      "source_dirs": ["~/.kilocode/sessions"]
+    },
+    {
+      "type": "filesystem",
+      "enabled": true,
+      "source_dirs": ["~/.kilocode/sessions"],
+      "parser": "jsonl",
+      "filePattern": "*.jsonl"
+    }
+  ],
+  "observability": {
+    "enabled": false
   }
 }
